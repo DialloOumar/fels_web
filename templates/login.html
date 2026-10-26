@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}"{% if theme %} data-theme="{{ theme }}"{% endif %}>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ t['auth.login'] }} — {{ t['app.title'] }}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/icon.svg') }}">
+    {% include '_pwa_head.html' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ v }}">
+    {% include '_theme_head.html' %}
+</head>
+<body class="auth-body">
+
+<div class="auth-card">
+    <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="{{ t['app.title'] }}" class="auth-logo">
+    <p class="auth-card__tagline" style="text-align:center;">{{ t['app.tagline'] }}</p>
+
+    {% if error %}
+    <div class="alert alert--error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" class="auth-form">
+        {{ csrf_field() }}
+        <div class="field">
+            <input type="text" id="username" name="username" placeholder=" " required autofocus autocomplete="username" autocapitalize="none" spellcheck="false">
+            <label for="username">{{ t['auth.username'] }}</label>
+        </div>
+        <div class="field">
+            <input type="password" id="password" name="password" placeholder=" " required autocomplete="current-password">
+            <label for="password">{{ t['auth.password'] }}</label>
+        </div>
+        <button type="submit" class="btn btn--primary btn--block">{{ t['auth.sign_in'] }}</button>
+    </form>
+
+    <div style="display:flex; justify-content:center; gap:8px; margin-top:18px;">
+        <a href="{{ url_for('set_language', lang='fr' if lang == 'en' else 'en') }}" class="lang-toggle">
+            <span class="material-symbols-outlined">translate</span> {{ 'EN' if lang == 'fr' else 'FR' }}
+        </a>
+        <a href="{{ url_for('set_theme', theme='light' if theme == 'dark' else 'dark') }}" class="lang-toggle theme-toggle" id="theme-toggle"
+           data-to-dark="{{ url_for('set_theme', theme='dark') }}" data-to-light="{{ url_for('set_theme', theme='light') }}"
+           data-label-dark="{{ t['theme.dark'] }}" data-label-light="{{ t['theme.light'] }}"
+           title="{{ t['theme.light'] if theme == 'dark' else t['theme.dark'] }}" aria-label="{{ t['theme.light'] if theme == 'dark' else t['theme.dark'] }}">
+            <span class="material-symbols-outlined">{{ 'light_mode' if theme == 'dark' else 'dark_mode' }}</span>
+        </a>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}?v={{ v }}"></script>
+</body>
+</html>

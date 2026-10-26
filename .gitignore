@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environments
+venv/
+.venv/
+env/
+.env
+.env.local
+# Any per-environment .env.* holds secrets; the template is the one to commit.
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+# Claude Code: per-machine settings only (shared .claude/ config stays tracked).
+.claude/settings.local.json
+
+# Database
+*.db
+*.db-journal
+*.sqlite3
+instance/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+bash.exe.stackdump
+
+# Build / deploy
+*.log
+*.pid
+
+# The safety dump restore-db.sh takes before it replaces anything.
+backup-before-restore-*.sql.gz
+# Any other local database dump (they contain the full customer data).
+*.sql.gz
+*.dump
+
+# Local dev scratch: screenshots / renders, anchored to the root so the
+# templates/_*.html partials are never swallowed.
+/_*.html
+/_*.png
+
+# The client's source workbooks hold customer names and amounts: never committed.
+*.xlsx
+*.xls
+# Office lock files left next to an open workbook.
+~$*

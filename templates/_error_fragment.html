@@ -1,0 +1,10 @@
+{# The error page's message, inside a dialog. #}
+<div class="alert alert--error" style="margin:0 0 12px;">
+    <div>
+        <strong>{{ t['error.server'] }}</strong>
+        <div class="muted small" style="margin-top:4px;">{{ t['error.ref_hint'] }} <code>{{ ref }}</code> · {{ t['error.nothing_lost'] }}</div>
+    </div>
+</div>
+<div class="form-actions">
+    <button type="button" class="btn btn--primary" data-modal-cancel>{{ t['btn.close'] }}</button>
+</div>

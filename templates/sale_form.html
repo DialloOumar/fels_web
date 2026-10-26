@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% from "_hint.html" import hint with context %}
+
+{% set is_edit = row is not none %}
+{% set posted = request.method == 'POST' %}
+{% block title %}{{ (t['sale.edit'] ~ ' ' ~ row.number) if is_edit else t['sale.new'] }}{% endblock %}
+{% block page_title %}{{ (t['sale.edit'] ~ ' ' ~ row.number) if is_edit else t['sale.new'] }}{% endblock %}
+
+{% if posted %}
+    {% set lines = [] %}
+    {% for pid in request.form.getlist('line_product') %}
+        {% set i = loop.index0 %}
+        {% set _ = lines.append({'product_id': pid, 'unit_id': request.form.getlist('line_unit')[i],
+                                 'price': request.form.getlist('line_price')[i],
+                                 'description': request.form.getlist('line_desc')[i]}) %}
+    {% endfor %}
+{% elif is_edit %}
+    {% set lines = [] %}
+    {% for l in row.lines %}
+        {% set _ = lines.append({'product_id': l.product_id, 'unit_id': l.unit_id or '', 'price': l.price|money_field,
+                                 'description': l.description or ''}) %}
+    {% endfor %}
+{% elif preset_unit %}
+    {% set lines = [{'product_id': preset_unit.product_id, 'unit_id': preset_unit.id, 'price': '', 'description': ''}] %}
+{% else %}
+    {% set lines = [{'product_id': '', 'unit_id': '', 'price': '', 'description': ''}] %}
+{% endif %}
+
+{% macro line_row(l) %}
+<tr class="line-row">
+    <td>
+        <select name="line_product" class="js-line-product" aria-label="{{ t['purchase.line_product'] }}">
+            <option value="">—</option>
+            {% for p in products %}
+            <option value="{{ p.id }}" {% if (p.id|string) == (l.product_id|string) %}selected{% endif %}>{{ p.name }}{% if p.code %} ({{ p.code }}){% endif %}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="line_desc" value="{{ l.description }}" placeholder="{{ t['purchase.line_desc_ph'] }}" class="line-desc" aria-label="{{ t['field.description'] }}">
+    </td>
+    <td>
+        {# Every free vehicle is listed; the script keeps only the chosen
+           model's. "To assign later" is how a pre-order is taken. #}
+        <select name="line_unit" class="js-line-unit" aria-label="{{ t['sale.unit'] }}">
+            <option value="">{{ t['sale.unit_tbd'] }}</option>
+            {% for u in units %}
+            {% set p = u.purchase_line.purchase %}
+            <option value="{{ u.id }}" data-product="{{ u.product_id }}" {% if (u.id|string) == (l.unit_id|string) %}selected{% endif %}>
+                {{ u.label }} — {{ t['stage.' + p.stage] }}{% if p.port %} · {{ p.port.name }}{% endif %}</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td><input type="text" name="line_price" value="{{ l.price }}" data-money="cents" inputmode="decimal" class="num" aria-label="{{ t['sale.price'] }}"></td>
+    <td class="row-actions">
+        <button type="button" class="btn btn--sm btn--tonal btn--icon" data-line-remove title="{{ t['purchase.line_remove'] }}" aria-label="{{ t['purchase.line_remove'] }}">
+            <span class="material-symbols-outlined">delete</span></button>
+    </td>
+</tr>
+{% endmacro %}
+
+{% block content %}
+<section class="card" style="max-width: 1080px;">
+    {% if error %}<div class="alert alert--error" style="margin-bottom:14px;">{{ error }}</div>{% endif %}
+    {% if not customers %}
+    <div class="alert alert--warning" style="margin-bottom:14px;">{{ t['sale.no_customers'] }} <a href="{{ url_for('customers.index') }}">{{ t['nav.customers'] }}</a></div>
+    {% endif %}
+
+    <form method="post" class="entry-form" id="sale-form">
+        {{ csrf_field() }}
+        {% set sel_customer = (request.form.get('customer_id') if posted else ((row.customer_id if is_edit else preset.customer) or ''))|string %}
+        <div class="form-row form-row--3">
+            <div class="field">
+                <select id="customer_id" name="customer_id" required>
+                    <option value="">—</option>
+                    {% for c in customers %}<option value="{{ c.id }}" {% if (c.id|string) == sel_customer %}selected{% endif %}>{{ c.name }}{% if c.phone %} · {{ c.phone }}{% endif %}</option>{% endfor %}
+                </select>
+                <label for="customer_id">{{ t['sale.customer'] }}</label>
+            </div>
+            <div class="field">
+                <input type="date" id="sale_date" name="sale_date" required
+                       value="{{ request.form.get('sale_date') if posted else (row.sale_date.isoformat() if is_edit else today.isoformat()) }}">
+                <label for="sale_date">{{ t['sale.date'] }}</label>
+            </div>
+            {% set sel_cur = request.form.get('currency') if posted else (row.currency if is_edit else 'USD') %}
+            <div class="field">
+                <select id="currency" name="currency">
+                    {% for c in currencies %}<option value="{{ c }}" {% if sel_cur == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+                </select>
+                <label for="currency">{{ t['purchase.currency'] }}</label>
+                {{ hint('', t['sale.currency_hint']) }}
+            </div>
+        </div>
+
+        {% set sel_status = request.form.get('status') if posted else (row.status if is_edit else 'preorder') %}
+        <div class="checkbox-grid">
+            {% for st in ['preorder', 'confirmed'] %}
+            <label class="checkbox-item">
+                <input type="radio" name="status" value="{{ st }}" {% if sel_status == st %}checked{% endif %}>
+                <span><strong>{{ t['sale.status.' + st] }}</strong> <span class="muted small">{{ t['sale.status_hint.' + st] }}</span></span>
+            </label>
+            {% endfor %}
+        </div>
+
+        <div class="form-section">
+            <div class="form-section__title">{{ t['sale.vehicles'] }}</div>
+            <div class="table-wrap">
+            <table class="data-table lines-editor">
+                <thead>
+                    <tr>
+                        <th>{{ t['purchase.line_product'] }}</th>
+                        <th class="lines-col-unit">{{ t['sale.unit'] }}</th>
+                        <th class="num lines-col-price">{{ t['sale.price'] }}</th>
+                        <th class="lines-col-x"></th>
+                    </tr>
+                </thead>
+                <tbody id="lines-body">
+                    {% for l in lines %}{{ line_row(l) }}{% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td><button type="button" class="btn btn--sm btn--tonal" id="line-add">
+                            <span class="material-symbols-outlined">add</span> {{ t['sale.line_add'] }}</button></td>
+                        <td class="num muted">{{ t['sale.total'] }}</td>
+                        <td class="num"><strong id="lines-total">—</strong></td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+            </div>
+            <p class="muted small">{{ t['sale.unit_hint'] }}</p>
+        </div>
+
+        <div class="field">
+            <textarea id="note" name="note" rows="2" placeholder="{{ t['sale.note_ph'] }}">{{ request.form.get('note') if posted else (row.note or '' if is_edit else '') }}</textarea>
+            <label for="note">{{ t['field.note'] }}</label>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn--primary"><span class="material-symbols-outlined">save</span> {{ t['btn.save'] }}</button>
+            <a href="{{ url_for('sales.detail', sid=row.id) if is_edit else url_for('sales.index') }}" class="btn btn--outlined" data-back>{{ t['btn.cancel'] }}</a>
+        </div>
+    </form>
+
+    <template id="line-template">{{ line_row({'product_id': '', 'unit_id': '', 'price': '', 'description': ''}) }}</template>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Each line's vehicle list keeps only the chosen model's vehicles, and a
+// vehicle chosen on one line disappears from the others. The total follows
+// the prices as they are typed; the server checks all of it again on save.
+(function () {
+    var body = document.getElementById("lines-body");
+    var tpl = document.getElementById("line-template");
+    var cur = document.getElementById("currency");
+    if (!body || !tpl) return;
+
+    function num(v) {
+        v = (v || "").replace(/[\s  ']/g, "");
+        var m = v.match(/^(.*?)[.,](\d{1,2})$/);
+        var n = parseFloat((m ? m[1] : v).replace(/[.,]/g, "") + (m ? "." + m[2] : ""));
+        return isNaN(n) ? 0 : n;
+    }
+    function fmt(n) {
+        var cents = Math.round(n * 100) % 100;
+        return Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") +
+               (cents ? "," + ("0" + cents).slice(-2) : "") + " " + cur.value;
+    }
+    function refresh() {
+        var taken = {};
+        body.querySelectorAll(".js-line-unit").forEach(function (s) { if (s.value) taken[s.value] = s; });
+        var total = 0;
+        body.querySelectorAll(".line-row").forEach(function (tr) {
+            var product = tr.querySelector(".js-line-product").value;
+            var unit = tr.querySelector(".js-line-unit");
+            Array.prototype.forEach.call(unit.options, function (o) {
+                if (!o.value) return;
+                var ok = o.dataset.product === product && (!taken[o.value] || taken[o.value] === unit);
+                o.hidden = !ok; o.disabled = !ok;
+            });
+            if (unit.value && unit.options[unit.selectedIndex].disabled) unit.value = "";
+            total += num(tr.querySelector('[name="line_price"]').value);
+        });
+        document.getElementById("lines-total").textContent = total ? fmt(total) : "—";
+    }
+    document.getElementById("line-add").addEventListener("click", function () {
+        body.appendChild(tpl.content.cloneNode(true));
+        refresh();
+    });
+    body.addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-line-remove]");
+        if (!btn) return;
+        if (body.querySelectorAll(".line-row").length > 1) btn.closest(".line-row").remove();
+        else btn.closest(".line-row").querySelectorAll("input, select").forEach(function (el) { el.value = ""; });
+        refresh();
+    });
+    body.addEventListener("change", refresh);
+    body.addEventListener("input", refresh);
+    cur.addEventListener("change", refresh);
+    refresh();
+})();
+</script>
+{% endblock %}

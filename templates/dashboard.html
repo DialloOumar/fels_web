@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% from "_macros.html" import stage_badge, pay_badge, sale_badge with context %}
+
+{% block title %}{{ t['nav.dashboard'] }}{% endblock %}
+{% block page_title %}{{ t['nav.dashboard'] }}{% endblock %}
+
+{# A headline figure: the total in the display currency, and beneath it the
+   parts as recorded, USD and GNF apart. Without a rate the parts stand alone. #}
+{% macro headline(fig) -%}
+{% if fig.total is not none %}<div class="stat-value">{{ fig.total|money(fig.display) }}</div>
+{% else %}<div class="stat-value">—</div>{% endif %}
+{% if fig.parts|length > 1 or (fig.parts and fig.parts[0][0] != fig.display) %}
+<div class="stat-parts">{% for cur, v in fig.parts %}<span>{{ v|money(cur) }}</span>{% endfor %}</div>
+{% endif %}
+{%- endmacro %}
+
+{% block content %}
+{% set remaining = steps|rejectattr('done')|list %}
+{% if remaining %}
+<section class="card">
+    <div class="welcome-hero">
+        <span class="welcome-hero__icon material-symbols-outlined">task_alt</span>
+        <div>
+            <h2>{{ t['setup.title'] }}</h2>
+            <p class="muted">{{ t['setup.intro'] }}</p>
+        </div>
+    </div>
+    <ol class="tour-steps">
+        {% for s in steps %}
+        <li class="tour-step {% if s.done %}is-done{% endif %}">
+            <span class="tour-step__num">{% if s.done %}<span class="material-symbols-outlined">check</span>{% else %}{{ loop.index }}{% endif %}</span>
+            <span class="tour-step__icon material-symbols-outlined">{{ s.icon }}</span>
+            <div class="tour-step__body">
+                <div class="tour-step__title">{{ t['setup.' + s.key + '.t'] }}</div>
+                <div class="tour-step__desc muted small">{{ t['setup.' + s.key + '.d'] }}</div>
+            </div>
+            {% if not s.done %}<a href="{{ s.url }}" class="btn btn--sm btn--tonal tour-step__go">{{ t['setup.go'] }}</a>{% endif %}
+        </li>
+        {% endfor %}
+    </ol>
+</section>
+{% endif %}
+
+{% if not d.rate and d.has_data %}
+<div class="alert alert--warning">{{ t['dash.no_rate'] }} <a href="{{ url_for('settings.index') }}">{{ t['nav.settings'] }}</a></div>
+{% endif %}
+
+{# ── Money: what is owed both ways, this month's cash, the year's margin ── #}
+<div class="stat-grid">
+    <a class="stat-card" href="{{ url_for('sales.index', pay='partial') }}">
+        <span class="stat-icon stat-icon--teal material-symbols-outlined">handshake</span>
+        <div>{{ headline(d.receivable) }}<div class="stat-label">{{ t['dash.receivable'] }}</div></div>
+    </a>
+    <a class="stat-card" href="{{ url_for('purchases.index', pay='partial') }}">
+        <span class="stat-icon stat-icon--red material-symbols-outlined">account_balance</span>
+        <div>{{ headline(d.payable) }}<div class="stat-label">{{ t['dash.payable'] }}</div></div>
+    </a>
+    <a class="stat-card" href="{{ url_for('payments.index', **{'from': today.replace(day=1).isoformat()}) }}">
+        <span class="stat-icon stat-icon--blue material-symbols-outlined">payments</span>
+        <div>{{ headline(d.month_in) }}<div class="stat-label">{{ t['dash.month_in'] }}</div>
+             <div class="stat-sub">{{ t['dash.month_out'] }} : {{ d.month_out.total|money(d.display) if d.month_out.total is not none else '—' }}</div></div>
+    </a>
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--amber material-symbols-outlined">trending_up</span>
+        <div><div class="stat-value">{{ d.margin|money(d.display) }}</div>
+             <div class="stat-label">{{ t['dash.margin_year'] % {'year': today.year} }}</div>
+             <div class="stat-sub">{{ t['dash.margin_sub'] % {'n': d.delivered_count} }}{% if d.margin_missing %} · {{ t['dash.margin_missing'] % {'n': d.margin_missing} }}{% endif %}</div></div>
+    </div>
+</div>
+
+{# ── The road and the yard ── #}
+<div class="stat-grid stat-grid--compact">
+    <a class="stat-card" href="{{ url_for('stock.index', status='available', where='in_stock') }}">
+        <span class="stat-icon stat-icon--green material-symbols-outlined">warehouse</span>
+        <div><div class="stat-value">{{ d.stock.in_stock_free }}</div><div class="stat-label">{{ t['dash.stock_free'] }}</div></div>
+    </a>
+    <a class="stat-card" href="{{ url_for('stock.index', status='available', where='incoming') }}">
+        <span class="stat-icon stat-icon--blue material-symbols-outlined">directions_boat</span>
+        <div><div class="stat-value">{{ d.stock.incoming_free }}</div><div class="stat-label">{{ t['dash.incoming_free'] }}</div></div>
+    </a>
+    <a class="stat-card" href="{{ url_for('stock.index', status='reserved') }}">
+        <span class="stat-icon stat-icon--amber material-symbols-outlined">pending_actions</span>
+        <div><div class="stat-value">{{ d.stock.reserved }}</div><div class="stat-label">{{ t['dash.reserved'] }}</div></div>
+    </a>
+    <a class="stat-card" href="{{ url_for('purchases.pipeline') }}">
+        <span class="stat-icon stat-icon--indigo material-symbols-outlined">local_shipping</span>
+        <div><div class="stat-value">{{ d.stage_counts.values()|sum - d.stage_counts['in_stock'] }}</div>
+             <div class="stat-label">{{ t['dash.on_the_way'] }}</div>
+             <div class="stat-sub">{% for st, n in d.stage_counts.items() if st != 'in_stock' and n %}{{ t['stage.' + st] }} {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</div></div>
+    </a>
+</div>
+
+{# ── Cash, month by month: money in and money out, one axis, one currency ── #}
+<section class="card">
+    <div class="card-header">
+        <h2>{{ t['dash.flow_title'] }}</h2>
+        <span class="muted small">{{ t['dash.flow_sub'] % {'cur': d.display} }}</span>
+    </div>
+    <div class="chart-box"><canvas id="chart-flow" role="img" aria-label="{{ t['dash.flow_title'] }}"></canvas></div>
+    {% if d.unconverted_months %}<p class="muted small">{{ t['dash.flow_unconverted'] }}</p>{% endif %}
+    <details class="chart-table">
+        <summary>{{ t['dash.show_table'] }}</summary>
+        <div class="table-wrap"><table class="data-table">
+            <thead><tr><th>{{ t['dash.month'] }}</th><th class="num">{{ t['ledger.total_in'] }}</th><th class="num">{{ t['ledger.total_out'] }}</th><th class="num">{{ t['dash.net'] }}</th></tr></thead>
+            <tbody>
+            {% for i in range(d.chart.labels|length) %}
+            <tr><td>{{ d.chart.labels[i] }}</td>
+                <td class="num">{{ d.chart['in'][i]|money(d.display) }}</td>
+                <td class="num">{{ d.chart['out'][i]|money(d.display) }}</td>
+                <td class="num">{{ (d.chart['in'][i] - d.chart['out'][i])|money(d.display) }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table></div>
+    </details>
+</section>
+
+{# ── What needs attention ── #}
+<div class="dash-panels">
+    <section class="card dash-panel">
+        <div class="card-header"><h2>{{ t['dash.stuck'] % {'n': 30} }}</h2>
+            <a class="link-more" href="{{ url_for('purchases.pipeline') }}">{{ t['dash.view_all'] }}</a></div>
+        {% if d.stuck %}
+        <ul class="attention-list">
+            {% for p, days in d.stuck %}
+            <li><a href="{{ url_for('purchases.detail', pid=p.id) }}"><strong>{{ p.invoice_number }}</strong></a> {{ stage_badge(p.stage) }}
+                <span class="muted small">{{ p.supplier.name }}</span><span class="attention-list__aside stock-negative">{{ days }} {{ t['unit.days'] }}</span></li>
+            {% endfor %}
+        </ul>
+        {% else %}<div class="empty-state empty-state--soft"><span class="material-symbols-outlined">task_alt</span><p>{{ t['dash.none_stuck'] }}</p></div>{% endif %}
+    </section>
+
+    <section class="card dash-panel">
+        <div class="card-header"><h2>{{ t['dash.no_vehicle'] }} · {{ d.no_vehicle_count }}</h2>
+            <a class="link-more" href="{{ url_for('sales.index', status='preorder') }}">{{ t['dash.view_all'] }}</a></div>
+        {% if d.no_vehicle %}
+        <ul class="attention-list">
+            {% for s in d.no_vehicle %}
+            <li><a href="{{ url_for('sales.detail', sid=s.id) }}"><strong>{{ s.number }}</strong></a> {{ sale_badge(s.status) }}
+                <span class="muted small">{{ s.customer.name }} · {% for l in s.lines if not l.unit_id %}{{ l.product.code or l.product.name }}{% if not loop.last %}, {% endif %}{% endfor %}</span></li>
+            {% endfor %}
+        </ul>
+        {% else %}<div class="empty-state empty-state--soft"><span class="material-symbols-outlined">task_alt</span><p>{{ t['dash.none_no_vehicle'] }}</p></div>{% endif %}
+    </section>
+
+    <section class="card dash-panel">
+        <div class="card-header"><h2>{{ t['dash.delivered_unpaid'] }} · {{ d.delivered_unpaid_count }}</h2>
+            <a class="link-more" href="{{ url_for('sales.index', status='delivered', pay='partial') }}">{{ t['dash.view_all'] }}</a></div>
+        {% if d.delivered_unpaid %}
+        <ul class="attention-list">
+            {% for s in d.delivered_unpaid %}
+            <li><a href="{{ url_for('sales.detail', sid=s.id) }}"><strong>{{ s.number }}</strong></a>
+                <span class="muted small">{{ s.customer.name }}</span><span class="attention-list__aside">{{ s.balance|money(s.currency) }}</span></li>
+            {% endfor %}
+        </ul>
+        {% else %}<div class="empty-state empty-state--soft"><span class="material-symbols-outlined">task_alt</span><p>{{ t['dash.none_delivered_unpaid'] }}</p></div>{% endif %}
+    </section>
+</div>
+
+<script id="dash-data" type="application/json">{{ d.chart|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}?v={{ v }}"></script>
+<script>
+// Money in and money out per month, grouped bars on one axis in one currency.
+// Colours come from the theme (--chart-in / --chart-out, validated for both
+// modes); text stays in the text tokens. Hover shows both months' figures.
+(function () {
+    var el = document.getElementById("dash-data"), canvas = document.getElementById("chart-flow");
+    if (!el || !canvas || typeof Chart === "undefined") return;
+    var data = JSON.parse(el.textContent);
+    var css = getComputedStyle(document.documentElement);
+    var v = function (n) { return css.getPropertyValue(n).trim(); };
+    var text = v("--md-on-surface-variant"), grid = v("--md-outline-variant"), surface = v("--md-surface-container-low");
+    var group = function (n) {
+        return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    };
+    var compact = function (n) {
+        var a = Math.abs(n);
+        if (a >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, "") + " Md";
+        if (a >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, "") + " M";
+        if (a >= 1e3) return (n / 1e3).toFixed(0) + " k";
+        return String(n);
+    };
+    Chart.defaults.font.family = "Barlow, system-ui, sans-serif";
+    Chart.defaults.color = text;
+    var bar = function (label, values, color) {
+        return { label: label, data: values, backgroundColor: color, hoverBackgroundColor: color,
+                 borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: "bottom",
+                 borderColor: surface, borderWidth: { left: 1, right: 1, top: 0, bottom: 0 },
+                 maxBarThickness: 24, categoryPercentage: 0.7, barPercentage: 1 };
+    };
+    new Chart(canvas, {
+        type: "bar",
+        data: { labels: data.labels, datasets: [
+            bar({{ t['ledger.total_in']|tojson }}, data["in"], v("--chart-in")),
+            bar({{ t['ledger.total_out']|tojson }}, data["out"], v("--chart-out"))
+        ] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+                legend: { position: "top", align: "end", labels: { boxWidth: 10, boxHeight: 10, color: text } },
+                tooltip: { callbacks: { label: function (c) { return c.dataset.label + " : " + group(c.parsed.y) + " " + data.currency; } } }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: text } },
+                y: { beginAtZero: true, border: { display: false },
+                     grid: { color: grid, lineWidth: 1 }, ticks: { color: text, callback: compact, maxTicksLimit: 6 } }
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}

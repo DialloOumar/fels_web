@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 637 150" width="637" height="150">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F97316"/><stop offset="1" stop-color="#C2410C"/></linearGradient></defs>
+  <rect width="150" height="150" rx="26" fill="url(#g)"/>
+  <rect x="20" y="46" width="72" height="44" rx="5" fill="#fff"/>
+  <path d="M97 58h18l13 16v16H97z" fill="#fff"/>
+  <path d="M103 63h10l8 10h-18z" fill="#C2410C"/>
+  <g fill="#fff" stroke="#C2410C" stroke-width="4"><circle cx="38" cy="100" r="11"/><circle cx="64" cy="100" r="11"/><circle cx="114" cy="100" r="11"/></g>
+  <text x="182" y="112" font-family="Barlow, Arial, Helvetica, sans-serif" font-size="112" font-weight="700" letter-spacing="6" fill="#EA580C">FELS</text>
+</svg>

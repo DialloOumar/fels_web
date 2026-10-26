@@ -1,0 +1,23 @@
+{% from "_macros.html" import form_actions with context %}
+{% from "_hint.html" import hint with context %}
+{% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+<form method="post" class="entry-form" data-modal-form action="{{ url_for('purchases.stage', pid=row.id) }}">
+    {{ csrf_field() }}
+    <input type="hidden" name="back" value="{{ back }}">
+    <p class="muted small" style="margin:0;">{{ row.invoice_number }} · {{ row.supplier.name }} · {{ t['purchase.now_at'] }} <strong>{{ t['stage.' + row.stage] }}</strong></p>
+    <div class="form-row">
+        {% set sel = request.form.get('stage') or proposed %}
+        <div class="field">
+            <select id="stage" name="stage">
+                {% for s in stages %}<option value="{{ s }}" {% if s == sel %}selected{% endif %}>{{ loop.index }}. {{ t['stage.' + s] }}</option>{% endfor %}
+            </select>
+            <label for="stage">{{ t['purchase.stage'] }}</label>
+            {{ hint('', t['purchase.stage_hint']) }}
+        </div>
+        <div class="field">
+            <input type="date" id="date" name="date" required value="{{ request.form.get('date') or proposed_date }}">
+            <label for="date">{{ t['purchase.stage_date'] }}</label>
+        </div>
+    </div>
+    {{ form_actions(url_for('purchases.detail', pid=row.id)) }}
+</form>

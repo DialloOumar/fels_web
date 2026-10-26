@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% from "_filters.html" import filter_bar, filter_select with context %}
+{% from "_pager.html" import pager with context %}
+{% from "_macros.html" import money_pair, stage_badge, pay_badge, export_button with context %}
+
+{% block title %}{{ t['nav.purchases'] }}{% endblock %}
+{% block page_title %}{{ t['nav.purchases'] }}{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header card-header--end">
+        <div class="header-actions">
+            {{ export_button() }}
+            <a href="{{ url_for('purchases.pipeline') }}" class="btn btn--sm btn--outlined">
+                <span class="material-symbols-outlined">local_shipping</span> {{ t['nav.pipeline'] }}
+            </a>
+            <a href="{{ url_for('purchases.new') }}" class="fab">
+                <span class="material-symbols-outlined">add</span> {{ t['purchase.new'] }}
+            </a>
+        </div>
+    </div>
+
+    {% call filter_bar(search, active=(supplier_id or stage or port_id or pay)) %}
+        {{ filter_select('supplier', t['purchase.supplier'], [('', t['list.all'])] + opts.suppliers, supplier_id) }}
+        {{ filter_select('stage', t['purchase.stage'], [('', t['list.all'])] + opts.stages, stage) }}
+        {{ filter_select('port', t['purchase.port'], [('', t['list.all'])] + opts.ports, port_id) }}
+        {{ filter_select('pay', t['purchase.payment'], [('', t['list.all'])] + opts.pay, pay) }}
+    {% endcall %}
+
+    {% if rows %}
+    <div class="table-desktop table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>{{ t['purchase.invoice_number'] }}</th>
+                <th>{{ t['purchase.supplier'] }}</th>
+                <th class="col-secondary">{{ t['purchase.invoice_date'] }}</th>
+                <th class="col-secondary">{{ t['purchase.port'] }}</th>
+                <th>{{ t['purchase.stage'] }}</th>
+                <th class="num">{{ t['purchase.vehicles'] }}</th>
+                <th class="num">{{ t['purchase.total'] }}</th>
+                <th class="num">{{ t['purchase.balance'] }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in rows %}
+            <tr>
+                <td><a href="{{ url_for('purchases.detail', pid=p.id) }}"><strong>{{ p.invoice_number }}</strong></a></td>
+                <td>{{ p.supplier.name }}</td>
+                <td class="col-secondary">{{ p.invoice_date|fdate }}</td>
+                <td class="col-secondary">{{ p.port.name if p.port else '—' }}</td>
+                <td>{{ stage_badge(p.stage) }}</td>
+                <td class="num">{{ p.unit_count }}</td>
+                <td class="num">{{ money_pair(p.goods_total, p.currency) }}</td>
+                <td class="num">{{ pay_badge(p.pay_status) }}{% if p.balance > 0 %}<span class="money-alt">{{ p.balance|money(p.currency) }}</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <div class="list-cards">
+        {% for p in rows %}
+        <a class="list-card list-card--link" href="{{ url_for('purchases.detail', pid=p.id) }}">
+            <div class="list-card__top">
+                <strong>{{ p.invoice_number }}</strong>
+                {{ stage_badge(p.stage) }}
+            </div>
+            <div class="list-card__meta muted">{{ p.supplier.name }} · {{ p.invoice_date|fdate }}{% if p.port %} · {{ p.port.name }}{% endif %}</div>
+            <div class="list-card__top">
+                <span class="list-card__amount">{{ p.goods_total|money(p.currency) }}</span>
+                {{ pay_badge(p.pay_status) }}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {{ pager(pagination, 'purchases.index') }}
+    {% else %}
+    <div class="empty-state">
+        <span class="material-symbols-outlined">request_quote</span>
+        <p>{{ t['list.no_match'] if (search or supplier_id or stage or port_id or pay) else t['purchase.empty'] }}</p>
+        {% if not (search or supplier_id or stage or port_id or pay) %}
+        <a href="{{ url_for('purchases.new') }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['purchase.new'] }}</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

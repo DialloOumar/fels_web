@@ -1,0 +1,28 @@
+{# The bottom of a long list: which slice you are looking at, and how to move.
+
+   Every filter on the page rides along in the links -- page_args() hands back
+   the whole query string minus the page number -- so turning a page never
+   quietly widens the list back out. #}
+{% macro pager(pagination, endpoint) %}
+{% if pagination.total %}
+<div class="pager">
+    <span class="pager-info">
+        {{ pagination.first | num }}&ndash;{{ pagination.last | num }}
+        {{ t['pager.of'] }} {{ pagination.total | num }}
+    </span>
+    {% if pagination.pages > 1 %}
+    {% if pagination.has_prev %}
+    <a class="btn btn--sm btn--tonal" href="{{ url_for(endpoint, page=pagination.prev_num, **page_args()) }}">
+        <span class="material-symbols-outlined">chevron_left</span> {{ t['pager.prev'] }}
+    </a>
+    {% endif %}
+    <span class="pager-info">{{ t['pager.page'] }} {{ pagination.page }} / {{ pagination.pages }}</span>
+    {% if pagination.has_next %}
+    <a class="btn btn--sm btn--tonal" href="{{ url_for(endpoint, page=pagination.next_num, **page_args()) }}">
+        {{ t['pager.next'] }} <span class="material-symbols-outlined">chevron_right</span>
+    </a>
+    {% endif %}
+    {% endif %}
+</div>
+{% endif %}
+{% endmacro %}

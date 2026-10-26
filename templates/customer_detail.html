@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% from "_macros.html" import detail, money_pair, pay_badge, sale_badge with context %}
+
+{% block title %}{{ row.name }}{% endblock %}
+{% block page_title %}{{ row.name }}{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header">
+        <div class="header-title">
+            <a href="{{ url_for('customers.index') }}" class="btn btn--sm btn--tonal btn--icon" data-back title="{{ t['btn.back'] }}" aria-label="{{ t['btn.back'] }}">
+                <span class="material-symbols-outlined">arrow_back</span></a>
+            <h2>{{ t['customer.details'] }}</h2>
+            {% if not row.is_active %}<span class="badge badge--inactive">{{ t['status.archived'] }}</span>{% endif %}
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('customers.statement', cid=row.id) }}" class="btn btn--outlined" target="_blank" rel="noopener">
+                <span class="material-symbols-outlined">print</span> {{ t['statement.title'] }}</a>
+            <a href="{{ url_for('customers.edit', cid=row.id) }}" class="btn btn--tonal"
+               data-modal-url="{{ url_for('customers.edit', cid=row.id) }}" data-modal-title="{{ t['customer.edit'] }}">
+                <span class="material-symbols-outlined">edit</span> {{ t['btn.edit'] }}
+            </a>
+        </div>
+    </div>
+    <dl class="detail-grid">
+        {{ detail(t['field.phone'], row.phone) }}
+        {{ detail(t['field.email'], row.email) }}
+        {{ detail(t['field.address'], row.address) }}
+        {{ detail(t['field.created'], row.created_at|fdate) }}
+    </dl>
+    {% if row.note %}<p class="muted" style="margin-top:14px; white-space:pre-line;">{{ row.note }}</p>{% endif %}
+</section>
+
+{% if bought %}
+<div class="stat-grid">
+    {% for cur, amount in owed.items() %}
+    <div class="stat-card">
+        <span class="stat-icon {{ 'stat-icon--green' if amount <= 0 else 'stat-icon--red' }} material-symbols-outlined">account_balance</span>
+        <div><div class="stat-value">{{ amount|money(cur) }}</div><div class="stat-label">{{ t['customer.owes'] }} · {{ cur }}</div></div>
+    </div>
+    {% endfor %}
+    {% for cur, amount in bought.items() %}
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--blue material-symbols-outlined">sell</span>
+        <div><div class="stat-value">{{ amount|money(cur) }}</div><div class="stat-label">{{ t['customer.bought'] }} · {{ cur }}</div></div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<section class="card">
+    <div class="card-header">
+        <h2>{{ t['customer.sales'] }} · {{ row.sales|length }}</h2>
+        <a href="{{ url_for('sales.new', customer=row.id) }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['sale.new'] }}</a>
+    </div>
+    {% if row.sales %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['sale.number'] }}</th>
+            <th class="col-secondary">{{ t['sale.date'] }}</th>
+            <th class="col-secondary">{{ t['sale.vehicles'] }}</th>
+            <th>{{ t['sale.status'] }}</th>
+            <th class="num">{{ t['sale.total'] }}</th>
+            <th class="num">{{ t['purchase.balance'] }}</th>
+        </tr></thead>
+        <tbody>
+        {% for s in row.sales %}
+        <tr class="{% if s.status == 'cancelled' %}row-voided{% endif %}">
+            <td><a href="{{ url_for('sales.detail', sid=s.id) }}"><strong>{{ s.number }}</strong></a></td>
+            <td class="col-secondary">{{ s.sale_date|fdate }}</td>
+            <td class="col-secondary small">{% for l in s.lines %}{{ l.product.code or l.product.name }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+            <td>{{ sale_badge(s.status) }}</td>
+            <td class="num">{{ money_pair(s.total, s.currency) }}</td>
+            <td class="num">{{ pay_badge(s.pay_status) }}{% if s.balance > 0 %}<span class="money-alt">{{ s.balance|money(s.currency) }}</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['customer.no_sales'] }}</p></div>
+    {% endif %}
+</section>
+{% endblock %}

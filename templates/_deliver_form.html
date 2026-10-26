@@ -1,0 +1,22 @@
+{% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+<form method="post" class="entry-form" data-modal-form action="{{ url_for('sales.deliver', sid=row.id) }}">
+    {{ csrf_field() }}
+    <p class="muted small" style="margin:0;">{{ row.number }} · {{ row.customer.name }}</p>
+    <ul class="deliver-list">
+        {% for l in row.lines %}
+        <li><strong>{{ l.product.name }}</strong> —
+            {% if l.unit %}{{ l.unit.label }}{% else %}<span class="voided-note">{{ t['sale.unit_tbd'] }}</span>{% endif %}</li>
+        {% endfor %}
+    </ul>
+    {% if row.balance > 0 %}
+    <div class="alert alert--warning">{{ t['sale.deliver_unpaid'] % {'amount': row.balance|money(row.currency)} }}</div>
+    {% endif %}
+    <div class="field">
+        <input type="date" id="delivered_on" name="delivered_on" required value="{{ request.form.get('delivered_on') or today }}">
+        <label for="delivered_on">{{ t['sale.delivered_on'] }}</label>
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn--primary"><span class="material-symbols-outlined">local_shipping</span> {{ t['sale.do_deliver'] }}</button>
+        <a href="{{ url_for('sales.detail', sid=row.id) }}" class="btn btn--outlined" data-modal-cancel>{{ t['btn.cancel'] }}</a>
+    </div>
+</form>

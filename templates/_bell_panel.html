@@ -1,0 +1,17 @@
+{# What the bell opens on. Drawn with the page, and again by
+   notifications.panel each time the bell is opened, so it is never older
+   than the click. Expects `b`, from notif_bell(). #}
+<div class="bell__head">
+    <strong>{{ t['notif.title'] }}</strong>
+    {% if b.count %}<span class="muted small">{{ t['notif.count'] % {'n': b.count} }}</span>{% endif %}
+</div>
+{% for a in b['items'] %}
+<a href="{{ a.url }}" class="bell__item bell__item--{{ a.level }}">
+    <span class="material-symbols-outlined">{{ a.icon }}</span>
+    <span>{{ alert_text(a) }}</span>
+</a>
+{% else %}
+<p class="bell__empty"><span class="material-symbols-outlined">task_alt</span> {{ t['notif.empty'] }}</p>
+{% endfor %}
+<a href="{{ url_for('notifications.index') }}" class="bell__all">
+    {% if b.more %}{{ t['notif.more'] % {'n': b.more} }}{% else %}{{ t['notif.see_all'] }}{% endif %}</a>

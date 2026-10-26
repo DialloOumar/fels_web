@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t['statement.title'] }} · {{ row.name }} — {{ t['app.title'] }}</title>
+    {% include "_print_style.html" %}
+</head>
+<body>
+<div class="print-toolbar">
+    <span class="print-toolbar__hint">{{ t['print.hint'] }}</span>
+    <a href="{{ url_for('customers.detail', cid=row.id) }}">{{ t['btn.back'] }}</a>
+    <button type="button" onclick="window.print()">{{ t['print.print'] }}</button>
+</div>
+
+<header class="doc-head">
+    <div>
+        <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="" class="doc-logo">
+        <div class="doc-company">
+            {% if company.name %}<strong>{{ company.name }}</strong><br>{% endif %}
+            {% if company.address %}{{ company.address }}<br>{% endif %}
+            {% if company.phone %}{{ company.phone }}{% endif %}{% if company.phone and company.email %} · {% endif %}{{ company.email or '' }}
+        </div>
+    </div>
+    <div class="doc-title">
+        <h1>{{ t['statement.title'] }}</h1>
+        <div class="doc-date">{{ t['statement.as_of'] }} {{ today|fdate }}</div>
+    </div>
+</header>
+
+<div class="doc-parties">
+    <div class="doc-box">
+        <div class="doc-box__label">{{ t['sale.customer'] }}</div>
+        <div class="doc-box__main">{{ row.name }}</div>
+        {% if row.phone %}<div class="small muted">{{ row.phone }}</div>{% endif %}
+        {% if row.address %}<div class="small muted">{{ row.address }}</div>{% endif %}
+    </div>
+    <div class="doc-box">
+        <div class="doc-box__label">{{ t['statement.balance_due'] }}</div>
+        {% for cur, rows in entries.items() %}
+        <div class="doc-box__main">{{ rows[-1].balance|money(cur) }}</div>
+        {% else %}
+        <div class="doc-box__main">—</div>
+        {% endfor %}
+    </div>
+</div>
+
+{% for cur, rows in entries.items() %}
+<h3 style="margin:18px 0 4px; font-size:13px;">{{ t['statement.in_currency'] % {'cur': cur} }}</h3>
+<table class="doc-table">
+    <thead><tr>
+        <th>{{ t['payment.paid_on'] }}</th>
+        <th>{{ t['statement.document'] }}</th>
+        <th>{{ t['field.description'] }}</th>
+        <th class="r">{{ t['statement.debit'] }}</th>
+        <th class="r">{{ t['statement.credit'] }}</th>
+        <th class="r">{{ t['statement.balance'] }}</th>
+    </tr></thead>
+    <tbody>
+    {% for e in rows %}
+    <tr>
+        <td>{{ e.date|fdate }}</td>
+        <td><strong>{{ e.doc }}</strong></td>
+        <td>{% if e.kind == 'sale' %}{{ e.label }}{% else %}{{ t['statement.receipt_for'] % {'sale': e.label} }}{% if e.original %}<div class="small muted">{{ e.original[0]|money(e.original[1]) }}</div>{% endif %}{% endif %}</td>
+        <td class="r">{{ e.debit|money(cur) if e.debit is not none else '' }}</td>
+        <td class="r">{{ e.credit|money(cur) if e.credit is not none else '' }}</td>
+        <td class="r">{{ e.balance|money(cur) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr><td colspan="5">{{ t['statement.balance_due'] }}</td><td class="r">{{ rows[-1].balance|money(cur) }}</td></tr></tfoot>
+</table>
+{% else %}
+<p class="muted">{{ t['statement.empty'] }}</p>
+{% endfor %}
+
+<div class="doc-sign doc-sign--single">
+    <div class="doc-sign__stamped">
+        {% if user_has_stamp(current_user) %}<img class="doc-stamp" src="{{ url_for('signature.stamp_svg', user_id=current_user.id) }}" alt="">{% endif %}
+        <span>{{ t['receipt.sign_company'] }} · {{ current_user.full_name }}</span>
+    </div>
+</div>
+
+<footer class="doc-foot">
+    <span>{{ t['statement.note'] }}</span>
+    <span>{{ row.name }}</span>
+</footer>
+</body>
+</html>

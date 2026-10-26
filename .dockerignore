@@ -1,0 +1,38 @@
+# Keep the build context (and image layers) lean and secret-free.
+.git
+.gitignore
+.dockerignore
+
+# Secrets & local env -- injected at runtime via compose env_file, never baked in
+.env
+.env.*
+!.env.example
+
+# Python caches / virtualenvs
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+*.egg-info/
+
+# Local databases & logs
+*.db
+*.db-journal
+*.log
+*.pid
+
+# The client's source workbook stays out of the image
+*.xlsx
+
+# Local dev render/screenshot artifacts
+_*.html
+_*.png
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store

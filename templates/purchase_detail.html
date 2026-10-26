@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge with context %}
+
+{% block title %}{{ row.invoice_number }}{% endblock %}
+{% block page_title %}{{ t['purchase.title_short'] }} {{ row.invoice_number }}{% endblock %}
+
+{% block content %}
+{% set cur = row.currency %}
+{% set costs_total = row.costs_total() %}
+
+{# ── Header: who, when, where, and the actions ── #}
+<section class="card">
+    <div class="card-header">
+        <div class="header-title">
+            <a href="{{ url_for('purchases.index') }}" class="btn btn--sm btn--tonal btn--icon" data-back title="{{ t['btn.back'] }}" aria-label="{{ t['btn.back'] }}">
+                <span class="material-symbols-outlined">arrow_back</span></a>
+            <h2>{{ row.supplier.name }}</h2>
+            {{ stage_badge(row.stage) }}
+            {{ pay_badge(row.pay_status) }}
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('purchases.edit', pid=row.id) }}" class="btn btn--tonal"><span class="material-symbols-outlined">edit</span> {{ t['btn.edit'] }}</a>
+            {% if not row.payments and not (row.costs|map(attribute='payments')|select|list) %}
+            <form method="post" action="{{ url_for('purchases.delete', pid=row.id) }}" style="display:inline"
+                  data-confirm="{{ t['purchase.delete_confirm'] }}" data-confirm-title="{{ t['delete.title'] }}" data-confirm-ok="{{ t['btn.delete'] }}" data-confirm-danger>
+                {{ csrf_field() }}
+                <button type="submit" class="btn btn--sm btn--tonal btn--icon" title="{{ t['btn.delete'] }}" aria-label="{{ t['btn.delete'] }}"><span class="material-symbols-outlined">delete</span></button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    <dl class="detail-grid">
+        {{ detail(t['purchase.invoice_number'], row.invoice_number) }}
+        {{ detail(t['purchase.invoice_date'], row.invoice_date|fdate) }}
+        {{ detail(t['purchase.port'], row.port.name if row.port else none) }}
+        {{ detail(t['purchase.currency'], cur) }}
+    </dl>
+    {% if row.note %}<p class="muted" style="margin-top:14px; white-space:pre-line;">{{ row.note }}</p>{% endif %}
+</section>
+
+{# ── The road: each stage and the date it was reached ── #}
+<section class="card">
+    <div class="card-header">
+        <h2>{{ t['purchase.pipeline'] }}</h2>
+        <div class="header-actions">
+            {% if days is not none %}<span class="muted small">{{ t['purchase.days_in_stage'] % {'n': days} }}</span>{% endif %}
+            <a href="{{ url_for('purchases.stage', pid=row.id, to=row.stage) }}" class="btn btn--sm btn--outlined"
+               data-modal-url="{{ url_for('purchases.stage', pid=row.id, to=row.stage) }}" data-modal-title="{{ t['purchase.change_stage'] }}">{{ t['purchase.correct_stage'] }}</a>
+            {% if next_stage %}
+            <a href="{{ url_for('purchases.stage', pid=row.id, to=next_stage) }}" class="btn btn--sm btn--primary"
+               data-modal-url="{{ url_for('purchases.stage', pid=row.id, to=next_stage) }}" data-modal-title="{{ t['purchase.change_stage'] }}">
+                {{ t['stage.' + next_stage] }} <span class="material-symbols-outlined">chevron_right</span></a>
+            {% endif %}
+        </div>
+    </div>
+    {% set cur_idx = stages.index(row.stage) %}
+    <ol class="timeline">
+        {% for s in stages %}
+        {% set d = row.stage_date(s) %}
+        <li class="timeline__step {% if loop.index0 < cur_idx %}is-done{% elif loop.index0 == cur_idx %}is-current{% endif %}">
+            <span class="timeline__dot">{% if loop.index0 < cur_idx %}<span class="material-symbols-outlined">check</span>{% else %}{{ loop.index }}{% endif %}</span>
+            <span class="timeline__label">{{ t['stage.' + s] }}</span>
+            <span class="timeline__date">{{ d|fdate if d else '' }}</span>
+        </li>
+        {% endfor %}
+    </ol>
+</section>
+
+{# ── The figures ── #}
+<div class="stat-grid">
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--blue material-symbols-outlined">request_quote</span>
+        <div><div class="stat-value">{{ row.goods_total|money(cur) }}</div><div class="stat-label">{{ t['purchase.goods_total'] }}</div></div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--amber material-symbols-outlined">assured_workload</span>
+        <div><div class="stat-value">{{ costs_total|money(cur) if costs_total is not none else '—' }}</div>
+             <div class="stat-label">{{ t['purchase.costs_total'] }}{% if costs_total is none %} · {{ t['cost.missing_rate'] }}{% endif %}</div></div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--teal material-symbols-outlined">payments</span>
+        <div><div class="stat-value">{{ row.paid_amount|money(cur) }}</div><div class="stat-label">{{ t['purchase.paid_supplier'] }}</div></div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon {{ 'stat-icon--green' if row.balance <= 0 else 'stat-icon--red' }} material-symbols-outlined">account_balance</span>
+        <div><div class="stat-value">{{ row.balance|money(cur) }}</div><div class="stat-label">{{ t['purchase.balance_supplier'] }}</div></div>
+    </div>
+</div>
+
+{# ── Lines, with each unit's share of the extra costs and its landed cost ── #}
+<section class="card">
+    <div class="card-header"><h2>{{ t['purchase.lines'] }}</h2></div>
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['purchase.line_product'] }}</th>
+            <th class="num">{{ t['purchase.quantity'] }}</th>
+            <th class="num">{{ t['purchase.unit_price'] }}</th>
+            <th class="num">{{ t['purchase.line_total'] }}</th>
+            <th class="num">{{ t['purchase.cost_share'] }}</th>
+            <th class="num">{{ t['purchase.landed_unit'] }}</th>
+        </tr></thead>
+        <tbody>
+        {% for l in row.lines %}
+        {% set share = shares[l.id] if shares is not none else none %}
+        <tr>
+            <td><strong>{{ l.product.name }}</strong>{% if l.description %}<div class="muted small">{{ l.description }}</div>{% endif %}</td>
+            <td class="num">{{ l.quantity }}</td>
+            <td class="num">{{ money_pair(l.unit_price, cur) }}</td>
+            <td class="num">{{ l.total|money(cur) }}</td>
+            <td class="num">{{ share|money(cur) if share is not none else '—' }}</td>
+            <td class="num"><strong>{{ (l.unit_price + share)|money(cur) if share is not none else '—' }}</strong></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    <p class="muted small" style="margin-top:8px;">{{ t['purchase.split_hint'] }}</p>
+</section>
+
+{# ── Extra costs: customs, port, transit, transport ── #}
+<section class="card">
+    <div class="card-header">
+        <h2>{{ t['purchase.costs'] }}</h2>
+        <a href="{{ url_for('purchases.cost_new', pid=row.id) }}" class="fab"
+           data-modal-url="{{ url_for('purchases.cost_new', pid=row.id) }}" data-modal-title="{{ t['cost.new'] }}">
+            <span class="material-symbols-outlined">add</span> {{ t['cost.new'] }}</a>
+    </div>
+    {% if row.costs %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['cost.kind'] }}</th>
+            <th>{{ t['cost.payee'] }}</th>
+            <th class="col-secondary">{{ t['cost.incurred_on'] }}</th>
+            <th class="num">{{ t['cost.amount'] }}</th>
+            <th class="num">{{ t['purchase.payment'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for c in row.costs %}
+        <tr>
+            <td><strong>{{ t['cost.kind.' + c.kind] }}</strong>{% if c.description %}<div class="muted small">{{ c.description }}</div>{% endif %}
+                {% if c.reference %}<div class="muted small">{{ t['field.reference'] }} {{ c.reference }}</div>{% endif %}</td>
+            <td>{{ c.payee or '—' }}</td>
+            <td class="col-secondary">{{ c.incurred_on|fdate }}</td>
+            <td class="num">{{ money_pair(c.amount, c.currency, c.rate) }}{% if c.rate %}<span class="money-alt">{{ t['field.rate_short'] }} {{ c.rate|num }}</span>{% endif %}</td>
+            <td class="num">{% if c.balance <= 0 %}{{ pay_badge('paid') }}{% elif c.paid_amount > 0 %}{{ pay_badge('partial') }}<span class="money-alt">{{ c.balance|money(c.currency) }}</span>{% else %}{{ pay_badge('unpaid') }}{% endif %}</td>
+            <td class="row-actions">
+                {% if c.balance > 0 %}
+                <a href="{{ url_for('payments.cost_payment', cid=c.id) }}" class="btn btn--sm btn--tonal btn--icon"
+                   data-modal-url="{{ url_for('payments.cost_payment', cid=c.id) }}" data-modal-title="{{ t['payment.new_cost'] }}"
+                   title="{{ t['payment.pay'] }}" aria-label="{{ t['payment.pay'] }}"><span class="material-symbols-outlined">payments</span></a>
+                {% endif %}
+                <a href="{{ url_for('purchases.cost_edit', cid=c.id) }}" class="btn btn--sm btn--tonal btn--icon"
+                   data-modal-url="{{ url_for('purchases.cost_edit', cid=c.id) }}" data-modal-title="{{ t['cost.edit'] }}"
+                   title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
+                {% if not c.payments %}
+                <form method="post" action="{{ url_for('purchases.cost_delete', cid=c.id) }}" style="display:inline"
+                      data-confirm="{{ t['delete.confirm'] }}" data-confirm-title="{{ t['delete.title'] }}" data-confirm-ok="{{ t['btn.delete'] }}" data-confirm-danger>
+                    {{ csrf_field() }}
+                    <button type="submit" class="btn btn--sm btn--tonal btn--icon" title="{{ t['btn.delete'] }}" aria-label="{{ t['btn.delete'] }}"><span class="material-symbols-outlined">delete</span></button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['cost.empty'] }}</p></div>
+    {% endif %}
+</section>
+
+{# ── Payments out: to the supplier and against the costs ── #}
+<section class="card">
+    <div class="card-header">
+        <h2>{{ t['purchase.payments'] }}</h2>
+        {% if row.balance > 0 %}
+        <a href="{{ url_for('payments.purchase_payment', pid=row.id) }}" class="fab"
+           data-modal-url="{{ url_for('payments.purchase_payment', pid=row.id) }}" data-modal-title="{{ t['payment.new_supplier'] }}">
+            <span class="material-symbols-outlined">add</span> {{ t['payment.new_supplier'] }}</a>
+        {% endif %}
+    </div>
+    {% if payments %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['payment.paid_on'] }}</th>
+            <th>{{ t['payment.for'] }}</th>
+            <th class="col-secondary">{{ t['payment.method'] }}</th>
+            <th class="num">{{ t['payment.amount'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for p in payments %}
+        <tr class="{% if p.is_voided %}row-voided{% endif %}">
+            <td>{{ p.paid_on|fdate }}</td>
+            <td>{% if p.purchase_cost %}{{ t['cost.kind.' + p.purchase_cost.kind] }}{% if p.purchase_cost.payee %} · {{ p.purchase_cost.payee }}{% endif %}{% else %}{{ row.supplier.name }}{% endif %}
+                {% if p.reference %}<div class="muted small">{{ t['field.reference'] }} {{ p.reference }}</div>{% endif %}
+                {% if p.is_voided %}<div class="small voided-note">{{ t['payment.voided_on'] }} {{ p.voided_at|fdate }} · {{ p.void_reason }}</div>{% elif p.note %}<div class="muted small">{{ p.note }}</div>{% endif %}</td>
+            <td class="col-secondary">{{ t['method.' + p.method] }}</td>
+            <td class="num">{{ money_pair(p.amount, p.currency, p.rate) }}</td>
+            <td class="row-actions">
+                {% if not p.is_voided %}
+                <a href="{{ url_for('payments.void', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon"
+                   data-modal-url="{{ url_for('payments.void', pay_id=p.id) }}" data-modal-title="{{ t['payment.void'] }}"
+                   title="{{ t['payment.void'] }}" aria-label="{{ t['payment.void'] }}"><span class="material-symbols-outlined">block</span></a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['payment.empty'] }}</p></div>
+    {% endif %}
+</section>
+
+{# ── The vehicles this purchase brings in ── #}
+<section class="card">
+    <div class="card-header"><h2>{{ t['purchase.vehicles'] }} · {{ units|length }}</h2></div>
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>#</th>
+            <th>{{ t['purchase.line_product'] }}</th>
+            <th>{{ t['unit.chassis'] }}</th>
+            <th>{{ t['unit.status'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for u in units %}
+        <tr>
+            <td class="muted">{{ loop.index }}</td>
+            <td>{{ u.product.name }}</td>
+            <td>{% if u.chassis_number %}<code>{{ u.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}
+                {% if u.note %}<div class="muted small">{{ u.note }}</div>{% endif %}</td>
+            <td>{{ unit_badge(u.status) }}
+                {% set sl = u.active_sale_line %}
+                {% if sl %}<div class="small"><a href="{{ url_for('sales.detail', sid=sl.sale_id) }}">{{ sl.sale.number }}</a> · {{ sl.sale.customer.name }}</div>{% endif %}</td>
+            <td class="row-actions">
+                {% if u.status == 'available' %}
+                <a href="{{ url_for('sales.new', unit=u.id) }}" class="btn btn--sm btn--tonal btn--icon" title="{{ t['unit.sell'] }}" aria-label="{{ t['unit.sell'] }}"><span class="material-symbols-outlined">sell</span></a>
+                {% endif %}
+                <a href="{{ url_for('stock.edit', uid=u.id, back=request.path) }}" class="btn btn--sm btn--tonal btn--icon"
+                   data-modal-url="{{ url_for('stock.edit', uid=u.id, back=request.path) }}" data-modal-title="{{ t['unit.edit'] }}"
+                   title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+</section>
+{% endblock %}

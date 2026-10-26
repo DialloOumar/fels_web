@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}{{ t['supplier.edit'] if row else t['supplier.new'] }}{% endblock %}
+{% block page_title %}{{ t['supplier.edit'] if row else t['supplier.new'] }}{% endblock %}
+{% block content %}
+<section class="card" style="max-width: 720px;">
+    {% include "_supplier_form.html" %}
+</section>
+{% endblock %}

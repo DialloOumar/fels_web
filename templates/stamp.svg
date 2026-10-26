@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-90 -90 480 480" width="480" height="480">
+  {# The company stamp, after the template the company drew: two arcs of text,
+     three circles, a word in the middle, and the signer's strokes laid over
+     it. What changes per person is the word and the phone; the company's
+     name comes from Paramètres (company name). The stamp fills the middle
+     300×300 of the canvas; the 90 units around it are for strokes that run
+     past the circle, so sheets size the image at 8/5 of the stamp they want. #}
+  <defs>
+    <path id="arcHaut" d="M 42,150 A 108,108 0 1 1 258,150" fill="none"/>
+    <path id="arcBas" d="M 26,150 A 124,124 0 0 0 274,150" fill="none"/>
+    {# The strokes are stored in the template's blue; this paints them in the
+       pen's colour, keeping only their shape. #}
+    <filter id="teinte" x="0" y="0" width="1" height="1">
+      <feFlood flood-color="{{ sig_color }}" result="ink"/>
+      <feComposite in="ink" in2="SourceAlpha" operator="in"/>
+    </filter>
+    <filter id="encre" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="bruit"/>
+      <feColorMatrix in="bruit" type="matrix"
+        values="0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 -1.2 1.55" result="masque"/>
+      <feComposite in="SourceGraphic" in2="masque" operator="in"/>
+    </filter>
+  </defs>
+
+  <g id="tampon" fill="{{ color }}" stroke="{{ color }}" font-family="Arial, Helvetica, sans-serif" filter="url(#encre)">
+    <circle cx="150" cy="150" r="142" fill="none" stroke-width="3.5"/>
+    <circle cx="150" cy="150" r="136" fill="none" stroke-width="1.2"/>
+    <circle cx="150" cy="150" r="98" fill="none" stroke-width="2.5"/>
+
+    <text font-size="{{ 21 if company|length <= 24 else (18 if company|length <= 30 else 15) }}" font-weight="bold" letter-spacing="1.5" stroke="none">
+      <textPath href="#arcHaut" startOffset="50%" text-anchor="middle">{{ company }}</textPath>
+    </text>
+
+    <text font-size="20" font-weight="bold" letter-spacing="1.2" stroke="none">
+      <textPath href="#arcBas" startOffset="50%" text-anchor="middle">★  {% if phone %}Tel: {{ phone }}{% endif %}  ★</textPath>
+    </text>
+
+    {# The word, sized to stay inside the inner circle (see stamp_label_fit). #}
+  <text x="150" y="{{ 132 if signature else 150 }}" dominant-baseline="central" font-size="{{ label_size }}" font-weight="bold" text-anchor="middle" stroke="none"{% if label_length %} textLength="{{ label_length }}" lengthAdjust="spacingAndGlyphs"{% endif %}>{{ label }}</text>
+  </g>
+
+  {% if signature %}
+  {# The strokes, under the word, in the lower half of the inner circle. #}
+  <image href="data:image/png;base64,{{ signature.b64 }}" x="{{ signature.x }}" y="{{ signature.y }}" width="{{ signature.w }}" height="{{ signature.h }}" opacity="0.92" filter="url(#teinte)"/>
+  {% endif %}
+</svg>

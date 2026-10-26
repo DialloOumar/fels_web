@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}{{ t['payment.void'] }}{% endblock %}
+{% block page_title %}{{ t['payment.void'] }}{% endblock %}
+{% block content %}
+<section class="card" style="max-width: 640px;">
+    {% include "_payment_void.html" %}
+</section>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% from "_macros.html" import form_actions with context %}
+{% from "_hint.html" import hint with context %}
+{% macro val(field) -%}{{ request.form.get(field) if request.method == 'POST' else ((row[field] or '') if row else '') }}{%- endmacro %}
+{% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+<form method="post" class="entry-form" data-modal-form
+      action="{{ url_for('products.edit', pid=row.id) if row else url_for('products.new') }}">
+    {{ csrf_field() }}
+    <div class="field">
+        <input type="text" id="name" name="name" placeholder="{{ t['product.name_ph'] }}" required value="{{ val('name') }}">
+        <label for="name">{{ t['product.name'] }}</label>
+    </div>
+
+    <div class="form-row">
+        <div class="field">
+            <input type="text" id="code" name="code" placeholder="{{ t['product.code_ph'] }}" autocapitalize="characters" value="{{ val('code') }}">
+            <label for="code">{{ t['product.code'] }}</label>
+            {{ hint(t['form.optional'], t['product.code_hint']) }}
+        </div>
+        {% set cat = request.form.get('category') or (row.category if row else 'other') %}
+        <div class="field">
+            <select id="category" name="category">
+                {% for c in categories %}<option value="{{ c }}" {% if cat == c %}selected{% endif %}>{{ t['category.' + c] }}</option>{% endfor %}
+            </select>
+            <label for="category">{{ t['product.category'] }}</label>
+        </div>
+    </div>
+
+    <div class="field">
+        <input type="text" id="description" name="description" placeholder="{{ t['product.description_ph'] }}" value="{{ val('description') }}">
+        <label for="description">{{ t['field.description'] }}</label>
+    </div>
+
+    {{ form_actions(url_for('products.index')) }}
+</form>

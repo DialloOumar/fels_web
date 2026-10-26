@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}"{% if theme %} data-theme="{{ theme }}"{% endif %}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ code }} — {{ t['app.title'] }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ v }}">
+    {% include '_theme_head.html' %}
+</head>
+<body class="auth-body">
+
+{# Standalone on purpose: it must render even when the rest of the page
+   could not. A 500 carries a reference the user can quote; the error
+   journal under Administration finds it. #}
+<div class="auth-card error-page">
+    <h1>{{ code }}</h1>
+    <p>{{ message }}</p>
+    {% if ref %}
+    <p class="muted small">{{ t['error.ref_hint'] }} <code style="font-size:1rem;">{{ ref }}</code></p>
+    <p class="muted small">{{ t['error.nothing_lost'] }}</p>
+    {% endif %}
+    <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+        {% if current_user.is_authenticated %}
+        <a href="javascript:history.back()" class="btn btn--tonal">
+            <span class="material-symbols-outlined">arrow_back</span> {{ t['btn.back'] }}
+        </a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn--primary">
+            <span class="material-symbols-outlined">home</span> {{ t['nav.dashboard'] }}
+        </a>
+        {% else %}
+        <a href="{{ url_for('login') }}" class="btn btn--primary">
+            <span class="material-symbols-outlined">arrow_back</span> {{ t['auth.login'] }}
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+</body>
+</html>

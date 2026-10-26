@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}{{ t['port.edit'] if row else t['port.new'] }}{% endblock %}
+{% block page_title %}{{ t['port.edit'] if row else t['port.new'] }}{% endblock %}
+{% block content %}
+<section class="card" style="max-width: 520px;">
+    {% include "_port_form.html" %}
+</section>
+{% endblock %}

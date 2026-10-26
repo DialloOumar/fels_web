@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ p.receipt_number }} — {{ t['app.title'] }}</title>
+    {% include "_print_style.html" %}
+</head>
+<body>
+<div class="print-toolbar">
+    <span class="print-toolbar__hint">{{ t['print.hint'] }}</span>
+    <a href="{{ url_for('sales.detail', sid=sale.id) }}">{{ t['btn.back'] }}</a>
+    <button type="button" onclick="window.print()">{{ t['print.print'] }}</button>
+</div>
+
+<header class="doc-head">
+    <div>
+        <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="" class="doc-logo">
+        <div class="doc-company">
+            {% if company.name %}<strong>{{ company.name }}</strong><br>{% endif %}
+            {% if company.address %}{{ company.address }}<br>{% endif %}
+            {% if company.phone %}{{ company.phone }}{% endif %}{% if company.phone and company.email %} · {% endif %}{{ company.email or '' }}
+        </div>
+    </div>
+    <div class="doc-title">
+        <h1>{{ t['receipt.title'] }}</h1>
+        <div class="doc-no">{{ p.receipt_number }}</div>
+        <div class="doc-date">{{ p.paid_on|fdate }}</div>
+        {% if p.is_voided %}<div class="doc-no" style="color:#B91C1C;">{{ t['receipt.voided_stamp'] }}</div>{% endif %}
+    </div>
+</header>
+
+<div class="doc-parties">
+    <div class="doc-box">
+        <div class="doc-box__label">{{ t['receipt.received_from'] }}</div>
+        <div class="doc-box__main">{{ sale.customer.name }}</div>
+        {% if sale.customer.phone %}<div class="small muted">{{ sale.customer.phone }}</div>{% endif %}
+        {% if sale.customer.address %}<div class="small muted">{{ sale.customer.address }}</div>{% endif %}
+    </div>
+    <div class="doc-box">
+        <div class="doc-box__label">{{ t['receipt.for_sale'] }}</div>
+        <div class="doc-box__main">{{ sale.number }}</div>
+        <div class="small muted">{{ t['sale.date'] }} {{ sale.sale_date|fdate }} · {{ t['payment.method'] }} : {{ t['method.' + p.method] }}{% if p.reference %} · {{ p.reference }}{% endif %}</div>
+    </div>
+</div>
+
+<div class="doc-amount">
+    <div class="doc-amount__label">{{ t['receipt.amount_received'] }}</div>
+    <div>
+        <div class="doc-amount__value">{{ p.amount|money(p.currency) }}</div>
+        {% if p.currency != sale.currency and p.amount_in(sale.currency) is not none %}
+        <div class="doc-amount__alt">= {{ p.amount_in(sale.currency)|money(sale.currency) }} · {{ t['field.rate_short'] }} {{ p.rate|num }} GNF / USD</div>
+        {% endif %}
+    </div>
+</div>
+
+<table class="doc-table">
+    <thead><tr><th>{{ t['purchase.line_product'] }}</th><th>{{ t['sale.unit'] }}</th><th class="r">{{ t['sale.price'] }}</th></tr></thead>
+    <tbody>
+    {% for l in sale.lines %}
+    <tr>
+        <td><strong>{{ l.product.name }}</strong>{% if l.description %}<div class="small muted">{{ l.description }}</div>{% endif %}</td>
+        <td>{% if l.unit and l.unit.chassis_number %}{{ l.unit.chassis_number }}{% elif l.unit %}<span class="muted">{{ t['receipt.chassis_later'] }}</span>{% else %}<span class="muted">{{ t['sale.unit_tbd'] }}</span>{% endif %}</td>
+        <td class="r">{{ l.price|money(sale.currency) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<div class="doc-sums">
+    <div><span>{{ t['sale.total'] }}</span><span>{{ sale.total|money(sale.currency) }}</span></div>
+    <div><span>{{ t['receipt.paid_to_date'] }}</span><span>{{ paid_to_date|money(sale.currency) }}</span></div>
+    <div><span>{{ t['receipt.left_to_pay'] }}</span><span>{{ left|money(sale.currency) }}</span></div>
+</div>
+{% if p.note %}<p class="small muted">{{ p.note }}</p>{% endif %}
+
+{# The company's side carries the stamp of whoever recorded the payment,
+   their signature over it, when they have set one up (Ma signature). #}
+{% set issuer = p.created_by and p.creator %}
+<div class="doc-sign">
+    <div>{{ t['receipt.sign_customer'] }}</div>
+    <div class="doc-sign__stamped">
+        {% if issuer and user_has_stamp(issuer) %}<img class="doc-stamp" src="{{ url_for('signature.stamp_svg', user_id=issuer.id) }}" alt="">{% endif %}
+        <span>{{ t['receipt.sign_company'] }}{% if issuer %} · {{ issuer.full_name }}{% endif %}</span>
+    </div>
+</div>
+
+<footer class="doc-foot">
+    <span>{{ footer }}</span>
+    <span>{{ p.receipt_number }} · {{ sale.number }}</span>
+</footer>
+</body>
+</html>

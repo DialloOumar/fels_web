@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% from "_hint.html" import hint with context %}
+
+{% block title %}{{ t['sig.title'] }}{% endblock %}
+{% block page_title %}{{ t['sig.title'] }}{% endblock %}
+
+{% block content %}
+<section class="card" style="max-width: 960px;">
+    <p class="muted small" style="margin:0 0 14px;">{{ t['sig.intro'] }}</p>
+    {% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ t[error] }}</div>{% endif %}
+    {% if success %}<div class="alert alert--success" style="margin-bottom:12px;">{{ t[success] }}</div>{% endif %}
+
+    <div class="sig-layout">
+        <form method="post" class="entry-form" enctype="multipart/form-data">
+            {{ csrf_field() }}
+            <div class="form-row">
+                <div class="field">
+                    <input type="text" id="stamp_label" name="stamp_label" placeholder="{{ t['sig.label_ph'] }}" maxlength="40"
+                           value="{{ request.form.get('stamp_label') if request.method == 'POST' else (who.stamp_label or '') }}">
+                    <label for="stamp_label">{{ t['sig.label'] }}</label>
+                    {{ hint(t['form.optional'], t['sig.label_hint']) }}
+                </div>
+                <div class="field">
+                    <input type="tel" id="stamp_phone" name="stamp_phone" placeholder="{{ t['sig.phone_ph'] }}" maxlength="30"
+                           value="{{ request.form.get('stamp_phone') if request.method == 'POST' else (who.stamp_phone or get_setting('company_phone', '') or '') }}">
+                    <label for="stamp_phone">{{ t['sig.phone'] }}</label>
+                </div>
+            </div>
+
+            {# An ink: a short row to pick from, or any colour from the picker.
+               The stamp has one, the signature's strokes another. #}
+            {% macro ink_row(field, title, current) %}
+            <div class="sig-inks">
+                <span class="sig-label">{{ title }}</span>
+                <div class="sig-inks__row">
+                    {% for hex, name in inks %}
+                    <button type="button" class="sig-ink {% if hex|lower == current %}is-on{% endif %}" data-color="{{ hex }}" style="background:{{ hex }};" title="{{ name }}" aria-label="{{ name }}"></button>
+                    {% endfor %}
+                    <input type="color" id="{{ field }}" name="{{ field }}" value="{{ request.form.get(field) or current }}" title="{{ t['sig.color_custom'] }}" aria-label="{{ t['sig.color_custom'] }}">
+                </div>
+            </div>
+            {% endmacro %}
+            {{ ink_row('stamp_color', t['sig.color'], ink) }}
+
+            <div class="sig-upload">
+                <span class="sig-label">{{ t['sig.upload'] }}</span>
+                <p class="muted small" style="margin:2px 0 6px;">{{ t['sig.upload_hint'] }}</p>
+                <label class="btn btn--outlined btn--sm">
+                    <span class="material-symbols-outlined">photo_camera</span> {{ t['sig.pick'] }}
+                    <input type="file" name="signature" accept="image/*" hidden
+                           onchange="this.closest('.sig-upload').querySelector('.sig-picked').textContent = this.files[0] ? this.files[0].name : ''">
+                </label>
+                <span class="sig-picked muted small"></span>
+            </div>
+
+            {% if has_signature %}
+            {{ ink_row('sig_color', t['sig.sig_color'], sig_ink) }}
+            {# Where the strokes sit: slid and sized here, drawn on the right. #}
+            <div class="sig-sliders">
+                <span class="sig-label">{{ t['sig.place'] }}</span>
+                <label><span>{{ t['sig.place_x'] }}</span>
+                    <input type="range" id="sig_dx" name="sig_dx" min="-80" max="80" step="1" value="{{ request.form.get('sig_dx') or who.sig_dx }}"></label>
+                <label><span>{{ t['sig.place_y'] }}</span>
+                    <input type="range" id="sig_dy" name="sig_dy" min="-80" max="80" step="1" value="{{ request.form.get('sig_dy') or who.sig_dy }}"></label>
+                <label><span>{{ t['sig.place_size'] }}</span>
+                    <input type="range" id="sig_scale" name="sig_scale" min="40" max="230" step="5" value="{{ request.form.get('sig_scale') or who.sig_scale }}"></label>
+                <button type="button" class="btn btn--sm btn--outlined" id="sig-reset">{{ t['sig.place_reset'] }}</button>
+            </div>
+            <label class="checkbox-item" style="margin-top:4px; max-width:380px;">
+                <input type="checkbox" name="remove_signature" value="1">
+                <span>{{ t['sig.remove'] }}</span>
+            </label>
+            {% endif %}
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn--primary"><span class="material-symbols-outlined">save</span> {{ t['btn.save'] }}</button>
+            </div>
+        </form>
+
+        <div class="sig-preview">
+            <span class="sig-label">{{ t['sig.preview'] }}</span>
+            <div class="sig-preview__stamp">
+                <img id="stamp-preview" src="{{ url_for('signature.stamp_svg', user_id=who.id, v=stamp_version) }}" alt="{{ t['sig.title'] }}"
+                     data-base="{{ url_for('signature.stamp_svg', user_id=who.id, v=stamp_version) }}">
+            </div>
+            <p class="muted small">{{ t['sig.has'] if has_signature else t['sig.none'] }}</p>
+            <p class="muted small">{{ t['sig.where'] }}</p>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// The preview follows what is typed and slid, before anything is saved: the
+// values ride along in the image's address and the stamp is drawn again.
+(function () {
+    var img = document.getElementById("stamp-preview"),
+        label = document.getElementById("stamp_label"), phone = document.getElementById("stamp_phone"),
+        dx = document.getElementById("sig_dx"), dy = document.getElementById("sig_dy"), sc = document.getElementById("sig_scale"),
+        reset = document.getElementById("sig-reset"), color = document.getElementById("stamp_color"),
+        sigColor = document.getElementById("sig_color");
+    if (!img || !label || !phone) return;
+    var timer = null;
+    function redraw() {
+        var sep = img.dataset.base.indexOf("?") >= 0 ? "&" : "?";
+        var q = "label=" + encodeURIComponent(label.value) + "&phone=" + encodeURIComponent(phone.value);
+        if (dx) q += "&dx=" + dx.value + "&dy=" + dy.value + "&scale=" + sc.value;
+        if (color) q += "&color=" + encodeURIComponent(color.value);
+        if (sigColor) q += "&sig_color=" + encodeURIComponent(sigColor.value);
+        img.src = img.dataset.base + sep + q;
+    }
+    function queue() { clearTimeout(timer); timer = setTimeout(redraw, 150); }
+    label.addEventListener("input", queue);
+    phone.addEventListener("input", queue);
+    [dx, dy, sc].forEach(function (r) { if (r) r.addEventListener("input", queue); });
+    if (reset) reset.addEventListener("click", function () { dx.value = 0; dy.value = 0; sc.value = 100; redraw(); });
+    // Each row of swatches drives the colour input beside it.
+    document.querySelectorAll(".sig-inks").forEach(function (row) {
+        var input = row.querySelector('input[type="color"]');
+        if (!input) return;
+        function mark() {
+            row.querySelectorAll(".sig-ink").forEach(function (b) {
+                b.classList.toggle("is-on", b.dataset.color.toLowerCase() === input.value.toLowerCase());
+            });
+        }
+        input.addEventListener("input", function () { mark(); queue(); });
+        row.querySelectorAll(".sig-ink").forEach(function (b) {
+            b.addEventListener("click", function () { input.value = b.dataset.color; mark(); redraw(); });
+        });
+    });
+})();
+</script>
+{% endblock %}

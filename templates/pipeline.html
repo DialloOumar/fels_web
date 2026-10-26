@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "_macros.html" import money_pair with context %}
+
+{% block title %}{{ t['nav.pipeline'] }}{% endblock %}
+{% block page_title %}{{ t['nav.pipeline'] }}{% endblock %}
+
+{% block content %}
+{# One column per stage still on the road. A card shows how long the purchase
+   has sat in its stage: the figure the client chases at the port and in
+   customs. Its button moves it to the next stage, on a date. #}
+<div class="pipeline-head">
+    <p class="muted small">{{ t['pipeline.intro'] }}</p>
+    <div class="header-actions">
+        <a href="{{ url_for('purchases.index', stage='in_stock') }}" class="btn btn--sm btn--outlined">
+            <span class="material-symbols-outlined">warehouse</span> {{ t['stage.in_stock'] }} · {{ in_stock }}
+        </a>
+        <a href="{{ url_for('purchases.new') }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['purchase.new'] }}</a>
+    </div>
+</div>
+
+<div class="pipeline">
+    {% for stage, items in columns.items() %}
+    <section class="pipeline-col pipeline-col--{{ stage }}">
+        <header class="pipeline-col__head">
+            <span class="pipeline-col__title">{{ t['stage.' + stage] }}</span>
+            <span class="pipeline-col__count">{{ items|length }}</span>
+        </header>
+        <div class="pipeline-col__body">
+            {% for p in items %}
+            {% set d = days_in_stage(p, today) %}
+            {% set nxt = next_stage(p.stage) %}
+            <article class="pipe-card">
+                <a href="{{ url_for('purchases.detail', pid=p.id) }}" class="pipe-card__title">{{ p.invoice_number }}</a>
+                <div class="pipe-card__meta">{{ p.supplier.name }}{% if p.port %} · {{ p.port.name }}{% endif %}</div>
+                <div class="pipe-card__lines">
+                    {% for l in p.lines %}<span class="chip chip--cat-{{ l.product.category }}">{{ l.quantity }}× {{ l.product.code or l.product.name }}</span>{% endfor %}
+                </div>
+                <div class="pipe-card__foot">
+                    <span class="pipe-card__days {% if d is not none and d > 30 %}pipe-card__days--late{% endif %}" title="{{ t['pipeline.days_title'] }}">
+                        <span class="material-symbols-outlined">schedule</span>
+                        {% if d is none %}—{% else %}{{ d }} {{ t['unit.days'] }}{% endif %}
+                    </span>
+                    {% if nxt %}
+                    <a href="{{ url_for('purchases.stage', pid=p.id, to=nxt, back=url_for('purchases.pipeline')) }}"
+                       class="btn btn--sm btn--tonal" data-modal-url="{{ url_for('purchases.stage', pid=p.id, to=nxt, back=url_for('purchases.pipeline')) }}"
+                       data-modal-title="{{ t['purchase.change_stage'] }} · {{ p.invoice_number }}">
+                        {{ t['stage.' + nxt] }} <span class="material-symbols-outlined">chevron_right</span>
+                    </a>
+                    {% endif %}
+                </div>
+            </article>
+            {% else %}
+            <div class="pipeline-col__empty">—</div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+</div>
+{% endblock %}

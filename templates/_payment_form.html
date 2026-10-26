@@ -1,0 +1,54 @@
+{% from "_macros.html" import form_actions with context %}
+{% from "_hint.html" import hint with context %}
+{# Money in or out. Its own currency and the rate of its day: a USD invoice paid in
+   GNF still has its balance read in USD, at that payment's rate. #}
+{% set posted = request.method == 'POST' %}
+{% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+<form method="post" class="entry-form" data-modal-form action="{{ form_action }}">
+    {{ csrf_field() }}
+    <div class="expense-total" style="margin:0;">{{ t['payment.balance_now'] }} <strong>{{ balance|money(target_currency) }}</strong></div>
+    <div class="form-row">
+        <div class="field">
+            <input type="text" id="amount" name="amount" required data-money="cents" inputmode="decimal" autofocus
+                   value="{{ request.form.get('amount') if posted else (balance|money_field if balance > 0 else '') }}">
+            <label for="amount">{{ t['payment.amount'] }}</label>
+        </div>
+        {% set cur = request.form.get('currency') if posted else target_currency %}
+        <div class="field">
+            <select id="currency" name="currency">
+                {% for c in currencies %}<option value="{{ c }}" {% if c == cur %}selected{% endif %}>{{ c }}</option>{% endfor %}
+            </select>
+            <label for="currency">{{ t['purchase.currency'] }}</label>
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="field">
+            <input type="date" id="paid_on" name="paid_on" required value="{{ request.form.get('paid_on') if posted else today.isoformat() }}">
+            <label for="paid_on">{{ t['payment.paid_on'] }}</label>
+        </div>
+        <div class="field">
+            <input type="text" id="rate" name="rate" inputmode="decimal" placeholder="{{ t['settings.rate_placeholder'] }}"
+                   value="{{ request.form.get('rate') if posted else default_rate }}">
+            <label for="rate">{{ t['field.rate'] }}</label>
+            {{ hint(t['cost.rate_short'] % {'cur': target_currency}, t['payment.rate_hint']) }}
+        </div>
+    </div>
+    <div class="form-row">
+        {% set m = request.form.get('method') if posted else (default_method or 'bank') %}
+        <div class="field">
+            <select id="method" name="method">
+                {% for k in methods %}<option value="{{ k }}" {% if k == m %}selected{% endif %}>{{ t['method.' + k] }}</option>{% endfor %}
+            </select>
+            <label for="method">{{ t['payment.method'] }}</label>
+        </div>
+        <div class="field">
+            <input type="text" id="reference" name="reference" placeholder="{{ t['payment.reference_ph'] }}" value="{{ request.form.get('reference', '') }}">
+            <label for="reference">{{ t['field.reference'] }}</label>
+        </div>
+    </div>
+    <div class="field">
+        <input type="text" id="note" name="note" placeholder=" " value="{{ request.form.get('note', '') }}">
+        <label for="note">{{ t['field.note'] }}</label>
+    </div>
+    {{ form_actions(back_url) }}
+</form>

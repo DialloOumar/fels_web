@@ -1,0 +1,19 @@
+{% from "_macros.html" import form_actions with context %}
+{% from "_hint.html" import hint with context %}
+{% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+<form method="post" class="entry-form" data-modal-form action="{{ url_for('stock.edit', uid=row.id) }}">
+    {{ csrf_field() }}
+    <input type="hidden" name="back" value="{{ back }}">
+    <p class="muted small" style="margin:0;">{{ row.product.name }} · {{ row.purchase_line.purchase.invoice_number }} · {{ row.purchase_line.purchase.supplier.name }}</p>
+    <div class="field">
+        <input type="text" id="chassis_number" name="chassis_number" autofocus autocapitalize="characters" spellcheck="false"
+               placeholder="{{ t['unit.chassis_ph'] }}" value="{{ request.form.get('chassis_number') if request.method == 'POST' else (row.chassis_number or '') }}">
+        <label for="chassis_number">{{ t['unit.chassis'] }}</label>
+        {{ hint(t['form.optional'], t['unit.chassis_hint']) }}
+    </div>
+    <div class="field">
+        <input type="text" id="note" name="note" placeholder="{{ t['unit.note_ph'] }}" value="{{ request.form.get('note') if request.method == 'POST' else (row.note or '') }}">
+        <label for="note">{{ t['field.note'] }}</label>
+    </div>
+    {{ form_actions(back or url_for('stock.index')) }}
+</form>

@@ -1,0 +1,15 @@
+{# Night mode, for a page that does not extend base.html.
+
+   The attribute is on <html> already when someone has chosen; this covers the
+   case where nobody has, by reading the machine's setting before the first
+   paint. In <head> and inline on purpose: loaded later, the page would flash
+   light before turning dark. #}
+{% if not theme %}
+<script>
+    try {
+        if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            document.documentElement.setAttribute("data-theme", "dark");
+        }
+    } catch (e) { /* an old browser simply stays light */ }
+</script>
+{% endif %}

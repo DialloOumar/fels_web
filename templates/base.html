@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}"{% if theme %} data-theme="{{ theme }}"{% endif %}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ t['app.title'] }}{% endblock %} — {{ t['app.title'] }}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/icon.svg') }}">
+    {% include '_pwa_head.html' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ v }}">
+    {% include '_theme_head.html' %}
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-logo">
+            <a href="{{ url_for('dashboard') }}" class="sidebar-logo-link">
+                <img src="{{ url_for('static', filename='images/logo-on-dark.svg') }}" alt="{{ t['app.title'] }}" class="sidebar-logo-img">
+            </a>
+        </div>
+        {# In the order the goods move: bought, then sold. The catalog and
+           the settings are configuration, so they come last. #}
+        <ul class="sidebar-nav">
+            <li><a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">space_dashboard</span> {{ t['nav.dashboard'] }}
+            </a></li>
+
+            <li class="sidebar-section">{{ t['nav.buying'] }}</li>
+            <li><a href="{{ url_for('purchases.pipeline') }}" class="sidebar-sub {% if request.endpoint == 'purchases.pipeline' %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">local_shipping</span> {{ t['nav.pipeline'] }}
+            </a></li>
+            <li><a href="{{ url_for('purchases.index') }}" class="sidebar-sub {% if (request.blueprint == 'purchases' and request.endpoint != 'purchases.pipeline') or (request.blueprint == 'payments' and request.endpoint != 'payments.index') %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">request_quote</span> {{ t['nav.purchases'] }}
+            </a></li>
+            <li><a href="{{ url_for('suppliers.index') }}" class="sidebar-sub {% if request.blueprint == 'suppliers' %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">store</span> {{ t['nav.suppliers'] }}
+            </a></li>
+
+            <li class="sidebar-section">{{ t['nav.stock_section'] }}</li>
+            <li><a href="{{ url_for('stock.index') }}" class="sidebar-sub {% if request.blueprint == 'stock' %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">inventory_2</span> {{ t['nav.stock'] }}
+            </a></li>
+
+            <li class="sidebar-section">{{ t['nav.selling'] }}</li>
+            <li><a href="{{ url_for('sales.index') }}" class="sidebar-sub {% if request.blueprint == 'sales' %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">point_of_sale</span> {{ t['nav.sales'] }}
+            </a></li>
+            <li><a href="{{ url_for('customers.index') }}" class="sidebar-sub {% if request.blueprint == 'customers' %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">handshake</span> {{ t['nav.customers'] }}
+            </a></li>
+
+            <li class="sidebar-section">{{ t['nav.finance'] }}</li>
+            <li><a href="{{ url_for('payments.index') }}" class="sidebar-sub {% if request.endpoint == 'payments.index' %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">payments</span> {{ t['nav.payments'] }}
+            </a></li>
+
+            <li class="sidebar-section">{{ t['nav.catalog'] }}</li>
+            <li><a href="{{ url_for('products.index') }}" class="sidebar-sub {% if request.blueprint == 'products' %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">category</span> {{ t['nav.products'] }}
+            </a></li>
+
+            <li class="sidebar-section">{{ t['nav.admin'] }}</li>
+            <li><a href="{{ url_for('settings.index') }}" class="sidebar-sub {% if request.blueprint == 'settings' and request.endpoint != 'settings.errors' %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">settings</span> {{ t['nav.settings'] }}
+            </a></li>
+            <li><a href="{{ url_for('importer.upload') }}" class="sidebar-sub {% if request.blueprint == 'importer' %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">upload_file</span> {{ t['nav.import'] }}
+            </a></li>
+            <li><a href="{{ url_for('settings.errors') }}" class="sidebar-sub {% if request.endpoint == 'settings.errors' %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">error</span> {{ t['nav.errors'] }}
+            </a></li>
+        </ul>
+
+        <div class="sidebar-user">
+            <div class="sidebar-user-info">
+                <span class="sidebar-user-name">{{ current_user.full_name }}</span>
+                <span class="sidebar-user-role">{{ t['role.super_admin'] if is_super_admin else t['role.user'] }}</span>
+                <a href="{{ url_for('signature.mine') }}" class="sidebar-change-pw">
+                    <span class="material-symbols-outlined" style="font-size:16px;">signature</span> {{ t['sig.title'] }}
+                </a>
+                <a href="{{ url_for('change_password') }}" class="sidebar-change-pw">
+                    <span class="material-symbols-outlined" style="font-size:16px;">lock_reset</span> {{ t['nav.change_password'] }}
+                </a>
+                <a href="{{ url_for('set_language', lang='fr' if lang == 'en' else 'en') }}" class="sidebar-lang">
+                    <span class="material-symbols-outlined" style="font-size:16px;">translate</span> {{ 'EN' if lang == 'fr' else 'FR' }}
+                </a>
+            </div>
+            <form method="post" action="{{ url_for('logout') }}">
+                {{ csrf_field() }}
+                <button type="submit" class="logout-btn" title="{{ t['auth.logout'] }}" aria-label="{{ t['auth.logout'] }}">
+                    <span class="material-symbols-outlined">logout</span>
+                </button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <main class="main-content">
+        <header class="topbar">
+            <button class="menu-toggle" id="menu-toggle" aria-label="{{ t['nav.menu'] }}">
+                <span class="material-symbols-outlined">menu</span>
+            </button>
+            <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
+            {# The bell: what needs a hand, worked out from the data each time. #}
+            {% set b = notif_bell() %}
+            <details class="bell" data-count-url="{{ url_for('notifications.count') }}">
+                <summary class="lang-toggle bell__btn" title="{{ t['notif.title'] }}" aria-label="{{ t['notif.title'] }}">
+                    <span class="material-symbols-outlined">notifications</span>
+                    {% if b.count %}<span class="bell__count">{{ b.count if b.count < 100 else '99+' }}</span>{% endif %}
+                </summary>
+                <div class="bell__panel" data-panel-url="{{ url_for('notifications.panel') }}">
+                    {% include "_bell_panel.html" %}
+                </div>
+            </details>
+            {# Today's rate, always in sight: every conversion on the page uses it. #}
+            {% set rate = current_rate() %}
+            <a href="{{ url_for('settings.index') }}" class="lang-toggle rate-chip {% if not rate %}rate-chip--missing{% endif %}" title="{{ t['settings.usd_gnf_rate'] }}">
+                <span class="material-symbols-outlined">swap_horiz</span>
+                {% if rate %}1&nbsp;USD = {{ rate|num }}&nbsp;GNF{% else %}{{ t['rate.missing'] }}{% endif %}
+            </a>
+            {# Reload: the page again, as a fresh visit -- never a form sent twice. #}
+            <button type="button" class="lang-toggle" id="reload-page" title="{{ t['btn.reload'] }}" aria-label="{{ t['btn.reload'] }}">
+                <span class="material-symbols-outlined">refresh</span>
+            </button>
+            {# The icon shows what you would get, not what you have. #}
+            <a href="{{ url_for('set_theme', theme='light' if theme == 'dark' else 'dark') }}"
+               class="lang-toggle theme-toggle" id="theme-toggle"
+               data-to-dark="{{ url_for('set_theme', theme='dark') }}"
+               data-to-light="{{ url_for('set_theme', theme='light') }}"
+               data-label-dark="{{ t['theme.dark'] }}" data-label-light="{{ t['theme.light'] }}"
+               title="{{ t['theme.light'] if theme == 'dark' else t['theme.dark'] }}"
+               aria-label="{{ t['theme.light'] if theme == 'dark' else t['theme.dark'] }}">
+                <span class="material-symbols-outlined">{{ 'light_mode' if theme == 'dark' else 'dark_mode' }}</span>
+            </a>
+            <a href="{{ url_for('set_language', lang='fr' if lang == 'en' else 'en') }}" class="lang-toggle">
+                <span class="material-symbols-outlined">translate</span> {{ 'EN' if lang == 'fr' else 'FR' }}
+            </a>
+        </header>
+
+        <div class="content">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                <div class="flash-area">
+                    {% for msg in messages %}
+                        {% if msg.startswith('error|') %}
+                        <div class="alert alert--error">{{ msg[6:] }}</div>
+                        {% elif msg.startswith('success|') %}
+                        <div class="alert alert--success">{{ msg[8:] }}</div>
+                        {% elif msg.startswith('warning|') %}
+                        <div class="alert alert--warning">{{ msg[8:] }}</div>
+                        {% elif msg.startswith('info|') %}
+                        <div class="alert">{{ msg[5:] }}</div>
+                        {% else %}
+                        <div class="alert">{{ msg }}</div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <script>window.FW = { cancel: {{ t['btn.cancel']|tojson }} };</script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v={{ v }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

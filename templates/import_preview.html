@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t['import.preview_title'] }}{% endblock %}
+{% block page_title %}{{ t['import.preview_title'] }}{% endblock %}
+
+{% block content %}
+<form method="post" action="{{ url_for('importer.confirm') }}" class="import-form">
+    {{ csrf_field() }}
+
+    <section class="card">
+        <div class="card-header">
+            <div class="header-title"><h2>{{ filename }}</h2></div>
+            <div class="header-actions">
+                <button type="submit" formaction="{{ url_for('importer.discard') }}" formnovalidate class="btn btn--outlined">{{ t['import.discard'] }}</button>
+            </div>
+        </div>
+        <p class="muted small">{% for name, kind in p.sheets %}{{ t['import.sheet_' + kind] % {'name': name} }}{% if not loop.last %} · {% endif %}{% else %}{{ t['import.no_sheets'] }}{% endfor %}</p>
+        {% for w in p.warnings %}<div class="alert alert--warning" style="margin-top:10px;">{{ w }}</div>{% endfor %}
+        {% if legend %}<p class="muted small" style="margin-top:8px;">{{ t['import.legend'] }} {% for k, v in legend.items() %}<code>{{ k|upper }}</code> = {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+        {% if not current_rate() %}<div class="alert alert--warning" style="margin-top:10px;">{{ t['import.warn.no_rate'] }}</div>{% endif %}
+    </section>
+
+    {# ── 1. Which model each abbreviation of the file stands for ── #}
+    {% if p.tokens %}
+    <section class="card">
+        <div class="card-header"><h2>1. {{ t['import.mapping'] }}</h2></div>
+        <p class="muted small" style="margin-top:-4px;">{{ t['import.mapping_intro'] }}</p>
+        <div class="table-wrap"><table class="data-table import-map">
+            <thead><tr><th>{{ t['import.in_file'] }}</th><th>{{ t['import.model'] }}</th><th>{{ t['import.new_model'] }}</th></tr></thead>
+            <tbody>
+            {% for tok in p.tokens %}
+            {% set i = loop.index0 %}
+            {% set g = guesses[tok] %}
+            <tr>
+                <td><code>{{ tok }}</code></td>
+                <td>
+                    <select name="map_{{ i }}" class="js-map" data-row="{{ i }}" required>
+                        <option value="" {% if not g %}selected{% endif %}>—</option>
+                        {% for pr in products %}<option value="{{ pr.id }}" {% if g and g.id == pr.id %}selected{% endif %}>{{ pr.name }}{% if pr.code %} ({{ pr.code }}){% endif %}</option>{% endfor %}
+                        <option value="new">{{ t['import.create_model'] }}</option>
+                    </select>
+                    {% if g %}<div class="small muted">{{ t['import.guessed'] }}</div>{% endif %}
+                </td>
+                <td class="js-new" data-row="{{ i }}">
+                    <input type="text" name="new_name_{{ i }}" value="{{ tok }}" aria-label="{{ t['product.name'] }}">
+                    <select name="new_cat_{{ i }}" aria-label="{{ t['product.category'] }}">
+                        {% for c in categories %}<option value="{{ c }}" {% if c == guess_category(tok) %}selected{% endif %}>{{ t['category.' + c] }}</option>{% endfor %}
+                    </select>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table></div>
+    </section>
+    {% endif %}
+
+    {# ── 2. Purchases ── #}
+    {% if p.purchases %}
+    <section class="card">
+        <div class="card-header">
+            <h2>2. {{ t['nav.purchases'] }} · {{ p.purchases|length }}</h2>
+            <label class="checkbox-item"><input type="checkbox" name="with_purchases" value="1" checked><span>{{ t['import.do_purchases'] }}</span></label>
+        </div>
+        <div class="form-row" style="max-width:720px;">
+            <div class="field">
+                <select name="supplier_id" id="supplier_id" class="js-supplier">
+                    {% for s in suppliers %}<option value="{{ s.id }}" {% if supplier_guess and supplier_guess.id == s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+                    <option value="new" {% if not supplier_guess %}selected{% endif %}>{{ t['import.create_supplier'] }}</option>
+                </select>
+                <label for="supplier_id">{{ t['purchase.supplier'] }}</label>
+            </div>
+            <div class="field js-supplier-new">
+                <input type="text" name="supplier_name" id="supplier_name" value="{{ supplier_name_guess }}" placeholder="{{ t['import.supplier_name_ph'] }}">
+                <label for="supplier_name">{{ t['import.supplier_name'] }}</label>
+            </div>
+        </div>
+        <div class="table-wrap"><table class="data-table">
+            <thead><tr>
+                <th>{{ t['purchase.invoice_number'] }}</th><th>{{ t['purchase.invoice_date'] }}</th><th>{{ t['purchase.port'] }}</th>
+                <th>{{ t['purchase.lines'] }}</th><th class="num">{{ t['purchase.total'] }}</th><th class="num">{{ t['import.deposit'] }}</th>
+                <th>{{ t['purchase.stage'] }}</th>
+            </tr></thead>
+            <tbody>
+            {% for row in p.purchases %}
+            <tr>
+                <td><strong>{{ row.number }}</strong><div class="small muted">{{ t['import.row'] }} {{ row.rows|join(', ') }}</div></td>
+                <td>{{ row.date|fdate }}</td>
+                <td>{{ row.port or '—' }}</td>
+                <td class="small">{% for q, tok in row['items'] %}{{ q }}× {{ tok }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+                <td class="num">{{ row.total|money('USD') if row.total is not none else '—' }}</td>
+                <td class="num">{{ row.deposit|money('USD') if row.deposit else '—' }}{% if row.fully_paid %}<div class="small">{{ t['import.fully_paid'] }}</div>{% endif %}</td>
+                <td><span class="badge badge--stage-{{ 'in_stock' if row.delivered else 'ordered' }}">{{ t['stage.' + ('in_stock' if row.delivered else 'ordered')] }}</span></td>
+            </tr>
+            {% if row.warnings %}<tr class="import-warn"><td colspan="7">{% for w in row.warnings %}<span>{{ w }}</span>{% endfor %}</td></tr>{% endif %}
+            {% endfor %}
+            </tbody>
+        </table></div>
+        <p class="muted small">{{ t['import.purchases_note'] }}</p>
+    </section>
+    {% endif %}
+
+    {# ── 3. Sales ── #}
+    {% if p.sales %}
+    <section class="card">
+        <div class="card-header">
+            <h2>3. {{ t['nav.sales'] }} · {{ p.sales|length }}</h2>
+            <label class="checkbox-item"><input type="checkbox" name="with_sales" value="1" checked><span>{{ t['import.do_sales'] }}</span></label>
+        </div>
+        <div class="table-wrap"><table class="data-table">
+            <thead><tr>
+                <th>{{ t['sale.customer'] }}</th><th>{{ t['import.model'] }}</th><th class="num">{{ t['purchase.quantity'] }}</th>
+                <th class="num">{{ t['sale.price'] }}</th><th class="num">{{ t['import.paid'] }}</th><th>{{ t['payment.method'] }}</th>
+            </tr></thead>
+            <tbody>
+            {% for row in p.sales %}
+            <tr>
+                <td><strong>{{ row.name }}</strong><div class="small muted">{{ row.sheet }} · {{ t['import.row'] }} {{ row.row }}</div></td>
+                <td>{{ row.model }}</td>
+                <td class="num">{{ row.qty }}</td>
+                <td class="num">{{ row.price|money(row.currency) if row.price is not none else '—' }}</td>
+                <td class="num">{{ row.paid|money(row.paid_currency) if row.paid else '—' }}</td>
+                <td>{{ t['method.bank'] if row.bank else t['method.cash'] }}</td>
+            </tr>
+            {% if row.warnings %}<tr class="import-warn"><td colspan="6">{% for w in row.warnings %}<span>{{ w }}</span>{% endfor %}</td></tr>{% endif %}
+            {% endfor %}
+            </tbody>
+        </table></div>
+        <p class="muted small">{{ t['import.sales_note'] }}</p>
+    </section>
+    {% endif %}
+
+    <section class="card">
+        <label class="checkbox-item"><input type="checkbox" name="with_payments" value="1" checked>
+            <span><strong>{{ t['import.do_payments'] }}</strong> <span class="muted small">{{ t['import.do_payments_hint'] }}</span></span></label>
+        <div class="form-actions" style="margin-top:14px;">
+            <button type="submit" class="btn btn--primary"><span class="material-symbols-outlined">upload_file</span> {{ t['import.confirm'] }}</button>
+            <a href="{{ url_for('importer.upload') }}" class="btn btn--outlined">{{ t['btn.back'] }}</a>
+        </div>
+        <p class="muted small" style="margin-top:8px;">{{ t['import.confirm_note'] }}</p>
+    </section>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// "Create a model" opens the name and category of the new model on its row;
+// any other choice hides them. The supplier's name shows only for a new one.
+(function () {
+    function sync(sel) {
+        var cell = document.querySelector('.js-new[data-row="' + sel.dataset.row + '"]');
+        if (cell) cell.classList.toggle("is-off", sel.value !== "new");
+    }
+    document.querySelectorAll(".js-map").forEach(function (s) { sync(s); s.addEventListener("change", function () { sync(s); }); });
+    var sup = document.querySelector(".js-supplier"), box = document.querySelector(".js-supplier-new");
+    if (sup && box) {
+        var f = function () { box.hidden = sup.value !== "new"; };
+        sup.addEventListener("change", f); f();
+    }
+})();
+</script>
+{% endblock %}

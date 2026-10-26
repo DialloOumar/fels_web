@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% from "_filters.html" import filter_bar, filter_select with context %}
+{% from "_pager.html" import pager with context %}
+{% from "_macros.html" import money_pair, export_button with context %}
+
+{% block title %}{{ t['nav.payments'] }}{% endblock %}
+{% block page_title %}{{ t['nav.payments'] }}{% endblock %}
+
+{% block content %}
+{# What came in and what went out, one figure per currency: USD and GNF are
+   never added together here. #}
+{% set filtered = direction or currency or method or voided or date_from or date_to or search %}
+<div class="stat-grid">
+    {% for cur in currencies %}
+    {% set inn = totals.get(('in', cur), 0) %}
+    {% set out = totals.get(('out', cur), 0) %}
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--teal material-symbols-outlined">download</span>
+        <div><div class="stat-value">{{ inn|money(cur) }}</div><div class="stat-label">{{ t['ledger.total_in'] }} · {{ cur }}{% if filtered %} · {{ t['ledger.filtered'] }}{% endif %}</div></div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--amber material-symbols-outlined">upload_file</span>
+        <div><div class="stat-value">{{ out|money(cur) }}</div><div class="stat-label">{{ t['ledger.total_out'] }} · {{ cur }}{% if filtered %} · {{ t['ledger.filtered'] }}{% endif %}</div></div>
+    </div>
+    {% endfor %}
+</div>
+
+<section class="card">
+    <div class="card-header card-header--end">
+        <div class="header-actions">{{ export_button() }}</div>
+    </div>
+
+    {% call filter_bar(search, active=(direction or currency or method or voided or date_from or date_to)) %}
+        {{ filter_select('direction', t['ledger.direction'], [('', t['list.all'])] + opts.direction, direction) }}
+        {{ filter_select('currency', t['purchase.currency'], [('', t['list.all'])] + opts.currency, currency) }}
+        {{ filter_select('method', t['payment.method'], [('', t['list.all'])] + opts.method, method) }}
+        {{ filter_select('voided', t['ledger.status'], [('', t['ledger.voided_exclude'])] + opts.voided, voided) }}
+        <label class="filter-select {% if date_from %}filter-select--on{% endif %}"><span>{{ t['ledger.from'] }}</span>
+            <input type="date" name="from" value="{{ date_from }}" data-autosubmit-date></label>
+        <label class="filter-select {% if date_to %}filter-select--on{% endif %}"><span>{{ t['ledger.to'] }}</span>
+            <input type="date" name="to" value="{{ date_to }}" data-autosubmit-date></label>
+    {% endcall %}
+
+    {% if rows %}
+    <div class="table-desktop table-wrap">
+    <table class="data-table">
+        <thead><tr>
+            <th>{{ t['payment.paid_on'] }}</th>
+            <th>{{ t['ledger.direction'] }}</th>
+            <th>{{ t['ledger.party'] }}</th>
+            <th class="col-secondary">{{ t['payment.method'] }}</th>
+            <th class="num">{{ t['payment.amount'] }}</th>
+        </tr></thead>
+        <tbody>
+        {% for p in rows %}
+        {% set party, doc = counterparty(p) %}
+        <tr class="{% if p.is_voided %}row-voided{% endif %}">
+            <td>{{ p.paid_on|fdate }}</td>
+            <td><span class="badge badge--dir-{{ p.direction }}">{{ t['ledger.dir.' + p.direction] }}</span>
+                {% if p.receipt_number %}<div class="small"><strong>{{ p.receipt_number }}</strong></div>{% endif %}</td>
+            <td>{{ party }}
+                <div class="small muted">
+                    {% if p.sale %}<a href="{{ url_for('sales.detail', sid=p.sale_id) }}">{{ doc }}</a>
+                    {% elif p.purchase %}<a href="{{ url_for('purchases.detail', pid=p.purchase_id) }}">{{ doc }}</a>
+                    {% else %}{{ t['cost.kind.' + p.purchase_cost.kind] }} · <a href="{{ url_for('purchases.detail', pid=p.purchase_cost.purchase_id) }}">{{ doc }}</a>{% endif %}
+                    {% if p.reference %} · {{ p.reference }}{% endif %}
+                </div>
+                {% if p.is_voided %}<div class="small voided-note">{{ t['payment.voided_on'] }} {{ p.voided_at|fdate }} · {{ p.void_reason }}</div>{% endif %}</td>
+            <td class="col-secondary">{{ t['method.' + p.method] }}</td>
+            <td class="num {{ 'cash-in' if p.direction == 'in' else '' }}">{{ money_pair(p.amount, p.currency, p.rate) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <div class="list-cards">
+        {% for p in rows %}
+        {% set party, doc = counterparty(p) %}
+        <div class="list-card {% if p.is_voided %}row-voided{% endif %}">
+            <div class="list-card__top"><strong>{{ party }}</strong><span class="list-card__amount">{{ p.amount|money(p.currency) }}</span></div>
+            <div class="list-card__meta muted"><span class="badge badge--dir-{{ p.direction }}">{{ t['ledger.dir.' + p.direction] }}</span> {{ p.paid_on|fdate }} · {{ doc }} · {{ t['method.' + p.method] }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {{ pager(pagination, 'payments.index') }}
+    {% else %}
+    <div class="empty-state">
+        <span class="material-symbols-outlined">payments</span>
+        <p>{{ t['list.no_match'] if filtered else t['ledger.empty'] }}</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

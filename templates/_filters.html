@@ -1,0 +1,38 @@
+{# A list page's filter bar: a search box and dropdowns, in one GET form.
+
+   A dropdown sends the form as soon as it changes (main.js, data-autosubmit);
+   without JavaScript the Filtrer button does the same. "Effacer" appears once
+   anything narrows the list, and goes back to the bare list.
+
+   Usage:
+     {% from "_filters.html" import filter_bar, filter_select with context %}
+     {% call filter_bar(search, active=(supplier_id or stage), keep={'archived': ...}) %}
+         {{ filter_select('stage', t['purchase.stage'], [('', t['list.all'])] + options, stage) }}
+     {% endcall %}
+#}
+{% macro filter_select(name, label, options, value) -%}
+<label class="filter-select {% if value not in (none, '', 0) %}filter-select--on{% endif %}">
+    <span>{{ label }}</span>
+    <select name="{{ name }}" data-autosubmit aria-label="{{ label }}">
+        {% for v, text in options %}
+        <option value="{{ v }}" {% if (v|string) == ((value if value is not none else '')|string) %}selected{% endif %}>{{ text }}</option>
+        {% endfor %}
+    </select>
+</label>
+{%- endmacro %}
+
+{% macro filter_bar(search, active=false, keep={}) -%}
+<form method="get" class="filter-bar filter-bar--live">
+    {% for name, val in keep.items() %}
+    {% if val %}<input type="hidden" name="{{ name }}" value="{{ val }}">{% endif %}
+    {% endfor %}
+    <label class="filter-search">
+        <input type="search" name="q" value="{{ search or '' }}" placeholder="{{ t['search.placeholder'] }}">
+    </label>
+    {{ caller() }}
+    <button type="submit" class="btn btn--sm btn--primary">{{ t['search.filter'] }}</button>
+    {% if search or active %}
+    <a href="{{ url_for(request.endpoint, **keep) }}" class="btn btn--sm btn--outlined">{{ t['search.clear'] }}</a>
+    {% endif %}
+</form>
+{%- endmacro %}

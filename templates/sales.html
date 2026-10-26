@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "_filters.html" import filter_bar, filter_select with context %}
+{% from "_pager.html" import pager with context %}
+{% from "_macros.html" import money_pair, pay_badge, sale_badge, export_button with context %}
+
+{% block title %}{{ t['nav.sales'] }}{% endblock %}
+{% block page_title %}{{ t['nav.sales'] }}{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header card-header--end">
+        <div class="header-actions">
+            {{ export_button() }}
+            <a href="{{ url_for('sales.new') }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['sale.new'] }}</a>
+        </div>
+    </div>
+
+    {% call filter_bar(search, active=(customer_id or status or pay)) %}
+        {{ filter_select('customer', t['sale.customer'], [('', t['list.all'])] + opts.customers, customer_id) }}
+        {{ filter_select('status', t['sale.status'], [('', t['list.all'])] + opts.statuses, status) }}
+        {{ filter_select('pay', t['purchase.payment'], [('', t['list.all'])] + opts.pay, pay) }}
+    {% endcall %}
+
+    {% if rows %}
+    <div class="table-desktop table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>{{ t['sale.number'] }}</th>
+                <th>{{ t['sale.customer'] }}</th>
+                <th class="col-secondary">{{ t['sale.date'] }}</th>
+                <th class="col-secondary">{{ t['sale.vehicles'] }}</th>
+                <th>{{ t['sale.status'] }}</th>
+                <th class="num">{{ t['sale.total'] }}</th>
+                <th class="num">{{ t['purchase.balance'] }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in rows %}
+            <tr class="{% if s.status == 'cancelled' %}row-voided{% endif %}">
+                <td><a href="{{ url_for('sales.detail', sid=s.id) }}"><strong>{{ s.number }}</strong></a></td>
+                <td>{{ s.customer.name }}</td>
+                <td class="col-secondary">{{ s.sale_date|fdate }}</td>
+                <td class="col-secondary small">{% for l in s.lines %}{{ l.product.code or l.product.name }}{% if not l.unit_id %} <span class="muted">({{ t['sale.unit_tbd_short'] }})</span>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+                <td>{{ sale_badge(s.status) }}</td>
+                <td class="num">{{ money_pair(s.total, s.currency) }}</td>
+                <td class="num">{{ pay_badge(s.pay_status) }}{% if s.balance > 0 %}<span class="money-alt">{{ s.balance|money(s.currency) }}</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <div class="list-cards">
+        {% for s in rows %}
+        <a class="list-card list-card--link" href="{{ url_for('sales.detail', sid=s.id) }}">
+            <div class="list-card__top"><strong>{{ s.number }}</strong>{{ sale_badge(s.status) }}</div>
+            <div class="list-card__meta muted">{{ s.customer.name }} · {{ s.sale_date|fdate }}</div>
+            <div class="list-card__top">
+                <span class="list-card__amount">{{ s.total|money(s.currency) }}</span>
+                {{ pay_badge(s.pay_status) }}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {{ pager(pagination, 'sales.index') }}
+    {% else %}
+    <div class="empty-state">
+        <span class="material-symbols-outlined">point_of_sale</span>
+        <p>{{ t['list.no_match'] if (search or customer_id or status or pay) else t['sale.empty'] }}</p>
+        {% if not (search or customer_id or status or pay) %}
+        <a href="{{ url_for('sales.new') }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['sale.new'] }}</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

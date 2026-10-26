@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% from "_search.html" import searchbox with context %}
+{% from "_pager.html" import pager with context %}
+{% from "_macros.html" import row_actions, archive_toggle, export_button with context %}
+
+{% block title %}{{ t['nav.suppliers'] }}{% endblock %}
+{% block page_title %}{{ t['nav.suppliers'] }}{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header card-header--end">
+        <div class="header-actions">
+            {{ export_button() }}
+            {{ archive_toggle('suppliers.index', show_archived, archived_count) }}
+            <a href="{{ url_for('suppliers.new') }}" class="fab" data-modal-url="{{ url_for('suppliers.new') }}" data-modal-title="{{ t['supplier.new'] }}">
+                <span class="material-symbols-outlined">add</span> {{ t['supplier.new'] }}
+            </a>
+        </div>
+    </div>
+
+    {{ searchbox(search, {'archived': '1' if show_archived else ''}) }}
+
+    {% if rows %}
+    <div class="table-desktop">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>{{ t['supplier.name'] }}</th>
+                <th class="col-secondary">{{ t['supplier.country'] }}</th>
+                <th class="col-secondary">{{ t['supplier.contact'] }}</th>
+                <th>{{ t['supplier.default_currency'] }}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in rows %}
+            <tr>
+                <td><a href="{{ url_for('suppliers.detail', sid=s.id) }}"><strong>{{ s.name }}</strong></a></td>
+                <td class="col-secondary">{{ s.country or '—' }}</td>
+                <td class="col-secondary">{{ s.contact_name or '' }}{% if s.contact_name and s.phone %} · {% endif %}{{ s.phone or '' }}{% if not s.contact_name and not s.phone %}—{% endif %}</td>
+                <td><span class="chip">{{ s.default_currency }}</span></td>
+                <td class="row-actions">
+                    {{ row_actions(s, url_for('suppliers.edit', sid=s.id), url_for('suppliers.archive', sid=s.id),
+                                   url_for('suppliers.reactivate', sid=s.id), url_for('suppliers.delete', sid=s.id), t['supplier.edit']) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <div class="list-cards">
+        {% for s in rows %}
+        <div class="list-card">
+            <div class="list-card__top">
+                <a href="{{ url_for('suppliers.detail', sid=s.id) }}"><strong>{{ s.name }}</strong></a>
+                <span class="chip">{{ s.default_currency }}</span>
+            </div>
+            <div class="list-card__meta muted">{{ s.country or '' }}{% if s.country and s.phone %} · {% endif %}{{ s.phone or '' }}</div>
+            <div class="list-card__actions">
+                {{ row_actions(s, url_for('suppliers.edit', sid=s.id), url_for('suppliers.archive', sid=s.id),
+                               url_for('suppliers.reactivate', sid=s.id), url_for('suppliers.delete', sid=s.id), t['supplier.edit']) }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {{ pager(pagination, 'suppliers.index') }}
+    {% else %}
+    <div class="empty-state">
+        <span class="material-symbols-outlined">store</span>
+        <p>{{ t['list.no_match'] if search else (t['archive.none'] if show_archived else t['supplier.empty']) }}</p>
+        {% if not search and not show_archived %}
+        <a href="{{ url_for('suppliers.new') }}" class="fab" data-modal-url="{{ url_for('suppliers.new') }}" data-modal-title="{{ t['supplier.new'] }}">
+            <span class="material-symbols-outlined">add</span> {{ t['supplier.new'] }}
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

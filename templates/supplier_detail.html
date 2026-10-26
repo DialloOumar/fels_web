@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "_macros.html" import detail, money_pair, stage_badge, pay_badge with context %}
+
+{% block title %}{{ row.name }}{% endblock %}
+{% block page_title %}{{ row.name }}{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header">
+        <div class="header-title">
+            <a href="{{ url_for('suppliers.index') }}" class="btn btn--sm btn--tonal btn--icon" data-back title="{{ t['btn.back'] }}" aria-label="{{ t['btn.back'] }}">
+                <span class="material-symbols-outlined">arrow_back</span></a>
+            <h2>{{ t['supplier.details'] }}</h2>
+            {% if not row.is_active %}<span class="badge badge--inactive">{{ t['status.archived'] }}</span>{% endif %}
+        </div>
+        <a href="{{ url_for('suppliers.edit', sid=row.id) }}" class="btn btn--tonal"
+           data-modal-url="{{ url_for('suppliers.edit', sid=row.id) }}" data-modal-title="{{ t['supplier.edit'] }}">
+            <span class="material-symbols-outlined">edit</span> {{ t['btn.edit'] }}
+        </a>
+    </div>
+    <dl class="detail-grid">
+        {{ detail(t['supplier.country'], row.country) }}
+        {{ detail(t['supplier.default_currency'], row.default_currency) }}
+        {{ detail(t['supplier.contact'], row.contact_name) }}
+        {{ detail(t['field.phone'], row.phone) }}
+        {{ detail(t['field.email'], row.email) }}
+        {{ detail(t['field.address'], row.address) }}
+    </dl>
+    {% if row.note %}<p class="muted" style="margin-top:14px; white-space:pre-line;">{{ row.note }}</p>{% endif %}
+</section>
+
+{# What is owed: one figure per currency, since a USD invoice and a GNF one
+   do not add up. #}
+{% if bought %}
+<div class="stat-grid">
+    {% for cur, amount in owed.items() %}
+    <div class="stat-card">
+        <span class="stat-icon {{ 'stat-icon--green' if amount <= 0 else 'stat-icon--red' }} material-symbols-outlined">account_balance</span>
+        <div><div class="stat-value">{{ amount|money(cur) }}</div><div class="stat-label">{{ t['supplier.owed'] }} · {{ cur }}</div></div>
+    </div>
+    {% endfor %}
+    {% for cur, amount in bought.items() %}
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--blue material-symbols-outlined">request_quote</span>
+        <div><div class="stat-value">{{ amount|money(cur) }}</div><div class="stat-label">{{ t['supplier.bought'] }} · {{ cur }}</div></div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<section class="card">
+    <div class="card-header">
+        <h2>{{ t['supplier.purchases'] }} · {{ row.purchases|length }}</h2>
+        <a href="{{ url_for('purchases.new', supplier=row.id) }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['purchase.new'] }}</a>
+    </div>
+    {% if row.purchases %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['purchase.invoice_number'] }}</th>
+            <th class="col-secondary">{{ t['purchase.invoice_date'] }}</th>
+            <th>{{ t['purchase.stage'] }}</th>
+            <th class="num">{{ t['purchase.total'] }}</th>
+            <th class="num">{{ t['purchase.balance'] }}</th>
+        </tr></thead>
+        <tbody>
+        {% for p in row.purchases %}
+        <tr>
+            <td><a href="{{ url_for('purchases.detail', pid=p.id) }}"><strong>{{ p.invoice_number }}</strong></a></td>
+            <td class="col-secondary">{{ p.invoice_date|fdate }}</td>
+            <td>{{ stage_badge(p.stage) }}</td>
+            <td class="num">{{ money_pair(p.goods_total, p.currency) }}</td>
+            <td class="num">{{ pay_badge(p.pay_status) }}{% if p.balance > 0 %}<span class="money-alt">{{ p.balance|money(p.currency) }}</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['supplier.no_purchases'] }}</p></div>
+    {% endif %}
+</section>
+{% endblock %}

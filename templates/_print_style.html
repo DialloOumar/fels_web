@@ -1,0 +1,83 @@
+{# Shared style of the printed documents (receipt, statement). On screen: the
+   sheet on a grey desk under a slate toolbar with "Imprimer". On paper: the
+   sheet alone, A4, in black with the brand orange kept for the title rule. #}
+<style>
+    @page { size: A4 portrait; margin: 14mm 14mm 16mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Barlow", Arial, Helvetica, sans-serif; font-size: 12px; color: #0F172A; margin: 0; }
+    @font-face { font-family: "Barlow"; font-weight: 400; src: url("{{ url_for('static', filename='fonts/barlow-400.woff2') }}") format("woff2"); }
+    @font-face { font-family: "Barlow"; font-weight: 600; src: url("{{ url_for('static', filename='fonts/barlow-600.woff2') }}") format("woff2"); }
+    @font-face { font-family: "Barlow"; font-weight: 700; src: url("{{ url_for('static', filename='fonts/barlow-700.woff2') }}") format("woff2"); }
+
+    .doc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+                padding-bottom: 12px; border-bottom: 3px solid #C2410C; }
+    .doc-logo { height: 42px; width: auto; display: block; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .doc-company { margin-top: 6px; font-size: 10.5px; color: #475569; line-height: 1.5; }
+    .doc-title { text-align: right; }
+    .doc-title h1 { margin: 0; font-size: 20px; letter-spacing: .04em; text-transform: uppercase; }
+    .doc-title .doc-no { font-size: 15px; font-weight: 700; color: #C2410C; margin-top: 2px; }
+    .doc-title .doc-date { font-size: 11px; color: #475569; margin-top: 4px; }
+
+    .doc-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    .doc-box { border: 1px solid #CBD5E1; border-radius: 6px; padding: 10px 12px; }
+    .doc-box__label { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #64748B; margin-bottom: 4px; }
+    .doc-box__main { font-size: 13px; font-weight: 700; }
+
+    table.doc-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    .doc-table th { text-align: left; font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: #fff; background: #0F172A;
+                    padding: 6px 8px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .doc-table td { padding: 6px 8px; border-bottom: 1px solid #E2E8F0; vertical-align: top; }
+    .doc-table .r { text-align: right; white-space: nowrap; }
+    .doc-table tfoot td { font-weight: 700; border-top: 2px solid #0F172A; border-bottom: 0; }
+    .doc-table thead { display: table-header-group; }
+    .doc-table tr { break-inside: avoid; }
+
+    .doc-amount { margin: 18px 0; padding: 14px 16px; border: 2px solid #C2410C; border-radius: 8px;
+                  display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .doc-amount__label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #475569; font-weight: 700; }
+    .doc-amount__value { font-size: 24px; font-weight: 700; }
+    .doc-amount__alt { font-size: 11px; color: #475569; text-align: right; }
+
+    .doc-sums { margin-left: auto; width: 320px; margin-top: 8px; }
+    .doc-sums div { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #E2E8F0; }
+    .doc-sums div:last-child { border-bottom: 0; font-weight: 700; font-size: 13px; }
+    .muted { color: #64748B; }
+    .small { font-size: 10.5px; }
+
+    .doc-sign { display: flex; justify-content: space-between; gap: 40px; margin-top: 46px; break-inside: avoid; }
+    .doc-sign div { flex: 1; text-align: center; border-top: 1px solid #334155; padding-top: 6px; font-size: 10.5px; font-weight: 600; }
+    /* The stamp sits over the company's signature line: a 120px stamp in a
+       192px image (the SVG keeps 90 units round it for strokes that run past
+       the circle), pulled down so the line runs under it as on paper. */
+    .doc-sign__stamped { position: relative; border-top: 0 !important; padding-top: 0 !important; }
+    .doc-sign__stamped span { display: block; border-top: 1px solid #334155; padding-top: 6px; }
+    .doc-stamp { display: block; width: 192px; height: 192px; margin: -150px auto -46px; pointer-events: none;
+                 -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .doc-sign:has(.doc-stamp) { margin-top: 140px; }   /* room above the line for the stamp */
+    .doc-sign { align-items: flex-end; }   /* both signature lines on one level, stamp or not */
+    .doc-sign--single { justify-content: flex-end; }
+    .doc-sign--single > div { flex: 0 0 45%; }
+    .doc-foot { margin-top: 26px; padding-top: 8px; border-top: 1px solid #CBD5E1; font-size: 9.5px; color: #64748B;
+                display: flex; justify-content: space-between; gap: 10px; white-space: pre-line; }
+
+    @media screen {
+        html { background: #E2E8F0; }
+        body { max-width: 21cm; margin: 16px auto 40px; padding: 1.4cm 1.5cm; background: #fff;
+               border-radius: 10px; box-shadow: 0 8px 24px rgba(15,23,42,.16); }
+        .print-toolbar { position: sticky; top: 0; z-index: 5; display: flex; gap: 10px; align-items: center; justify-content: flex-end;
+                         margin: -1.4cm -1.5cm 20px; padding: 10px 1.5cm; border-radius: 10px 10px 0 0;
+                         background: #0F172A; color: #CBD5E1; font-size: 12px; }
+        .print-toolbar__hint { margin-right: auto; }
+        .print-toolbar a, .print-toolbar button { font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px; padding: 7px 14px;
+                         border: 1px solid #475569; background: transparent; color: #fff; text-decoration: none; }
+        .print-toolbar button { background: #EA580C; border-color: #EA580C; }
+        @media (max-width: 820px) {
+            body { margin: 0; padding: 12px 14px 30px; border-radius: 0; box-shadow: none; }
+            .print-toolbar { margin: -12px -14px 14px; padding: 10px 14px; border-radius: 0; flex-wrap: wrap; }
+            .doc-parties { grid-template-columns: 1fr; }
+            .doc-sums { width: 100%; }
+            .doc-table { font-size: 11px; }
+        }
+    }
+    @media print { .print-toolbar { display: none !important; } }
+</style>

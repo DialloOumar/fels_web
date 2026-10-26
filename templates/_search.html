@@ -1,0 +1,19 @@
+{# A search box for a list page.
+
+   The form posts back to the page it is on, so anything already chosen -- a
+   category, the archived toggle -- has to ride along hidden, or
+   searching would quietly widen the list back out. Pass those in `keep`. #}
+{% macro searchbox(value, keep={}) %}
+<form method="get" class="filter-bar filter-bar--search">
+    {% for name, val in keep.items() %}
+    {% if val %}<input type="hidden" name="{{ name }}" value="{{ val }}">{% endif %}
+    {% endfor %}
+    <label class="filter-search">
+        <input type="search" name="q" value="{{ value or '' }}" placeholder="{{ t['search.placeholder'] }}">
+    </label>
+    <button type="submit" class="btn btn--sm btn--primary">{{ t['search.filter'] }}</button>
+    {% if value %}
+    <a href="{{ url_for(request.endpoint, **keep) }}" class="btn btn--sm btn--outlined">{{ t['search.clear'] }}</a>
+    {% endif %}
+</form>
+{% endmacro %}

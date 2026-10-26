@@ -1,0 +1,89 @@
+{# Small pieces every page uses. Import with:
+   {% from "_macros.html" import money_pair, row_actions, archive_toggle with context %} #}
+
+{# An amount in its own currency, with the other currency beneath in grey at
+   `rate` (the rate stored on the row) or today's. The grey line disappears
+   when no rate is known: no conversion beats a wrong one. #}
+{% macro money_pair(amount, currency, rate=none) -%}
+<span class="money">{{ amount|money(currency) }}</span>
+{%- set c = converted(amount, currency, rate) %}
+{%- if c %}<span class="money-alt">≈ {{ c[0]|money(c[1]) }}</span>{% endif %}
+{%- endmacro %}
+
+{# Edit / archive / restore / delete, as icon buttons at the end of a row.
+   Deleting is offered only on an archived row with no history: anything a
+   purchase or a sale points to stays, archived. #}
+{% macro row_actions(row, edit_url, archive_url, reactivate_url, delete_url, edit_title) -%}
+<a href="{{ edit_url }}" class="btn btn--sm btn--tonal btn--icon"
+   data-modal-url="{{ edit_url }}" data-modal-title="{{ edit_title }}"
+   title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
+{%- if row.is_active %}
+<form method="post" action="{{ archive_url }}" style="display:inline"
+      data-confirm="{{ t['archive.confirm'] }}" data-confirm-title="{{ t['archive.title'] }}" data-confirm-ok="{{ t['btn.archive'] }}">
+    {{ csrf_field() }}
+    <button type="submit" class="btn btn--sm btn--tonal btn--icon" title="{{ t['btn.archive'] }}" aria-label="{{ t['btn.archive'] }}"><span class="material-symbols-outlined">archive</span></button>
+</form>
+{%- else %}
+<form method="post" action="{{ reactivate_url }}" style="display:inline">
+    {{ csrf_field() }}
+    <button type="submit" class="btn btn--sm btn--primary btn--icon" title="{{ t['btn.reactivate'] }}" aria-label="{{ t['btn.reactivate'] }}"><span class="material-symbols-outlined">unarchive</span></button>
+</form>
+{%- if not row.has_history %}
+<form method="post" action="{{ delete_url }}" style="display:inline"
+      data-confirm="{{ t['delete.confirm'] }}" data-confirm-title="{{ t['delete.title'] }}" data-confirm-ok="{{ t['btn.delete'] }}" data-confirm-danger>
+    {{ csrf_field() }}
+    <button type="submit" class="btn btn--sm btn--danger btn--icon" title="{{ t['delete.forever'] }}" aria-label="{{ t['delete.forever'] }}"><span class="material-symbols-outlined">delete</span></button>
+</form>
+{%- endif %}
+{%- endif %}
+{%- endmacro %}
+
+{# "Show archived (3)" / "Show active", for the card header of a list. #}
+{% macro archive_toggle(endpoint, show_archived, archived_count) -%}
+{% if show_archived %}
+<a href="{{ url_for(endpoint) }}" class="btn btn--sm btn--outlined">{{ t['archive.show_active'] }}</a>
+{% elif archived_count %}
+<a href="{{ url_for(endpoint, archived=1) }}" class="btn btn--sm btn--outlined">{{ t['archive.show_archived'] }} ({{ archived_count }})</a>
+{% endif %}
+{%- endmacro %}
+
+{# The Save / Cancel pair at the foot of every form. #}
+{% macro form_actions(cancel_url) -%}
+<div class="form-actions">
+    <button type="submit" class="btn btn--primary">
+        <span class="material-symbols-outlined">save</span> {{ t['btn.save'] }}
+    </button>
+    <a href="{{ cancel_url }}" class="btn btn--outlined" data-modal-cancel>{{ t['btn.cancel'] }}</a>
+</div>
+{%- endmacro %}
+
+{# A labelled detail, for the definition grid of a detail page. #}
+{% macro detail(label, value) -%}
+<div><dt>{{ label }}</dt><dd>{{ value if value else '—' }}</dd></div>
+{%- endmacro %}
+
+{# Where a purchase is on the road, one colour per stage. #}
+{% macro stage_badge(stage) -%}
+<span class="badge badge--stage-{{ stage }}">{{ t['stage.' + stage] }}</span>
+{%- endmacro %}
+
+{# Paid / part paid / unpaid (/ cancelled for a sale), read off the payments. #}
+{% macro pay_badge(status) -%}
+<span class="badge badge--pay-{{ status }}">{{ t['pay.' + status] }}</span>
+{%- endmacro %}
+
+{# A vehicle: available, reserved or delivered. #}
+{% macro unit_badge(status) -%}
+<span class="badge badge--unit-{{ status }}">{{ t['unit.status.' + status] }}</span>
+{%- endmacro %}
+
+{# A sale's life: pre-order, confirmed, delivered, cancelled. #}
+{% macro sale_badge(status) -%}
+<span class="badge badge--sale-{{ status }}">{{ t['sale.status.' + status] }}</span>
+{%- endmacro %}
+
+{# Download the list as it is filtered, every row, as an Excel sheet. #}
+{% macro export_button() -%}
+<a href="{{ url_for(request.endpoint, format='xlsx', **page_args()) }}" class="btn btn--sm btn--outlined" title="{{ t['export.title'] }}">
+    <span class="material-symbols-outlined">download</span> {{ t['export.excel'] }}</a>
+{%- endmacro %}

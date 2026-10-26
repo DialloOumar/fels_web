@@ -1,0 +1,16 @@
+# Auto-HTTPS reverse proxy. Caddy provisions and renews Let's Encrypt
+# certificates on its own; the only prerequisites are that the domain's A
+# record points at this server and ports 80 + 443 are open.
+#
+# The domain comes from .env (APP_DOMAIN), so this file is the same on every
+# install. With APP_DOMAIN=localhost Caddy serves a locally trusted
+# certificate instead.
+#
+# No contact email is set: renewal is automatic and needs none. To receive
+# Let's Encrypt notices anyway, add a global block at the top:
+#     { email you@yourdomain.com }
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:8000
+}

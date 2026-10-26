@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_search.html" import searchbox with context %}
+{% from "_pager.html" import pager with context %}
+
+{% block title %}{{ t['nav.errors'] }}{% endblock %}
+{% block page_title %}{{ t['nav.errors'] }}{% endblock %}
+
+{% block content %}
+<section class="card">
+    <p class="muted small" style="margin-bottom:12px;">{{ t['errors.intro'] }}</p>
+    {{ searchbox(search) }}
+    {% if rows %}
+    {% for e in rows %}
+    <details class="error-event">
+        <summary>
+            <code>{{ e.ref }}</code>
+            <span class="muted small">{{ e.created_at.strftime('%d/%m/%Y %H:%M') }} UTC</span>
+            <span class="small">{{ e.method }} {{ e.path }}</span>
+            {% if e.username %}<span class="muted small">· {{ e.username }}</span>{% endif %}
+            <span class="error-event__msg">{{ e.message }}</span>
+        </summary>
+        <pre class="error-event__trace">{{ e.traceback }}</pre>
+    </details>
+    {% endfor %}
+    {{ pager(pagination, 'settings.errors') }}
+    {% else %}
+    <div class="empty-state">
+        <span class="material-symbols-outlined">task_alt</span>
+        <p>{{ t['errors.empty'] }}</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

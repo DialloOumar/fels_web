@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "_filters.html" import filter_bar, filter_select with context %}
+{% from "_pager.html" import pager with context %}
+{% from "_macros.html" import row_actions, archive_toggle with context %}
+
+{% block title %}{{ t['nav.products'] }}{% endblock %}
+{% block page_title %}{{ t['nav.products'] }}{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header card-header--end">
+        <div class="header-actions">
+            {{ archive_toggle('products.index', show_archived, archived_count) }}
+            <a href="{{ url_for('products.new') }}" class="fab" data-modal-url="{{ url_for('products.new') }}" data-modal-title="{{ t['product.new'] }}">
+                <span class="material-symbols-outlined">add</span> {{ t['product.new'] }}
+            </a>
+        </div>
+    </div>
+
+    {% call filter_bar(search, active=category, keep={'archived': '1' if show_archived else ''}) %}
+        {{ filter_select('category', t['product.category'], [('', t['list.all'])] + category_opts, category) }}
+    {% endcall %}
+
+    {% if rows %}
+    <div class="table-desktop">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>{{ t['product.name'] }}</th>
+                <th>{{ t['product.code'] }}</th>
+                <th>{{ t['product.category'] }}</th>
+                <th class="col-secondary">{{ t['field.description'] }}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in rows %}
+            <tr>
+                <td><strong>{{ p.name }}</strong></td>
+                <td>{% if p.code %}<code>{{ p.code }}</code>{% else %}—{% endif %}</td>
+                <td><span class="chip chip--cat-{{ p.category }}">{{ t['category.' + p.category] }}</span></td>
+                <td class="col-secondary muted">{{ p.description or '' }}</td>
+                <td class="row-actions">
+                    {{ row_actions(p, url_for('products.edit', pid=p.id), url_for('products.archive', pid=p.id),
+                                   url_for('products.reactivate', pid=p.id), url_for('products.delete', pid=p.id), t['product.edit']) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <div class="list-cards">
+        {% for p in rows %}
+        <div class="list-card">
+            <div class="list-card__top">
+                <strong>{{ p.name }}</strong>
+                <span class="chip chip--cat-{{ p.category }}">{{ t['category.' + p.category] }}</span>
+            </div>
+            {% if p.code or p.description %}<div class="list-card__meta muted">{% if p.code %}<code>{{ p.code }}</code>{% endif %} {{ p.description or '' }}</div>{% endif %}
+            <div class="list-card__actions">
+                {{ row_actions(p, url_for('products.edit', pid=p.id), url_for('products.archive', pid=p.id),
+                               url_for('products.reactivate', pid=p.id), url_for('products.delete', pid=p.id), t['product.edit']) }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {{ pager(pagination, 'products.index') }}
+    {% else %}
+    <div class="empty-state">
+        <span class="material-symbols-outlined">category</span>
+        <p>{{ t['list.no_match'] if (search or category) else (t['archive.none'] if show_archived else t['product.empty']) }}</p>
+        {% if not search and not category and not show_archived %}
+        <a href="{{ url_for('products.new') }}" class="fab" data-modal-url="{{ url_for('products.new') }}" data-modal-title="{{ t['product.new'] }}">
+            <span class="material-symbols-outlined">add</span> {{ t['product.new'] }}
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

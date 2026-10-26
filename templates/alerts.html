@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t['notif.page_title'] }}{% endblock %}
+{% block page_title %}{{ t['notif.page_title'] }}{% endblock %}
+
+{% block content %}
+{% set total = groups.values()|map('length')|sum %}
+<section class="card">
+    <p class="muted small" style="margin:0;">{{ t['notif.page_intro'] }}
+        <a href="{{ url_for('settings.index') }}">{{ t['notif.thresholds'] % {'stuck': stuck_days, 'rate': rate_days} }}</a></p>
+</section>
+
+{% if not total %}
+<section class="card">
+    <div class="empty-state empty-state--soft">
+        <span class="material-symbols-outlined">task_alt</span>
+        <p>{{ t['notif.empty'] }}</p>
+    </div>
+</section>
+{% endif %}
+
+{% for kind, items in groups.items() if items %}
+<section class="card alert-kind alert-kind--{{ kinds[kind].level }}">
+    <div class="card-header">
+        <div class="alert-kind__head">
+            <span class="material-symbols-outlined">{{ kinds[kind].icon }}</span>
+            <h2>{{ t['alert.title.' + kind] }}</h2>
+            <span class="alert-kind__count">{{ items|length }}</span>
+        </div>
+    </div>
+    <p class="muted small" style="margin:-4px 0 8px;">{{ t['alert.help.' + kind] }}</p>
+    <ul class="attention-list">
+        {% for a in items %}
+        <li><a href="{{ a.url }}">{{ alert_text(a) }}</a></li>
+        {% endfor %}
+    </ul>
+</section>
+{% endfor %}
+{% endblock %}

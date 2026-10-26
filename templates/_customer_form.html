@@ -1,0 +1,34 @@
+{% from "_macros.html" import form_actions with context %}
+{% macro val(field) -%}{{ request.form.get(field) if request.method == 'POST' else ((row[field] or '') if row else '') }}{%- endmacro %}
+{% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+<form method="post" class="entry-form" data-modal-form
+      action="{{ url_for('customers.edit', cid=row.id) if row else url_for('customers.new') }}">
+    {{ csrf_field() }}
+    <div class="field">
+        <input type="text" id="name" name="name" placeholder=" " required value="{{ val('name') }}">
+        <label for="name">{{ t['customer.name'] }}</label>
+    </div>
+
+    <div class="form-row">
+        <div class="field">
+            <input type="tel" id="phone" name="phone" placeholder=" " value="{{ val('phone') }}">
+            <label for="phone">{{ t['field.phone'] }}</label>
+        </div>
+        <div class="field">
+            <input type="email" id="email" name="email" placeholder=" " autocapitalize="none" value="{{ val('email') }}">
+            <label for="email">{{ t['field.email'] }}</label>
+        </div>
+    </div>
+
+    <div class="field">
+        <input type="text" id="address" name="address" placeholder=" " value="{{ val('address') }}">
+        <label for="address">{{ t['field.address'] }}</label>
+    </div>
+
+    <div class="field">
+        <textarea id="note" name="note" rows="2" placeholder=" ">{{ val('note') }}</textarea>
+        <label for="note">{{ t['field.note'] }}</label>
+    </div>
+
+    {{ form_actions(url_for('customers.detail', cid=row.id) if row else url_for('customers.index')) }}
+</form>

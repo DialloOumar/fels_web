@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t['nav.import'] }}{% endblock %}
+{% block page_title %}{{ t['nav.import'] }}{% endblock %}
+
+{% block content %}
+<section class="card" style="max-width: 760px;">
+    {% if error %}<div class="alert alert--error" style="margin-bottom:14px;">{{ error }}</div>{% endif %}
+    <div class="welcome-hero">
+        <span class="welcome-hero__icon material-symbols-outlined">upload_file</span>
+        <div>
+            <h2>{{ t['import.title'] }}</h2>
+            <p class="muted">{{ t['import.intro'] }}</p>
+        </div>
+    </div>
+    <ol class="import-steps">
+        <li>{{ t['import.step1'] }}</li>
+        <li>{{ t['import.step2'] }}</li>
+        <li>{{ t['import.step3'] }}</li>
+    </ol>
+    <form method="post" enctype="multipart/form-data" class="entry-form">
+        {{ csrf_field() }}
+        <div class="field">
+            <input type="file" id="file" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+            <label for="file">{{ t['import.file'] }}</label>
+        </div>
+        <p class="muted small" style="margin:0;">{{ t['import.expected'] }}</p>
+        <div class="form-actions">
+            <button type="submit" class="btn btn--primary"><span class="material-symbols-outlined">visibility</span> {{ t['import.preview'] }}</button>
+        </div>
+    </form>
+</section>
+{% endblock %}

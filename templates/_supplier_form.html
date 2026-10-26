@@ -1,0 +1,58 @@
+{% from "_macros.html" import form_actions with context %}
+{% from "_hint.html" import hint with context %}
+{# Who the vehicles are bought from. A name is enough; the rest is there for
+   the day someone has to call them about an order. #}
+{% macro val(field) -%}{{ request.form.get(field) if request.method == 'POST' else ((row[field] or '') if row else '') }}{%- endmacro %}
+{% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+<form method="post" class="entry-form" data-modal-form
+      action="{{ url_for('suppliers.edit', sid=row.id) if row else url_for('suppliers.new') }}">
+    {{ csrf_field() }}
+    <div class="field">
+        <input type="text" id="name" name="name" placeholder=" " required value="{{ val('name') }}">
+        <label for="name">{{ t['supplier.name'] }}</label>
+    </div>
+
+    <div class="form-row">
+        <div class="field">
+            <input type="text" id="country" name="country" placeholder="{{ t['supplier.country_ph'] }}" value="{{ val('country') }}">
+            <label for="country">{{ t['supplier.country'] }}</label>
+        </div>
+        {% set cur = request.form.get('default_currency') or (row.default_currency if row else 'USD') %}
+        <div class="field">
+            <select id="default_currency" name="default_currency">
+                {% for c in currencies %}<option value="{{ c }}" {% if cur == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+            </select>
+            <label for="default_currency">{{ t['supplier.default_currency'] }}</label>
+            {{ hint('', t['supplier.default_currency_hint']) }}
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="field">
+            <input type="text" id="contact_name" name="contact_name" placeholder=" " value="{{ val('contact_name') }}">
+            <label for="contact_name">{{ t['supplier.contact'] }}</label>
+        </div>
+        <div class="field">
+            <input type="tel" id="phone" name="phone" placeholder=" " value="{{ val('phone') }}">
+            <label for="phone">{{ t['field.phone'] }}</label>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="field">
+            <input type="email" id="email" name="email" placeholder=" " autocapitalize="none" value="{{ val('email') }}">
+            <label for="email">{{ t['field.email'] }}</label>
+        </div>
+        <div class="field">
+            <input type="text" id="address" name="address" placeholder=" " value="{{ val('address') }}">
+            <label for="address">{{ t['field.address'] }}</label>
+        </div>
+    </div>
+
+    <div class="field">
+        <textarea id="note" name="note" rows="2" placeholder=" ">{{ val('note') }}</textarea>
+        <label for="note">{{ t['field.note'] }}</label>
+    </div>
+
+    {{ form_actions(url_for('suppliers.detail', sid=row.id) if row else url_for('suppliers.index')) }}
+</form>

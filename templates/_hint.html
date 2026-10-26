@@ -1,0 +1,21 @@
+{# A one-line hint with the long explanation folded behind a "?".
+
+   Forms were growing a paragraph under every field: three sentences each, on
+   fields most people fill without reading them once. The line under the field
+   says the one thing worth saying every time -- usually just "Facultatif." --
+   and the rest waits behind the mark for whoever wants it.
+
+   Opens on hover and on focus, so it is reachable by keyboard and by tapping
+   the mark on a phone, where there is no hover at all. It sits above the mark
+   because the modal it usually lives in scrolls, and anything hanging below a
+   field near the bottom would be cut off.
+
+   Usage:  {{ hint(t['form.optional'], t['product.code_hint']) }}
+           {{ hint('', t['supplier.default_currency_hint']) }}   (mark alone)
+#}
+{% macro hint(short, help) -%}
+<span class="field-hint">{% if short %}{{ short }}{% endif %}
+    <button type="button" class="hint-dot" aria-label="{{ t['hint.explain'] }}"
+            data-hint="{{ help }}">?</button>
+</span>
+{%- endmacro %}
