@@ -14,7 +14,7 @@
         <a href="{{ url_for('purchases.index', stage='in_stock') }}" class="btn btn--sm btn--outlined">
             <span class="material-symbols-outlined">warehouse</span> {{ t['stage.in_stock'] }} · {{ in_stock }}
         </a>
-        <a href="{{ url_for('purchases.new') }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['purchase.new'] }}</a>
+        {% if can('purchases', 'manage') %}<a href="{{ url_for('purchases.new') }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['purchase.new'] }}</a>{% endif %}
     </div>
 </div>
 
@@ -41,11 +41,11 @@
                         {% if d is none %}—{% else %}{{ d }} {{ t['unit.days'] }}{% endif %}
                     </span>
                     {% if nxt %}
-                    <a href="{{ url_for('purchases.stage', pid=p.id, to=nxt, back=url_for('purchases.pipeline')) }}"
+                    {% if can('purchases', 'manage') %}<a href="{{ url_for('purchases.stage', pid=p.id, to=nxt, back=url_for('purchases.pipeline')) }}"
                        class="btn btn--sm btn--tonal" data-modal-url="{{ url_for('purchases.stage', pid=p.id, to=nxt, back=url_for('purchases.pipeline')) }}"
                        data-modal-title="{{ t['purchase.change_stage'] }} · {{ p.invoice_number }}">
                         {{ t['stage.' + nxt] }} <span class="material-symbols-outlined">chevron_right</span>
-                    </a>
+                    </a>{% endif %}
                     {% endif %}
                 </div>
             </article>

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t['tabs.roles'] }} · {{ t['nav.users'] }}{% endblock %}
+{% block page_title %}{{ t['nav.users'] }}{% endblock %}
+
+{% block content %}
+<section class="card">
+    {% with active = 'roles' %}{% include "_user_tabs.html" %}{% endwith %}
+    <div class="card-header">
+        <p class="muted small" style="margin:0; flex:1;">{{ t['role.intro'] }}</p>
+        <a href="{{ url_for('users.role_new') }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['role.new'] }}</a>
+    </div>
+
+    {% if roles %}
+    <div class="role-list">
+        {% for r in roles %}
+        <article class="role-card">
+            <div class="role-card__head">
+                <div>
+                    <strong>{{ r.name }}</strong>
+                    <span class="muted small">· {{ t['role.users_n'] % {'n': r.users|length} }}</span>
+                    {% if r.description %}<div class="muted small">{{ r.description }}</div>{% endif %}
+                </div>
+                <div class="row-actions">
+                    <a href="{{ url_for('users.role_edit', rid=r.id) }}" class="btn btn--sm btn--tonal btn--icon" title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
+                    {% if not r.users %}
+                    <form method="post" action="{{ url_for('users.role_delete', rid=r.id) }}" style="display:inline"
+                          data-confirm="{{ t['delete.confirm'] }}" data-confirm-title="{{ t['delete.title'] }}" data-confirm-ok="{{ t['btn.delete'] }}" data-confirm-danger>
+                        {{ csrf_field() }}
+                        <button type="submit" class="btn btn--sm btn--tonal btn--icon" title="{{ t['btn.delete'] }}" aria-label="{{ t['btn.delete'] }}"><span class="material-symbols-outlined">delete</span></button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {# What the role opens, area by area: none left out, so the
+               absence of an area reads as "no access" at a glance. #}
+            <div class="role-card__perms">
+                {% for area in areas %}
+                {% set lvl = (r.permissions or {}).get(area) %}
+                <span class="perm-pill perm-pill--{{ lvl or 'none' }}">{{ t['perm.area.' + area] }}{% if lvl %} · {{ t['perm.level.' + lvl] }}{% endif %}</span>
+                {% endfor %}
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state"><span class="material-symbols-outlined">admin_panel_settings</span><p>{{ t['role.empty'] }}</p></div>
+    {% endif %}
+</section>
+{% endblock %}

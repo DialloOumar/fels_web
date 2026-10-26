@@ -29,15 +29,15 @@
    and the ones written as CSS content: below (the alert marks). The modal's
    close button is an inline SVG on purpose, so it never depends on the font.
 
-   The list as of v3 (61 names), fetched from the Google Fonts css2 URL
+   The list as of v4 (63 names), fetched from the Google Fonts css2 URL
    above (opsz 24 / wght 400 / FILL 0 / GRAD 0, icon_names= this list) and
    checked with fontTools that each name has its ligature:
-     account_balance, add, anchor, archive, arrow_back,
-     assured_workload, bar_chart, block, category, check,
-     check_circle, chevron_left, chevron_right, close,
+     account_balance, add, admin_panel_settings, anchor, archive,
+     arrow_back, assured_workload, bar_chart, block, category,
+     check, check_circle, chevron_left, chevron_right, close,
      currency_exchange, dark_mode, delete, description,
-     directions_boat, done, download, edit, error, handshake,
-     history, home, info, inventory_2, light_mode,
+     directions_boat, done, download, edit, error, group,
+     handshake, history, home, info, inventory_2, light_mode,
      local_shipping, lock_reset, logout, menu, notifications,
      payments, pending_actions, person, photo_camera,
      picture_as_pdf, point_of_sale, print, receipt_long, refresh,
@@ -82,7 +82,7 @@
     font-style: normal;
     font-weight: 400;
     font-display: block;
-    src: url("../fonts/material-symbols.woff2?v=3") format("woff2");
+    src: url("../fonts/material-symbols.woff2?v=4") format("woff2");
 }
 
 /* ── Design tokens (light) ── */
@@ -1868,3 +1868,30 @@ a.list-card--link:hover { border-color: var(--md-primary); }
     .sidebar-logo { padding-bottom: 4px; }
     .sidebar-logo-img { width: 92px; }
 }
+
+/* ── Users and roles ── */
+.badge--role-super { background: var(--md-primary-container); color: var(--md-on-primary-container); }
+.role-list { display: flex; flex-direction: column; gap: 10px; }
+.role-card { border: 1px solid var(--md-outline-variant); border-radius: var(--shape-md); padding: 12px 14px; }
+.role-card__head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.role-card__perms { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.perm-pill { font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: var(--shape-sm); white-space: nowrap; }
+.perm-pill--none { background: transparent; color: var(--md-outline); border: 1px dashed var(--md-outline-variant); text-decoration: line-through; }
+.perm-pill--view { background: var(--c-blue-bg); color: var(--c-blue); }
+.perm-pill--manage, .perm-pill--yes { background: var(--c-green-bg); color: var(--c-green); }
+.perm-quick { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.perm-grid { display: flex; flex-direction: column; }
+.perm-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--md-outline-variant); flex-wrap: wrap; }
+.perm-row:last-child { border-bottom: 0; }
+.perm-row__label { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 260px; }
+/* A segmented choice: no access | read | manage. */
+.seg { display: inline-flex; border: 1px solid var(--md-outline-variant); border-radius: var(--shape-control); overflow: hidden; flex: none; }
+.seg__opt { position: relative; cursor: pointer; }
+.seg__opt input { position: absolute; opacity: 0; pointer-events: none; }
+.seg__opt span { display: inline-block; padding: 6px 12px; font-size: 0.8rem; font-weight: 600; color: var(--md-on-surface-variant); }
+.seg__opt + .seg__opt span { border-left: 1px solid var(--md-outline-variant); }
+.seg__opt:hover span { background: var(--md-surface-container); }
+.seg__opt input:checked + span { background: var(--md-surface-container-high); color: var(--md-on-surface); }
+.seg__opt--view input:checked + span { background: var(--c-blue-bg); color: var(--c-blue); }
+.seg__opt--manage input:checked + span, .seg__opt--yes input:checked + span { background: var(--c-green-bg); color: var(--c-green); }
+.seg__opt input:focus-visible + span { outline: 2px solid var(--md-primary); outline-offset: -2px; }

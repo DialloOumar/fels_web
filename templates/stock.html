@@ -49,11 +49,11 @@
                 <td class="num">{{ money_pair(lc[0], lc[1]) if lc else '—' }}</td>
                 <td class="row-actions">
                     {% if u.status == 'available' %}
-                    <a href="{{ url_for('sales.new', unit=u.id) }}" class="btn btn--sm btn--tonal btn--icon" title="{{ t['unit.sell'] }}" aria-label="{{ t['unit.sell'] }}"><span class="material-symbols-outlined">sell</span></a>
+                    {% if can('sales', 'manage') %}<a href="{{ url_for('sales.new', unit=u.id) }}" class="btn btn--sm btn--tonal btn--icon" title="{{ t['unit.sell'] }}" aria-label="{{ t['unit.sell'] }}"><span class="material-symbols-outlined">sell</span></a>{% endif %}
                     {% endif %}
-                    <a href="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" class="btn btn--sm btn--tonal btn--icon"
+                    {% if can('stock', 'manage') %}<a href="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" class="btn btn--sm btn--tonal btn--icon"
                        data-modal-url="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" data-modal-title="{{ t['unit.edit'] }}"
-                       title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
+                       title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>{% endif %}
                 </td>
             </tr>
             {% endfor %}
@@ -68,9 +68,9 @@
             <div class="list-card__top"><strong>{{ u.product.name }}</strong>{{ unit_badge(u.status) }}</div>
             <div class="list-card__meta muted">{% if u.chassis_number %}<code>{{ u.chassis_number }}</code> · {% endif %}{{ p.invoice_number }} · {{ t['stage.' + p.stage] }}</div>
             <div class="list-card__actions">
-                <a href="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" class="btn btn--sm btn--tonal btn--icon"
+                {% if can('stock', 'manage') %}<a href="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" class="btn btn--sm btn--tonal btn--icon"
                    data-modal-url="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" data-modal-title="{{ t['unit.edit'] }}"
-                   title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
+                   title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>{% endif %}
             </div>
         </div>
         {% endfor %}

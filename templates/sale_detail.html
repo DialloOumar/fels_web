@@ -19,32 +19,32 @@
         </div>
         <div class="header-actions">
             {% if editable %}
-            <a href="{{ url_for('sales.edit', sid=row.id) }}" class="btn btn--tonal"><span class="material-symbols-outlined">edit</span> {{ t['btn.edit'] }}</a>
+            {% if can('sales', 'manage') %}<a href="{{ url_for('sales.edit', sid=row.id) }}" class="btn btn--tonal"><span class="material-symbols-outlined">edit</span> {{ t['btn.edit'] }}</a>{% endif %}
             {% endif %}
             {% if row.status == 'preorder' %}
-            <form method="post" action="{{ url_for('sales.confirm', sid=row.id) }}" style="display:inline">
+            {% if can('sales', 'manage') %}<form method="post" action="{{ url_for('sales.confirm', sid=row.id) }}" style="display:inline">
                 {{ csrf_field() }}
                 <button type="submit" class="btn btn--tonal"><span class="material-symbols-outlined">check</span> {{ t['sale.do_confirm'] }}</button>
-            </form>
+            </form>{% endif %}
             {% endif %}
             {% if editable %}
-            <a href="{{ url_for('sales.deliver', sid=row.id) }}" class="btn btn--primary"
+            {% if can('sales', 'manage') %}<a href="{{ url_for('sales.deliver', sid=row.id) }}" class="btn btn--primary"
                data-modal-url="{{ url_for('sales.deliver', sid=row.id) }}" data-modal-title="{{ t['sale.do_deliver'] }}">
-                <span class="material-symbols-outlined">local_shipping</span> {{ t['sale.do_deliver'] }}</a>
+                <span class="material-symbols-outlined">local_shipping</span> {{ t['sale.do_deliver'] }}</a>{% endif %}
             {% endif %}
             {% if row.status == 'delivered' %}
-            <form method="post" action="{{ url_for('sales.undeliver', sid=row.id) }}" style="display:inline"
+            {% if can('sales', 'manage') %}<form method="post" action="{{ url_for('sales.undeliver', sid=row.id) }}" style="display:inline"
                   data-confirm="{{ t['sale.undeliver_confirm'] }}" data-confirm-title="{{ t['sale.do_undeliver'] }}" data-confirm-ok="{{ t['sale.do_undeliver'] }}">
                 {{ csrf_field() }}
                 <button type="submit" class="btn btn--outlined">{{ t['sale.do_undeliver'] }}</button>
-            </form>
+            </form>{% endif %}
             {% endif %}
             {% if editable and not live_receipts %}
-            <form method="post" action="{{ url_for('sales.cancel', sid=row.id) }}" style="display:inline"
+            {% if can('sales', 'manage') %}<form method="post" action="{{ url_for('sales.cancel', sid=row.id) }}" style="display:inline"
                   data-confirm="{{ t['sale.cancel_confirm'] }}" data-confirm-title="{{ t['sale.do_cancel'] }}" data-confirm-ok="{{ t['sale.do_cancel'] }}" data-confirm-danger>
                 {{ csrf_field() }}
                 <button type="submit" class="btn btn--sm btn--tonal btn--icon" title="{{ t['sale.do_cancel'] }}" aria-label="{{ t['sale.do_cancel'] }}"><span class="material-symbols-outlined">block</span></button>
-            </form>
+            </form>{% endif %}
             {% endif %}
         </div>
     </div>
@@ -119,9 +119,9 @@
     <div class="card-header">
         <h2>{{ t['sale.receipts'] }}</h2>
         {% if row.status != 'cancelled' %}
-        <a href="{{ url_for('sales.receipt_new', sid=row.id) }}" class="fab"
+        {% if can('sales', 'manage') %}<a href="{{ url_for('sales.receipt_new', sid=row.id) }}" class="fab"
            data-modal-url="{{ url_for('sales.receipt_new', sid=row.id) }}" data-modal-title="{{ t['receipt.new'] }} · {{ row.number }}">
-            <span class="material-symbols-outlined">add</span> {{ t['receipt.new'] }}</a>
+            <span class="material-symbols-outlined">add</span> {{ t['receipt.new'] }}</a>{% endif %}
         {% endif %}
     </div>
     {% if row.payments %}
@@ -146,9 +146,9 @@
                 <a href="{{ url_for('sales.receipt_print', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon" target="_blank" rel="noopener"
                    title="{{ t['receipt.print'] }}" aria-label="{{ t['receipt.print'] }}"><span class="material-symbols-outlined">print</span></a>
                 {% if not p.is_voided %}
-                <a href="{{ url_for('payments.void', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon"
+                {% if can('void', 'yes') %}<a href="{{ url_for('payments.void', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon"
                    data-modal-url="{{ url_for('payments.void', pay_id=p.id) }}" data-modal-title="{{ t['payment.void'] }}"
-                   title="{{ t['payment.void'] }}" aria-label="{{ t['payment.void'] }}"><span class="material-symbols-outlined">block</span></a>
+                   title="{{ t['payment.void'] }}" aria-label="{{ t['payment.void'] }}"><span class="material-symbols-outlined">block</span></a>{% endif %}
                 {% endif %}
             </td>
         </tr>

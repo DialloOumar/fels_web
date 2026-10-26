@@ -13,7 +13,8 @@
 {# Edit / archive / restore / delete, as icon buttons at the end of a row.
    Deleting is offered only on an archived row with no history: anything a
    purchase or a sale points to stays, archived. #}
-{% macro row_actions(row, edit_url, archive_url, reactivate_url, delete_url, edit_title) -%}
+{% macro row_actions(row, edit_url, archive_url, reactivate_url, delete_url, edit_title, area=none) -%}
+{% if not area or can(area, 'manage') %}
 <a href="{{ edit_url }}" class="btn btn--sm btn--tonal btn--icon"
    data-modal-url="{{ edit_url }}" data-modal-title="{{ edit_title }}"
    title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
@@ -36,6 +37,7 @@
 </form>
 {%- endif %}
 {%- endif %}
+{% endif %}
 {%- endmacro %}
 
 {# "Show archived (3)" / "Show active", for the card header of a list. #}
@@ -84,6 +86,6 @@
 
 {# Download the list as it is filtered, every row, as an Excel sheet. #}
 {% macro export_button() -%}
-<a href="{{ url_for(request.endpoint, format='xlsx', **page_args()) }}" class="btn btn--sm btn--outlined" title="{{ t['export.title'] }}">
-    <span class="material-symbols-outlined">download</span> {{ t['export.excel'] }}</a>
+{% if can('export', 'yes') %}<a href="{{ url_for(request.endpoint, format='xlsx', **page_args()) }}" class="btn btn--sm btn--outlined" title="{{ t['export.title'] }}">
+    <span class="material-symbols-outlined">download</span> {{ t['export.excel'] }}</a>{% endif %}
 {%- endmacro %}

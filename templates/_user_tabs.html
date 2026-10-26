@@ -1,0 +1,11 @@
+{# The Users page's two tabs. Expects `active` ('users' or 'roles') and `tab_counts`. #}
+<nav class="tabs" aria-label="{{ t['nav.users'] }}">
+    <a href="{{ url_for('users.index') }}" class="tab {% if active == 'users' %}tab--on{% endif %}" {% if active == 'users' %}aria-current="page"{% endif %}>
+        <span class="material-symbols-outlined">group</span> {{ t['tabs.users'] }}
+        <span class="tab__count">{{ tab_counts.users }}</span>
+    </a>
+    <a href="{{ url_for('users.roles') }}" class="tab {% if active == 'roles' %}tab--on{% endif %}" {% if active == 'roles' %}aria-current="page"{% endif %}>
+        <span class="material-symbols-outlined">admin_panel_settings</span> {{ t['tabs.roles'] }}
+        <span class="tab__count">{{ tab_counts.roles }}</span>
+    </a>
+</nav>

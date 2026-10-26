@@ -31,6 +31,7 @@ Built on the same Flask + Postgres + Docker stack and design language as
 | Import of the client's existing workbook, with preview and model matching | Done |
 | Ma signature: company stamp + photographed signature on receipts and statements | Done |
 | Bell + Alerts page: six alerts computed from the data, thresholds in Paramètres | Done |
+| Users and roles: per-area permissions (none / read / manage), enforced centrally in access.py | Done |
 
 ## Money rules
 
@@ -92,6 +93,7 @@ fels_web/
 ├── blueprints/         # one module per area: settings, suppliers, customers, products,
 │                       #   purchases (+ pipeline, costs), payments, stock, sales,
 │                       #   dashboard, importer
+├── access.py           # Roles: areas, levels, and the rule for every page
 ├── exports.py          # Excel export helper
 ├── templates/          # Jinja templates (_name.html = partial / modal form)
 ├── static/             # CSS, JS, fonts, images
@@ -107,7 +109,8 @@ fels_web/
 
 | Table | Holds |
 |---|---|
-| `users` | The login (one administrator for now) |
+| `users` | Who can sign in, with a role (the super admin holds every permission) |
+| `roles` | A name and {area: level} permissions |
 | `app_settings` | Rate, display currency, company details |
 | `ports` | Arrival ports (Boffa, Boké) |
 | `products` | The catalog of models |

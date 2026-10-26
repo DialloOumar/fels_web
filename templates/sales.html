@@ -11,7 +11,7 @@
     <div class="card-header card-header--end">
         <div class="header-actions">
             {{ export_button() }}
-            <a href="{{ url_for('sales.new') }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['sale.new'] }}</a>
+            {% if can('sales', 'manage') %}<a href="{{ url_for('sales.new') }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['sale.new'] }}</a>{% endif %}
         </div>
     </div>
 
@@ -69,7 +69,7 @@
         <span class="material-symbols-outlined">point_of_sale</span>
         <p>{{ t['list.no_match'] if (search or customer_id or status or pay) else t['sale.empty'] }}</p>
         {% if not (search or customer_id or status or pay) %}
-        <a href="{{ url_for('sales.new') }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['sale.new'] }}</a>
+        {% if can('sales', 'manage') %}<a href="{{ url_for('sales.new') }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['sale.new'] }}</a>{% endif %}
         {% endif %}
     </div>
     {% endif %}

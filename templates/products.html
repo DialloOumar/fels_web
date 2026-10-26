@@ -12,9 +12,9 @@
     <div class="card-header card-header--end">
         <div class="header-actions">
             {{ archive_toggle('products.index', show_archived, archived_count) }}
-            <a href="{{ url_for('products.new') }}" class="fab" data-modal-url="{{ url_for('products.new') }}" data-modal-title="{{ t['product.new'] }}">
+            {% if can('products', 'manage') %}<a href="{{ url_for('products.new') }}" class="fab" data-modal-url="{{ url_for('products.new') }}" data-modal-title="{{ t['product.new'] }}">
                 <span class="material-symbols-outlined">add</span> {{ t['product.new'] }}
-            </a>
+            </a>{% endif %}
         </div>
     </div>
 
@@ -43,7 +43,7 @@
                 <td class="col-secondary muted">{{ p.description or '' }}</td>
                 <td class="row-actions">
                     {{ row_actions(p, url_for('products.edit', pid=p.id), url_for('products.archive', pid=p.id),
-                                   url_for('products.reactivate', pid=p.id), url_for('products.delete', pid=p.id), t['product.edit']) }}
+                                   url_for('products.reactivate', pid=p.id), url_for('products.delete', pid=p.id), t['product.edit'], 'products') }}
                 </td>
             </tr>
             {% endfor %}
@@ -61,7 +61,7 @@
             {% if p.code or p.description %}<div class="list-card__meta muted">{% if p.code %}<code>{{ p.code }}</code>{% endif %} {{ p.description or '' }}</div>{% endif %}
             <div class="list-card__actions">
                 {{ row_actions(p, url_for('products.edit', pid=p.id), url_for('products.archive', pid=p.id),
-                               url_for('products.reactivate', pid=p.id), url_for('products.delete', pid=p.id), t['product.edit']) }}
+                               url_for('products.reactivate', pid=p.id), url_for('products.delete', pid=p.id), t['product.edit'], 'products') }}
             </div>
         </div>
         {% endfor %}
@@ -72,9 +72,9 @@
         <span class="material-symbols-outlined">category</span>
         <p>{{ t['list.no_match'] if (search or category) else (t['archive.none'] if show_archived else t['product.empty']) }}</p>
         {% if not search and not category and not show_archived %}
-        <a href="{{ url_for('products.new') }}" class="fab" data-modal-url="{{ url_for('products.new') }}" data-modal-title="{{ t['product.new'] }}">
+        {% if can('products', 'manage') %}<a href="{{ url_for('products.new') }}" class="fab" data-modal-url="{{ url_for('products.new') }}" data-modal-title="{{ t['product.new'] }}">
             <span class="material-symbols-outlined">add</span> {{ t['product.new'] }}
-        </a>
+        </a>{% endif %}
         {% endif %}
     </div>
     {% endif %}

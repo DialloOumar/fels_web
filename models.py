@@ -6,7 +6,7 @@ then sold to local customers -- often before they arrive, against a deposit.
 
 Schema overview:
 
-  Access        User
+  Access        User, Role
   Config        AppSetting, Port, ErrorEvent
   Catalog       Product
   Buying        Supplier, Purchase, PurchaseLine, PurchaseCost
@@ -75,7 +75,11 @@ class User(UserMixin, db.Model):
     email          = db.Column(db.String(120))
     password_hash  = db.Column(db.String(256), nullable=False)
     # The one super admin, bootstrapped from the environment by `flask seed`.
+    # Holds every permission and alone manages users and roles.
     is_super_admin = db.Column(db.Boolean, nullable=False, default=False)
+    # Everyone else: what their role allows (see access.py). No role, no access
+    # beyond their own account.
+    role_id        = db.Column(db.Integer, db.ForeignKey("roles.id"), index=True)
     lang           = db.Column(db.String(5), nullable=False, default="fr")
     is_active      = db.Column(db.Boolean, nullable=False, default=True)
     last_login_at  = db.Column(db.DateTime)
@@ -95,11 +99,27 @@ class User(UserMixin, db.Model):
     sig_color      = db.Column(db.String(7))     # #rrggbb; empty = same as the stamp
     created_at     = db.Column(db.DateTime, nullable=False, default=utcnow)
 
+    role = db.relationship("Role", back_populates="users")
+
     def set_password(self, raw):
         self.password_hash = generate_password_hash(raw)
 
     def check_password(self, raw):
         return check_password_hash(self.password_hash, raw)
+
+
+class Role(db.Model):
+    """A set of permissions given to users: {area: level}, the areas and
+    their levels being those of access.AREAS ("purchases": "manage"...)."""
+    __tablename__ = "roles"
+
+    id          = db.Column(db.Integer, primary_key=True)
+    name        = db.Column(db.String(60), nullable=False, unique=True)
+    description = db.Column(db.String(255))
+    permissions = db.Column(db.JSON, nullable=False, default=dict)
+    created_at  = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    users = db.relationship("User", back_populates="role", order_by="User.full_name")
 
 
 # ── Config ───────────────────────────────────────────────────────────────────

@@ -47,29 +47,29 @@
 
 {# ── Money: what is owed both ways, this month's cash, the year's margin ── #}
 <div class="stat-grid">
-    <a class="stat-card" href="{{ url_for('sales.index', pay='partial') }}">
+{% if can('sales') %}    <a class="stat-card" href="{{ url_for('sales.index', pay='partial') }}">
         <span class="stat-icon stat-icon--teal material-symbols-outlined">handshake</span>
         <div>{{ headline(d.receivable) }}<div class="stat-label">{{ t['dash.receivable'] }}</div></div>
-    </a>
-    <a class="stat-card" href="{{ url_for('purchases.index', pay='partial') }}">
+    </a>{% endif %}
+{% if can('purchases') %}    <a class="stat-card" href="{{ url_for('purchases.index', pay='partial') }}">
         <span class="stat-icon stat-icon--red material-symbols-outlined">account_balance</span>
         <div>{{ headline(d.payable) }}<div class="stat-label">{{ t['dash.payable'] }}</div></div>
-    </a>
-    <a class="stat-card" href="{{ url_for('payments.index', **{'from': today.replace(day=1).isoformat()}) }}">
+    </a>{% endif %}
+{% if can('payments') %}    <a class="stat-card" href="{{ url_for('payments.index', **{'from': today.replace(day=1).isoformat()}) }}">
         <span class="stat-icon stat-icon--blue material-symbols-outlined">payments</span>
         <div>{{ headline(d.month_in) }}<div class="stat-label">{{ t['dash.month_in'] }}</div>
              <div class="stat-sub">{{ t['dash.month_out'] }} : {{ d.month_out.total|money(d.display) if d.month_out.total is not none else '—' }}</div></div>
-    </a>
-    <div class="stat-card">
+    </a>{% endif %}
+{% if can('sales') %}    <div class="stat-card">
         <span class="stat-icon stat-icon--amber material-symbols-outlined">trending_up</span>
         <div><div class="stat-value">{{ d.margin|money(d.display) }}</div>
              <div class="stat-label">{{ t['dash.margin_year'] % {'year': today.year} }}</div>
              <div class="stat-sub">{{ t['dash.margin_sub'] % {'n': d.delivered_count} }}{% if d.margin_missing %} · {{ t['dash.margin_missing'] % {'n': d.margin_missing} }}{% endif %}</div></div>
-    </div>
+    </div>{% endif %}
 </div>
 
 {# ── The road and the yard ── #}
-<div class="stat-grid stat-grid--compact">
+{% if can('stock') or can('purchases') %}<div class="stat-grid stat-grid--compact">
     <a class="stat-card" href="{{ url_for('stock.index', status='available', where='in_stock') }}">
         <span class="stat-icon stat-icon--green material-symbols-outlined">warehouse</span>
         <div><div class="stat-value">{{ d.stock.in_stock_free }}</div><div class="stat-label">{{ t['dash.stock_free'] }}</div></div>
@@ -82,15 +82,15 @@
         <span class="stat-icon stat-icon--amber material-symbols-outlined">pending_actions</span>
         <div><div class="stat-value">{{ d.stock.reserved }}</div><div class="stat-label">{{ t['dash.reserved'] }}</div></div>
     </a>
-    <a class="stat-card" href="{{ url_for('purchases.pipeline') }}">
+{% if can('purchases') %}    <a class="stat-card" href="{{ url_for('purchases.pipeline') }}">
         <span class="stat-icon stat-icon--indigo material-symbols-outlined">local_shipping</span>
         <div><div class="stat-value">{{ d.stage_counts.values()|sum - d.stage_counts['in_stock'] }}</div>
              <div class="stat-label">{{ t['dash.on_the_way'] }}</div>
              <div class="stat-sub">{% for st, n in d.stage_counts.items() if st != 'in_stock' and n %}{{ t['stage.' + st] }} {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</div></div>
-    </a>
+    </a>{% endif %}
 </div>
-
-{# ── Cash, month by month: money in and money out, one axis, one currency ── #}
+{% endif %}
+{% if can('payments') %}{# ── Cash, month by month: money in and money out, one axis, one currency ── #}
 <section class="card">
     <div class="card-header">
         <h2>{{ t['dash.flow_title'] }}</h2>
@@ -112,11 +112,11 @@
             </tbody>
         </table></div>
     </details>
-</section>
+</section>{% endif %}
 
 {# ── What needs attention ── #}
 <div class="dash-panels">
-    <section class="card dash-panel">
+{% if can('purchases') %}    <section class="card dash-panel">
         <div class="card-header"><h2>{{ t['dash.stuck'] % {'n': 30} }}</h2>
             <a class="link-more" href="{{ url_for('purchases.pipeline') }}">{{ t['dash.view_all'] }}</a></div>
         {% if d.stuck %}
@@ -127,9 +127,9 @@
             {% endfor %}
         </ul>
         {% else %}<div class="empty-state empty-state--soft"><span class="material-symbols-outlined">task_alt</span><p>{{ t['dash.none_stuck'] }}</p></div>{% endif %}
-    </section>
+    </section>{% endif %}
 
-    <section class="card dash-panel">
+{% if can('sales') %}    <section class="card dash-panel">
         <div class="card-header"><h2>{{ t['dash.no_vehicle'] }} · {{ d.no_vehicle_count }}</h2>
             <a class="link-more" href="{{ url_for('sales.index', status='preorder') }}">{{ t['dash.view_all'] }}</a></div>
         {% if d.no_vehicle %}
@@ -140,9 +140,9 @@
             {% endfor %}
         </ul>
         {% else %}<div class="empty-state empty-state--soft"><span class="material-symbols-outlined">task_alt</span><p>{{ t['dash.none_no_vehicle'] }}</p></div>{% endif %}
-    </section>
+    </section>{% endif %}
 
-    <section class="card dash-panel">
+{% if can('sales') %}    <section class="card dash-panel">
         <div class="card-header"><h2>{{ t['dash.delivered_unpaid'] }} · {{ d.delivered_unpaid_count }}</h2>
             <a class="link-more" href="{{ url_for('sales.index', status='delivered', pay='partial') }}">{{ t['dash.view_all'] }}</a></div>
         {% if d.delivered_unpaid %}
@@ -153,7 +153,7 @@
             {% endfor %}
         </ul>
         {% else %}<div class="empty-state empty-state--soft"><span class="material-symbols-outlined">task_alt</span><p>{{ t['dash.none_delivered_unpaid'] }}</p></div>{% endif %}
-    </section>
+    </section>{% endif %}
 </div>
 
 <script id="dash-data" type="application/json">{{ d.chart|tojson }}</script>

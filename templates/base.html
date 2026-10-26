@@ -19,49 +19,80 @@
         {# In the order the goods move: bought, then sold. The catalog and
            the settings are configuration, so they come last. #}
         <ul class="sidebar-nav">
+            {% if can('dashboard') %}
             <li><a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">space_dashboard</span> {{ t['nav.dashboard'] }}
             </a></li>
+            {% endif %}
 
+            {% if can('purchases') or can('suppliers') %}
             <li class="sidebar-section">{{ t['nav.buying'] }}</li>
+            {% if can('purchases') %}
             <li><a href="{{ url_for('purchases.pipeline') }}" class="sidebar-sub {% if request.endpoint == 'purchases.pipeline' %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">local_shipping</span> {{ t['nav.pipeline'] }}
             </a></li>
             <li><a href="{{ url_for('purchases.index') }}" class="sidebar-sub {% if (request.blueprint == 'purchases' and request.endpoint != 'purchases.pipeline') or (request.blueprint == 'payments' and request.endpoint != 'payments.index') %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">request_quote</span> {{ t['nav.purchases'] }}
             </a></li>
+            {% endif %}
+            {% if can('suppliers') %}
             <li><a href="{{ url_for('suppliers.index') }}" class="sidebar-sub {% if request.blueprint == 'suppliers' %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">store</span> {{ t['nav.suppliers'] }}
             </a></li>
+            {% endif %}
+            {% endif %}
 
+            {% if can('stock') or can('products') %}
             <li class="sidebar-section">{{ t['nav.stock_section'] }}</li>
-            <li><a href="{{ url_for('stock.index') }}" class="sidebar-sub {% if request.blueprint in ('stock', 'products') %}active{% endif %}">
+            <li><a href="{{ url_for('stock.index') if can('stock') else url_for('products.index') }}" class="sidebar-sub {% if request.blueprint in ('stock', 'products') %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">inventory_2</span> {{ t['nav.stock'] }}
             </a></li>
+            {% endif %}
 
+            {% if can('sales') or can('customers') %}
             <li class="sidebar-section">{{ t['nav.selling'] }}</li>
+            {% if can('sales') %}
             <li><a href="{{ url_for('sales.index') }}" class="sidebar-sub {% if request.blueprint == 'sales' %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">point_of_sale</span> {{ t['nav.sales'] }}
             </a></li>
+            {% endif %}
+            {% if can('customers') %}
             <li><a href="{{ url_for('customers.index') }}" class="sidebar-sub {% if request.blueprint == 'customers' %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">handshake</span> {{ t['nav.customers'] }}
             </a></li>
+            {% endif %}
+            {% endif %}
 
+            {% if can('payments') %}
             <li class="sidebar-section">{{ t['nav.finance'] }}</li>
             <li><a href="{{ url_for('payments.index') }}" class="sidebar-sub {% if request.endpoint == 'payments.index' %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">payments</span> {{ t['nav.payments'] }}
             </a></li>
+            {% endif %}
 
+            {% if is_super_admin or can('settings', 'yes') or can('import', 'yes') %}
             <li class="sidebar-section">{{ t['nav.admin'] }}</li>
+            {% if is_super_admin %}
+            <li><a href="{{ url_for('users.index') }}" class="sidebar-sub {% if request.blueprint == 'users' %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">group</span> {{ t['nav.users'] }}
+            </a></li>
+            {% endif %}
+            {% if can('settings', 'yes') %}
             <li><a href="{{ url_for('settings.index') }}" class="sidebar-sub {% if request.blueprint == 'settings' and request.endpoint != 'settings.errors' %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">settings</span> {{ t['nav.settings'] }}
             </a></li>
+            {% endif %}
+            {% if can('import', 'yes') %}
             <li><a href="{{ url_for('importer.upload') }}" class="sidebar-sub {% if request.blueprint == 'importer' %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">upload_file</span> {{ t['nav.import'] }}
             </a></li>
+            {% endif %}
+            {% if can('settings', 'yes') %}
             <li><a href="{{ url_for('settings.errors') }}" class="sidebar-sub {% if request.endpoint == 'settings.errors' %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">error</span> {{ t['nav.errors'] }}
             </a></li>
+            {% endif %}
+            {% endif %}
         </ul>
 
         {# Who is signed in, on one line, and their tools as a row of icons:
@@ -70,7 +101,7 @@
         <div class="sidebar-user">
             <div class="sidebar-user-info">
                 <span class="sidebar-user-name">{{ current_user.full_name }}</span>
-                <span class="sidebar-user-role">{{ t['role.super_admin'] if is_super_admin else t['role.user'] }}</span>
+                <span class="sidebar-user-role">{{ t['role.super_admin'] if is_super_admin else (current_user.role.name if current_user.role else t['role.user']) }}</span>
             </div>
             <div class="sidebar-user-actions">
                 <a href="{{ url_for('signature.mine') }}" class="sidebar-icon-btn {% if request.endpoint == 'signature.mine' %}is-on{% endif %}"
@@ -110,10 +141,11 @@
             </details>
             {# Today's rate, always in sight: every conversion on the page uses it. #}
             {% set rate = current_rate() %}
-            <a href="{{ url_for('settings.index') }}" class="lang-toggle rate-chip {% if not rate %}rate-chip--missing{% endif %}" title="{{ t['settings.usd_gnf_rate'] }}">
+            {% set rate_tag = 'a' if can('settings', 'yes') else 'span' %}
+            <{{ rate_tag }} {% if rate_tag == 'a' %}href="{{ url_for('settings.index') }}"{% endif %} class="lang-toggle rate-chip {% if not rate %}rate-chip--missing{% endif %}" title="{{ t['settings.usd_gnf_rate'] }}">
                 <span class="material-symbols-outlined">swap_horiz</span>
                 {% if rate %}1&nbsp;USD = {{ rate|num }}&nbsp;GNF{% else %}{{ t['rate.missing'] }}{% endif %}
-            </a>
+            </{{ rate_tag }}>
             {# Reload: the page again, as a fresh visit -- never a form sent twice. #}
             <button type="button" class="lang-toggle" id="reload-page" title="{{ t['btn.reload'] }}" aria-label="{{ t['btn.reload'] }}">
                 <span class="material-symbols-outlined">refresh</span>

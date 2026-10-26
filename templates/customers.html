@@ -12,9 +12,9 @@
         <div class="header-actions">
             {{ export_button() }}
             {{ archive_toggle('customers.index', show_archived, archived_count) }}
-            <a href="{{ url_for('customers.new') }}" class="fab" data-modal-url="{{ url_for('customers.new') }}" data-modal-title="{{ t['customer.new'] }}">
+            {% if can('customers', 'manage') %}<a href="{{ url_for('customers.new') }}" class="fab" data-modal-url="{{ url_for('customers.new') }}" data-modal-title="{{ t['customer.new'] }}">
                 <span class="material-symbols-outlined">add</span> {{ t['customer.new'] }}
-            </a>
+            </a>{% endif %}
         </div>
     </div>
 
@@ -39,7 +39,7 @@
                 <td class="col-secondary">{{ c.address or '—' }}</td>
                 <td class="row-actions">
                     {{ row_actions(c, url_for('customers.edit', cid=c.id), url_for('customers.archive', cid=c.id),
-                                   url_for('customers.reactivate', cid=c.id), url_for('customers.delete', cid=c.id), t['customer.edit']) }}
+                                   url_for('customers.reactivate', cid=c.id), url_for('customers.delete', cid=c.id), t['customer.edit'], 'customers') }}
                 </td>
             </tr>
             {% endfor %}
@@ -57,7 +57,7 @@
             {% if c.address %}<div class="list-card__meta muted">{{ c.address }}</div>{% endif %}
             <div class="list-card__actions">
                 {{ row_actions(c, url_for('customers.edit', cid=c.id), url_for('customers.archive', cid=c.id),
-                               url_for('customers.reactivate', cid=c.id), url_for('customers.delete', cid=c.id), t['customer.edit']) }}
+                               url_for('customers.reactivate', cid=c.id), url_for('customers.delete', cid=c.id), t['customer.edit'], 'customers') }}
             </div>
         </div>
         {% endfor %}
@@ -68,9 +68,9 @@
         <span class="material-symbols-outlined">handshake</span>
         <p>{{ t['list.no_match'] if search else (t['archive.none'] if show_archived else t['customer.empty']) }}</p>
         {% if not search and not show_archived %}
-        <a href="{{ url_for('customers.new') }}" class="fab" data-modal-url="{{ url_for('customers.new') }}" data-modal-title="{{ t['customer.new'] }}">
+        {% if can('customers', 'manage') %}<a href="{{ url_for('customers.new') }}" class="fab" data-modal-url="{{ url_for('customers.new') }}" data-modal-title="{{ t['customer.new'] }}">
             <span class="material-symbols-outlined">add</span> {{ t['customer.new'] }}
-        </a>
+        </a>{% endif %}
         {% endif %}
     </div>
     {% endif %}

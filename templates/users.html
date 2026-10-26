@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t['nav.users'] }}{% endblock %}
+{% block page_title %}{{ t['nav.users'] }}{% endblock %}
+
+{% block content %}
+<section class="card">
+    {% with active = 'users' %}{% include "_user_tabs.html" %}{% endwith %}
+    <div class="card-header">
+        <p class="muted small" style="margin:0; flex:1;">{{ t['user.intro'] }}</p>
+        <a href="{{ url_for('users.user_new') }}" class="fab" data-modal-url="{{ url_for('users.user_new') }}" data-modal-title="{{ t['user.new'] }}">
+            <span class="material-symbols-outlined">add</span> {{ t['user.new'] }}
+        </a>
+    </div>
+
+    <div class="table-desktop table-wrap">
+    <table class="data-table">
+        <thead><tr>
+            <th>{{ t['user.full_name'] }}</th>
+            <th>{{ t['user.username'] }}</th>
+            <th>{{ t['user.role'] }}</th>
+            <th class="col-secondary">{{ t['user.last_login'] }}</th>
+            <th>{{ t['user.status'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for u in users %}
+        <tr class="{% if not u.is_active %}row-voided{% endif %}">
+            <td><strong>{{ u.full_name }}</strong>{% if u.email %}<div class="muted small">{{ u.email }}</div>{% endif %}
+                {% if u.id == current_user.id %}<span class="muted small">· {{ t['user.you'] }}</span>{% endif %}</td>
+            <td><code>{{ u.username }}</code></td>
+            <td>{% if u.is_super_admin %}<span class="badge badge--role-super">{{ t['role.super_admin'] }}</span>
+                {% elif u.role %}<span class="chip">{{ u.role.name }}</span>
+                {% else %}<span class="muted">{{ t['user.no_role'] }}</span>{% endif %}</td>
+            <td class="col-secondary">{{ u.last_login_at.strftime('%d/%m/%Y %H:%M') if u.last_login_at else t['user.never'] }}</td>
+            <td>{% if u.is_active %}<span class="badge badge--active">{{ t['user.active'] }}</span>{% else %}<span class="badge badge--inactive">{{ t['user.inactive'] }}</span>{% endif %}</td>
+            <td class="row-actions">
+                <a href="{{ url_for('users.user_edit', uid=u.id) }}" class="btn btn--sm btn--tonal btn--icon"
+                   data-modal-url="{{ url_for('users.user_edit', uid=u.id) }}" data-modal-title="{{ t['user.edit'] }}"
+                   title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
+                {% if not u.is_super_admin and u.id != current_user.id %}
+                <form method="post" action="{{ url_for('users.user_toggle', uid=u.id) }}" style="display:inline"
+                      {% if u.is_active %}data-confirm="{{ t['user.deactivate_confirm'] % {'name': u.full_name} }}" data-confirm-title="{{ t['user.deactivate'] }}" data-confirm-ok="{{ t['user.deactivate'] }}" data-confirm-danger{% endif %}>
+                    {{ csrf_field() }}
+                    <button type="submit" class="btn btn--sm {{ 'btn--tonal' if u.is_active else 'btn--primary' }} btn--icon"
+                            title="{{ t['user.deactivate'] if u.is_active else t['user.activate'] }}" aria-label="{{ t['user.deactivate'] if u.is_active else t['user.activate'] }}">
+                        <span class="material-symbols-outlined">{{ 'block' if u.is_active else 'check' }}</span></button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <div class="list-cards">
+        {% for u in users %}
+        <div class="list-card {% if not u.is_active %}row-voided{% endif %}">
+            <div class="list-card__top"><strong>{{ u.full_name }}</strong>
+                {% if u.is_super_admin %}<span class="badge badge--role-super">{{ t['role.super_admin'] }}</span>{% elif u.role %}<span class="chip">{{ u.role.name }}</span>{% endif %}</div>
+            <div class="list-card__meta muted"><code>{{ u.username }}</code> · {{ t['user.active'] if u.is_active else t['user.inactive'] }}</div>
+            <div class="list-card__actions">
+                <a href="{{ url_for('users.user_edit', uid=u.id) }}" class="btn btn--sm btn--tonal btn--icon"
+                   data-modal-url="{{ url_for('users.user_edit', uid=u.id) }}" data-modal-title="{{ t['user.edit'] }}"
+                   title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

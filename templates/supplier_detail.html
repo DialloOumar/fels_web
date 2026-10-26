@@ -13,10 +13,10 @@
             <h2>{{ t['supplier.details'] }}</h2>
             {% if not row.is_active %}<span class="badge badge--inactive">{{ t['status.archived'] }}</span>{% endif %}
         </div>
-        <a href="{{ url_for('suppliers.edit', sid=row.id) }}" class="btn btn--tonal"
+        {% if can('suppliers', 'manage') %}<a href="{{ url_for('suppliers.edit', sid=row.id) }}" class="btn btn--tonal"
            data-modal-url="{{ url_for('suppliers.edit', sid=row.id) }}" data-modal-title="{{ t['supplier.edit'] }}">
             <span class="material-symbols-outlined">edit</span> {{ t['btn.edit'] }}
-        </a>
+        </a>{% endif %}
     </div>
     <dl class="detail-grid">
         {{ detail(t['supplier.country'], row.country) }}
@@ -51,7 +51,7 @@
 <section class="card">
     <div class="card-header">
         <h2>{{ t['supplier.purchases'] }} · {{ row.purchases|length }}</h2>
-        <a href="{{ url_for('purchases.new', supplier=row.id) }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['purchase.new'] }}</a>
+        {% if can('purchases', 'manage') %}<a href="{{ url_for('purchases.new', supplier=row.id) }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['purchase.new'] }}</a>{% endif %}
     </div>
     {% if row.purchases %}
     <div class="table-wrap"><table class="data-table">

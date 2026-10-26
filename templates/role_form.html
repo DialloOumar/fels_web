@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% set is_edit = row is not none %}
+{% block title %}{{ t['role.edit'] if is_edit else t['role.new'] }}{% endblock %}
+{% block page_title %}{{ t['role.edit'] if is_edit else t['role.new'] }}{% endblock %}
+
+{% block content %}
+<form method="post" class="entry-form">
+    {{ csrf_field() }}
+    <section class="card" style="max-width: 760px;">
+        {% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+        <div class="form-row">
+            <div class="field">
+                <input type="text" id="name" name="name" required placeholder="{{ t['role.name_ph'] }}"
+                       value="{{ request.form.get('name') if request.method == 'POST' else (row.name if is_edit else '') }}">
+                <label for="name">{{ t['role.name'] }}</label>
+            </div>
+            <div class="field">
+                <input type="text" id="description" name="description" placeholder="{{ t['role.description_ph'] }}"
+                       value="{{ request.form.get('description') if request.method == 'POST' else ((row.description or '') if is_edit else '') }}">
+                <label for="description">{{ t['field.description'] }}</label>
+            </div>
+        </div>
+    </section>
+
+    {# Every area of the app, one row each: no access, read only, or manage --
+       or a plain no / yes where reading means nothing. Manage includes read. #}
+    <section class="card" style="max-width: 760px;">
+        <div class="card-header">
+            <h2>{{ t['role.permissions'] }}</h2>
+            <div class="perm-quick">
+                <span class="muted small">{{ t['role.set_all'] }}</span>
+                <button type="button" class="btn btn--sm btn--outlined" data-setall="none">{{ t['perm.level.none'] }}</button>
+                <button type="button" class="btn btn--sm btn--outlined" data-setall="view">{{ t['perm.level.view'] }}</button>
+                <button type="button" class="btn btn--sm btn--outlined" data-setall="top">{{ t['perm.level.manage'] }}</button>
+            </div>
+        </div>
+        <div class="perm-grid">
+            {% for area, levels in areas.items() %}
+            {% set cur = state.get(area, 'none') %}
+            <div class="perm-row">
+                <div class="perm-row__label">
+                    <strong>{{ t['perm.area.' + area] }}</strong>
+                    <span class="muted small">{{ t['perm.help.' + area] }}</span>
+                </div>
+                <div class="seg" role="radiogroup" aria-label="{{ t['perm.area.' + area] }}">
+                    <label class="seg__opt"><input type="radio" name="perm_{{ area }}" value="none" {% if cur == 'none' %}checked{% endif %}><span>{{ t['perm.level.none'] if levels != ('yes',) else t['perm.level.no'] }}</span></label>
+                    {% for lvl in levels %}
+                    <label class="seg__opt seg__opt--{{ lvl }}"><input type="radio" name="perm_{{ area }}" value="{{ lvl }}" {% if cur == lvl %}checked{% endif %}><span>{{ t['perm.level.' + lvl] }}</span></label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <p class="muted small" style="margin-top:12px;">{{ t['role.super_note'] }}</p>
+        <div class="form-actions">
+            <button type="submit" class="btn btn--primary"><span class="material-symbols-outlined">save</span> {{ t['btn.save'] }}</button>
+            <a href="{{ url_for('users.roles') }}" class="btn btn--outlined" data-back>{{ t['btn.cancel'] }}</a>
+        </div>
+    </section>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// "Set all": every row to no access, to read where it exists, or to its
+// highest level (manage, or yes).
+document.querySelectorAll("[data-setall]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+        var want = btn.dataset.setall;
+        document.querySelectorAll(".perm-row").forEach(function (row) {
+            var radios = row.querySelectorAll('input[type="radio"]');
+            var pick = null;
+            if (want === "none") pick = radios[0];
+            else if (want === "top") pick = radios[radios.length - 1];
+            else radios.forEach(function (r) { if (r.value === "view") pick = r; });
+            if (pick) pick.checked = true;
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% from "_macros.html" import form_actions with context %}
+{% from "_hint.html" import hint with context %}
+{# A person who can sign in. The username is what they type at login and
+   cannot change afterwards; the password set here is a temporary one they
+   change themselves from the menu. #}
+{% set is_edit = row is not none %}
+{% set posted = request.method == 'POST' %}
+{% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+<form method="post" class="entry-form" data-modal-form autocomplete="off"
+      action="{{ url_for('users.user_edit', uid=row.id) if is_edit else url_for('users.user_new') }}">
+    {{ csrf_field() }}
+    <div class="form-row">
+        <div class="field">
+            <input type="text" id="full_name" name="full_name" required placeholder="{{ t['user.full_name_ph'] }}"
+                   value="{{ request.form.get('full_name') if posted else (row.full_name if is_edit else '') }}">
+            <label for="full_name">{{ t['user.full_name'] }}</label>
+        </div>
+        <div class="field">
+            {% if is_edit %}
+            <input type="text" id="username" value="{{ row.username }}" disabled>
+            {% else %}
+            <input type="text" id="username" name="username" required autocapitalize="none" spellcheck="false"
+                   placeholder="{{ t['user.username_ph'] }}" value="{{ request.form.get('username', '') }}">
+            {% endif %}
+            <label for="username">{{ t['user.username'] }}</label>
+            {{ hint('', t['user.username_hint']) }}
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="field">
+            <input type="email" id="email" name="email" autocapitalize="none" placeholder=" "
+                   value="{{ request.form.get('email') if posted else ((row.email or '') if is_edit else '') }}">
+            <label for="email">{{ t['field.email'] }}</label>
+            {{ hint(t['form.optional'], t['user.email_hint']) }}
+        </div>
+        <div class="field">
+            {% if is_edit and row.is_super_admin %}
+            <input type="text" value="{{ t['role.super_admin'] }}" disabled>
+            {% else %}
+            {% set sel = (request.form.get('role_id') if posted else (row.role_id if is_edit else ''))|string %}
+            <select id="role_id" name="role_id" required>
+                <option value="">—</option>
+                {% for r in roles %}<option value="{{ r.id }}" {% if (r.id|string) == sel %}selected{% endif %}>{{ r.name }}</option>{% endfor %}
+            </select>
+            {% endif %}
+            <label for="role_id">{{ t['user.role'] }}</label>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="field">
+            <input type="password" id="password" name="password" autocomplete="new-password" minlength="8" {% if not is_edit %}required{% endif %} placeholder=" ">
+            <label for="password">{{ t['user.password_new'] if is_edit else t['user.password_temp'] }}</label>
+            {{ hint(t['user.password_keep'] if is_edit else '', t['user.password_hint']) }}
+        </div>
+        <div class="field">
+            <input type="password" id="password_confirm" name="password_confirm" autocomplete="new-password" placeholder=" ">
+            <label for="password_confirm">{{ t['pw.confirm'] }}</label>
+        </div>
+    </div>
+
+    {% if is_edit and not row.is_super_admin and row.id != current_user.id %}
+    {% set active = (request.form.get('is_active') == '1') if posted else row.is_active %}
+    <label class="checkbox-item" style="max-width: 380px;">
+        <input type="checkbox" name="is_active" value="1" {% if active %}checked{% endif %}>
+        <span>{{ t['user.can_sign_in'] }}</span>
+    </label>
+    {% endif %}
+
+    {{ form_actions(url_for('users.index')) }}
+</form>

@@ -14,9 +14,9 @@
             <a href="{{ url_for('purchases.pipeline') }}" class="btn btn--sm btn--outlined">
                 <span class="material-symbols-outlined">local_shipping</span> {{ t['nav.pipeline'] }}
             </a>
-            <a href="{{ url_for('purchases.new') }}" class="fab">
+            {% if can('purchases', 'manage') %}<a href="{{ url_for('purchases.new') }}" class="fab">
                 <span class="material-symbols-outlined">add</span> {{ t['purchase.new'] }}
-            </a>
+            </a>{% endif %}
         </div>
     </div>
 
@@ -80,7 +80,7 @@
         <span class="material-symbols-outlined">request_quote</span>
         <p>{{ t['list.no_match'] if (search or supplier_id or stage or port_id or pay) else t['purchase.empty'] }}</p>
         {% if not (search or supplier_id or stage or port_id or pay) %}
-        <a href="{{ url_for('purchases.new') }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['purchase.new'] }}</a>
+        {% if can('purchases', 'manage') %}<a href="{{ url_for('purchases.new') }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['purchase.new'] }}</a>{% endif %}
         {% endif %}
     </div>
     {% endif %}

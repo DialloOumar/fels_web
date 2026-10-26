@@ -16,10 +16,10 @@
         <div class="header-actions">
             <a href="{{ url_for('customers.statement', cid=row.id) }}" class="btn btn--outlined" target="_blank" rel="noopener">
                 <span class="material-symbols-outlined">print</span> {{ t['statement.title'] }}</a>
-            <a href="{{ url_for('customers.edit', cid=row.id) }}" class="btn btn--tonal"
+            {% if can('customers', 'manage') %}<a href="{{ url_for('customers.edit', cid=row.id) }}" class="btn btn--tonal"
                data-modal-url="{{ url_for('customers.edit', cid=row.id) }}" data-modal-title="{{ t['customer.edit'] }}">
                 <span class="material-symbols-outlined">edit</span> {{ t['btn.edit'] }}
-            </a>
+            </a>{% endif %}
         </div>
     </div>
     <dl class="detail-grid">
@@ -51,7 +51,7 @@
 <section class="card">
     <div class="card-header">
         <h2>{{ t['customer.sales'] }} · {{ row.sales|length }}</h2>
-        <a href="{{ url_for('sales.new', customer=row.id) }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['sale.new'] }}</a>
+        {% if can('sales', 'manage') %}<a href="{{ url_for('sales.new', customer=row.id) }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['sale.new'] }}</a>{% endif %}
     </div>
     {% if row.sales %}
     <div class="table-wrap"><table class="data-table">

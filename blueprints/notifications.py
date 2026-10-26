@@ -111,7 +111,11 @@ def alerts(today=None):
         if p.stage in ("cleared", "in_stock") and p.balance > 0:
             add("cleared", url_for("purchases.detail", pid=p.id), "cleared-%d" % p.id,
                 number=p.invoice_number, supplier=p.supplier.name, amount=(p.balance, p.currency))
-    return out
+    # Each alert to whoever may act on it.
+    from access import can
+    allowed = {"fill": can("sales", "manage"), "stuck": can("purchases"), "rate": can("settings", "yes"),
+               "cost_rate": can("purchases"), "delivered": can("sales"), "cleared": can("purchases")}
+    return [a for a in out if allowed.get(a["kind"])]
 
 
 def alert_text(a):

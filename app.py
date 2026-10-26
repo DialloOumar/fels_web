@@ -112,6 +112,13 @@ def csrf_field():
 
 
 @app.before_request
+def _enforce_roles():
+    """What the user's role allows, checked once for every request."""
+    from access import enforce
+    return enforce()
+
+
+@app.before_request
 def _csrf_protect():
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
         sent = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token") or ""
@@ -383,8 +390,15 @@ def _inject_globals():
         "currencies": CURRENCIES,
         "today": date.today(),
         "is_super_admin": current_user.is_authenticated and current_user.is_super_admin,
+        # can('sales', 'manage'): what the role allows, to show or hide links.
+        "can": _can,
         "theme": request.cookies.get("theme") if request.cookies.get("theme") in THEMES else "",
     }
+
+
+def _can(area, level="view"):
+    from access import can
+    return can(area, level)
 
 
 def is_modal_request():
@@ -447,7 +461,8 @@ app.jinja_env.filters["rate_field"] = rate_field_value
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for("dashboard"))
+        from access import home_url
+        return redirect(home_url())
     error = None
     if request.method == "POST":
         username = (request.form.get("username") or "").strip().lower()
@@ -459,7 +474,8 @@ def login():
             login_user(user)
             user.last_login_at = utcnow()
             db.session.commit()
-            return redirect(_safe_back(request.args.get("next")) or url_for("dashboard"))
+            from access import home_url
+            return redirect(_safe_back(request.args.get("next")) or home_url())
         log.warning("failed login from %s", request.remote_addr)
         error = get_t()["auth.invalid_credentials"]
     return render_template("login.html", error=error)
@@ -506,6 +522,9 @@ def healthz():
 @app.route("/")
 @login_required
 def dashboard():
+    from access import can, home_url
+    if not can("dashboard"):
+        return redirect(home_url())
     from models import Customer, Product, Supplier
     counts = {
         "suppliers": Supplier.query.filter_by(is_active=True).count(),
@@ -628,6 +647,18 @@ def seed_cmd():
 
     created = _seed_super_admin_from_env()
     click.echo("  super admin: %s" % ("created from ADMIN_USERNAME" if created else "already exists, skipped"))
+
+    # Starter roles, on a fresh install only: once roles exist they are the
+    # administrator's, and a deleted one is not brought back.
+    from access import SEED_ROLES
+    from models import Role
+    if Role.query.count() == 0:
+        for name, description, perms in SEED_ROLES:
+            db.session.add(Role(name=name, description=description, permissions=perms))
+        db.session.commit()
+        click.echo("  roles: %s" % ", ".join(r[0] for r in SEED_ROLES))
+    else:
+        click.echo("  roles: already set, skipped")
     click.echo("Seed complete.")
 
 
@@ -682,6 +713,7 @@ from blueprints.sales import sales_bp  # noqa: E402
 from blueprints.importer import importer_bp  # noqa: E402
 from blueprints.signature import signature_bp  # noqa: E402
 from blueprints.notifications import notifications_bp  # noqa: E402
+from blueprints.users import users_bp  # noqa: E402
 
 app.register_blueprint(settings_bp)
 app.register_blueprint(suppliers_bp)
@@ -694,6 +726,7 @@ app.register_blueprint(sales_bp)
 app.register_blueprint(importer_bp)
 app.register_blueprint(signature_bp)
 app.register_blueprint(notifications_bp)
+app.register_blueprint(users_bp)
 
 
 if __name__ == "__main__":
