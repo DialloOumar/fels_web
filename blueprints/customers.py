@@ -9,7 +9,7 @@ from flask_login import login_required
 
 from exports import wants_xlsx, xlsx_response
 
-from app import form_response, get_t, is_modal_request, modal_ok, paginate
+from app import form_response, get_t, is_modal_request, log_action, modal_ok, paginate
 from models import Customer, db
 
 customers_bp = Blueprint("customers", __name__, url_prefix="/clients")
@@ -58,8 +58,11 @@ def _save(row):
     warning = t["customer.warn.same_name"] if same.first() else None
     for f, v in data.items():
         setattr(row, f, v)
-    if row.id is None:
+    is_new = row.id is None
+    if is_new:
         db.session.add(row)
+        db.session.flush()
+    log_action("CREATE" if is_new else "UPDATE", "customer", row.id, row.name)
     db.session.commit()
     return None, warning
 
@@ -151,6 +154,7 @@ def edit(cid):
 def archive(cid):
     row = _get_or_404(cid)
     row.is_active = False
+    log_action("ARCHIVE", "customer", row.id, row.name)
     db.session.commit()
     flash("success|" + get_t()["archive.done"])
     return redirect(url_for("customers.index"))
@@ -161,6 +165,7 @@ def archive(cid):
 def reactivate(cid):
     row = _get_or_404(cid)
     row.is_active = True
+    log_action("RESTORE", "customer", row.id, row.name)
     db.session.commit()
     flash("success|" + get_t()["archive.restored"])
     return redirect(url_for("customers.index", archived=1))
@@ -174,6 +179,7 @@ def delete(cid):
     if row.has_history:
         flash("error|" + t["delete.has_history"])
         return redirect(url_for("customers.index", archived=1))
+    log_action("DELETE", "customer", row.id, row.name)
     db.session.delete(row)
     db.session.commit()
     flash("success|" + t["delete.done"])

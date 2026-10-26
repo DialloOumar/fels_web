@@ -15,9 +15,9 @@ from decimal import Decimal
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from app import (ListPage, current_rate, form_response, get_t, is_modal_request,
-                 modal_ok, parse_date, parse_money, parse_rate,
-                 rate_field_value)
+from app import (ListPage, current_rate, form_response, fr, get_t,
+                 is_modal_request, log_action, modal_ok, money_text, parse_date,
+                 parse_money, parse_rate, rate_field_value)
 from exports import wants_xlsx, xlsx_response
 from models import (CURRENCIES, PAYMENT_METHODS, Customer, Payment, Purchase,
                     PurchaseCost, Sale, Supplier, convert, db, utcnow)
@@ -69,6 +69,9 @@ def _record(target, target_currency, balance, back_url, form_action, title):
             else:
                 p.purchase_cost_id = target.id
             db.session.add(p)
+            db.session.flush()
+            log_action("CREATE", "payment", p.id, "%s · %s · %s" % (
+                _payment_label(p), money_text(p.amount, p.currency), fr("method." + p.method)))
             db.session.commit()
             flash("success|" + t["payment.saved"])
             in_target = convert(values["amount"], values["currency"], target_currency, values["rate"])
@@ -104,6 +107,17 @@ def cost_payment(cid):
                    t["payment.new_cost"])
 
 
+def _payment_label(p):
+    """What a payment is for, as the audit log names it: the receipt and
+    its sale, the supplier's invoice, or the invoice and the cost."""
+    if p.sale_id:
+        return "%s · %s" % (p.receipt_number, p.sale.number)
+    if p.purchase_id:
+        return "%s · %s" % (p.purchase.invoice_number, p.purchase.supplier.name)
+    c = p.purchase_cost
+    return "%s · %s" % (c.purchase.invoice_number, fr("cost.kind." + c.kind))
+
+
 def _back_for(payment):
     if payment.sale_id:
         return url_for("sales.detail", sid=payment.sale_id)
@@ -133,6 +147,8 @@ def void(pay_id):
         else:
             payment.voided_at = utcnow()
             payment.void_reason = reason[:255]
+            log_action("VOID", "receipt" if payment.sale_id else "payment", payment.id, "%s · %s · %s" % (
+                _payment_label(payment), money_text(payment.amount, payment.currency), payment.void_reason))
             db.session.commit()
             flash("success|" + t["payment.voided"])
             return modal_ok() if is_modal_request() else redirect(back)

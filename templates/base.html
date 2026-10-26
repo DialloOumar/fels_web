@@ -78,7 +78,7 @@
             </a></li>
             {% endif %}
             {% if can('settings', 'yes') %}
-            <li><a href="{{ url_for('settings.index') }}" class="sidebar-sub {% if request.blueprint == 'settings' and request.endpoint != 'settings.errors' %}active{% endif %}">
+            <li><a href="{{ url_for('settings.index') }}" class="sidebar-sub {% if request.blueprint == 'settings' %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">settings</span> {{ t['nav.settings'] }}
             </a></li>
             {% endif %}
@@ -87,9 +87,9 @@
                 <span class="nav-icon material-symbols-outlined">upload_file</span> {{ t['nav.import'] }}
             </a></li>
             {% endif %}
-            {% if can('settings', 'yes') %}
-            <li><a href="{{ url_for('settings.errors') }}" class="sidebar-sub {% if request.endpoint == 'settings.errors' %}active{% endif %}">
-                <span class="nav-icon material-symbols-outlined">error</span> {{ t['nav.errors'] }}
+            {% if is_super_admin %}
+            <li><a href="{{ url_for('journal.audit') }}" class="sidebar-sub {% if request.blueprint == 'journal' %}active{% endif %}">
+                <span class="nav-icon material-symbols-outlined">history</span> {{ t['nav.journal'] }}
             </a></li>
             {% endif %}
             {% endif %}

@@ -18,9 +18,9 @@ from flask_login import current_user, login_required
 
 from exports import wants_xlsx, xlsx_response
 
-from app import (ListPage, current_rate, form_response, get_t,
-                 is_modal_request, modal_ok, paginate, parse_date, parse_money,
-                 parse_rate, rate_field_value)
+from app import (ListPage, current_rate, form_response, fr, get_t,
+                 is_modal_request, log_action, modal_ok, money_text, paginate,
+                 parse_date, parse_money, parse_rate, rate_field_value)
 from models import (COST_KINDS, CURRENCIES, PURCHASE_STAGES, STAGE_DATE_FIELD,
                     Port, Product, Purchase, PurchaseCost, PurchaseLine,
                     Supplier, Unit, db)
@@ -226,6 +226,7 @@ def _save(purchase):
         raise FormError(t["purchase.error.number_exists"])
     rows = _parse_lines()
 
+    is_new = purchase.id is None
     purchase.supplier = supplier
     purchase.invoice_number = number[:60]
     purchase.invoice_date = invoice_date
@@ -258,6 +259,9 @@ def _save(purchase):
             purchase.lines.remove(line)
     for line in purchase.lines:
         _sync_units(line)
+    db.session.flush()
+    log_action("CREATE" if is_new else "UPDATE", "purchase", purchase.id,
+               "%s · %s · %s" % (purchase.invoice_number, supplier.name, money_text(purchase.goods_total, purchase.currency)))
     db.session.commit()
 
 
@@ -334,6 +338,7 @@ def delete(pid):
     if has_payments or has_sales:
         flash("error|" + t["purchase.error.delete"])
         return redirect(url_for("purchases.detail", pid=pid))
+    log_action("DELETE", "purchase", purchase.id, "%s · %s" % (purchase.invoice_number, purchase.supplier.name))
     db.session.delete(purchase)
     db.session.commit()
     flash("success|" + t["delete.done"])
@@ -364,6 +369,8 @@ def stage(pid):
             setattr(purchase, STAGE_DATE_FIELD[target], when)
             for later in PURCHASE_STAGES[idx + 1:]:
                 setattr(purchase, STAGE_DATE_FIELD[later], None)
+            log_action("STAGE", "purchase", purchase.id, "%s · %s → %s · %s" % (
+                purchase.invoice_number, fr("stage." + purchase.stage), fr("stage." + target), when.strftime("%d/%m/%Y")))
             purchase.stage = target
             db.session.commit()
             flash("success|" + t["purchase.stage_saved"] % {"stage": t["stage." + target]})
@@ -409,9 +416,13 @@ def _save_cost(cost, purchase):
     cost.description = (f.get("description") or "").strip()[:255] or None
     cost.payee = (f.get("payee") or "").strip()[:120] or None
     cost.reference = (f.get("reference") or "").strip()[:60] or None
-    if cost.id is None:
+    is_new = cost.id is None
+    if is_new:
         cost.purchase = purchase
         db.session.add(cost)
+        db.session.flush()
+    log_action("CREATE" if is_new else "UPDATE", "purchase_cost", cost.id, "%s · %s · %s" % (
+        purchase.invoice_number, fr("cost.kind." + kind), money_text(amount, currency)))
     db.session.commit()
 
 
@@ -454,6 +465,8 @@ def cost_delete(cid):
     if cost.payments:
         flash("error|" + t["cost.error.has_payments"])
     else:
+        log_action("DELETE", "purchase_cost", cost.id, "%s · %s · %s" % (
+            cost.purchase.invoice_number, fr("cost.kind." + cost.kind), money_text(cost.amount, cost.currency)))
         db.session.delete(cost)
         db.session.commit()
         flash("success|" + t["delete.done"])

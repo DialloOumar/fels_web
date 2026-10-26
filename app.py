@@ -25,8 +25,8 @@ from markupsafe import Markup
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from languages import TRANSLATIONS
-from models import (CURRENCIES, AppSetting, ErrorEvent, Port, User, convert,
-                    db, utcnow)
+from models import (CURRENCIES, AppSetting, AuditLog, ErrorEvent, Port, User,
+                    convert, db, utcnow)
 
 load_dotenv()
 
@@ -455,6 +455,39 @@ def rate_field_value(rate):
 app.jinja_env.filters["rate_field"] = rate_field_value
 
 
+# ── Audit log ────────────────────────────────────────────────────────────────
+
+
+def log_action(action, resource_type, resource_id=None, detail=None, username=None):
+    """Note a change in the audit log. The row joins the caller's
+    transaction: it is saved by the caller's commit, and lost with it on a
+    rollback, so the log never claims a change that did not happen. Pass
+    `username` when nobody is signed in (a failed sign-in). Never raises --
+    the log must not break the change it describes."""
+    try:
+        who = current_user if current_user.is_authenticated else None
+        if who is not None:
+            role = "super_admin" if who.is_super_admin else (who.role.name if who.role else None)
+        db.session.add(AuditLog(
+            user_id=who.id if who else None,
+            username=((who.username if who else username) or "?")[:80],
+            actor_role=role[:80] if who and role else None,
+            action=action, resource_type=resource_type, resource_id=resource_id,
+            detail=(detail or "")[:255] or None,
+            ip_address=(request.remote_addr or "")[:45] or None))
+    except Exception:
+        log.exception("audit log failed: %s %s", action, resource_type)
+
+
+def fr(key):
+    """A French label for an audit detail. The detail is written once and
+    read in either language, so it is kept in the client's own."""
+    return TRANSLATIONS["fr"].get(key, key)
+
+
+money_text = _money
+
+
 # ── Auth ─────────────────────────────────────────────────────────────────────
 
 
@@ -473,10 +506,14 @@ def login():
             session.permanent = True
             login_user(user)
             user.last_login_at = utcnow()
+            log_action("LOGIN", "auth")
             db.session.commit()
             from access import home_url
             return redirect(_safe_back(request.args.get("next")) or home_url())
         log.warning("failed login from %s", request.remote_addr)
+        log_action("LOGIN_FAILED", "auth", username=username or "?",
+                   detail="compte désactivé" if user and not user.is_active else None)
+        db.session.commit()
         error = get_t()["auth.invalid_credentials"]
     return render_template("login.html", error=error)
 
@@ -484,6 +521,8 @@ def login():
 @app.route("/logout", methods=["POST"])
 @login_required
 def logout():
+    log_action("LOGOUT", "auth")
+    db.session.commit()
     logout_user()
     session.clear()
     return redirect(url_for("login"))
@@ -505,6 +544,7 @@ def change_password():
             error = "pw.error.no_match"
         else:
             current_user.set_password(new_pw)
+            log_action("UPDATE", "user", current_user.id, "mot de passe changé")
             db.session.commit()
             success = "pw.success"
     return render_template("change_password.html", error=error, success=success)
@@ -714,6 +754,7 @@ from blueprints.importer import importer_bp  # noqa: E402
 from blueprints.signature import signature_bp  # noqa: E402
 from blueprints.notifications import notifications_bp  # noqa: E402
 from blueprints.users import users_bp  # noqa: E402
+from blueprints.journal import journal_bp  # noqa: E402
 
 app.register_blueprint(settings_bp)
 app.register_blueprint(suppliers_bp)
@@ -727,6 +768,7 @@ app.register_blueprint(importer_bp)
 app.register_blueprint(signature_bp)
 app.register_blueprint(notifications_bp)
 app.register_blueprint(users_bp)
+app.register_blueprint(journal_bp)
 
 
 if __name__ == "__main__":

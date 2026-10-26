@@ -17,7 +17,7 @@ import unicodedata
 from flask import Blueprint, abort, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from app import app, get_setting
+from app import app, get_setting, log_action
 from models import User, db, utcnow
 
 signature_bp = Blueprint("signature", __name__)
@@ -205,6 +205,8 @@ def mine():
         if error:
             db.session.rollback()
         else:
+            log_action("UPDATE", "signature", user.id, "signature retirée" if request.form.get("remove_signature")
+                       else "nouvelle signature" if f and f.filename else None)
             db.session.commit()
             success = "sig.saved"
     return render_template("my_signature.html", who=user, error=error, success=success,

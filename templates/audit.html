@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "_filters.html" import filter_bar, filter_select with context %}
+{% from "_pager.html" import pager with context %}
+
+{% block title %}{{ t['nav.journal'] }}{% endblock %}
+{% block page_title %}{{ t['nav.journal'] }}{% endblock %}
+
+{% macro who(log) -%}
+<strong>{{ log.username }}</strong>
+{%- if log.actor_role %}<div class="muted small">{{ t['role.super_admin'] if log.actor_role == 'super_admin' else log.actor_role }}</div>{% endif %}
+{%- endmacro %}
+
+{% macro what(log) -%}
+{% set link = links.get(log.resource_type) %}
+{{ t['audit.resource.' + log.resource_type] }}
+{%- if log.resource_id %}
+{%- if link and log.action != 'DELETE' %} <a href="{{ url_for(link[0], **{link[1]: log.resource_id}) }}" class="muted">#{{ log.resource_id }}</a>
+{%- else %} <span class="muted">#{{ log.resource_id }}</span>{% endif %}
+{%- endif %}
+{%- endmacro %}
+
+{% block content %}
+<section class="card">
+    {% with active = 'audit' %}{% include "_journal_tabs.html" %}{% endwith %}
+    <p class="muted small" style="margin:0 0 12px;">{{ t['audit.intro'] }}</p>
+
+    {% set filtered = search or action or resource or date_from or date_to %}
+    {% call filter_bar(search, active=(action or resource or date_from or date_to)) %}
+        {{ filter_select('action', t['audit.action'], [('', t['list.all'])] + actions, action) }}
+        {{ filter_select('resource', t['audit.resource'], [('', t['list.all'])] + resources, resource) }}
+        <label class="filter-select {% if date_from %}filter-select--on{% endif %}"><span>{{ t['ledger.from'] }}</span>
+            <input type="date" name="from" value="{{ date_from }}" data-autosubmit-date></label>
+        <label class="filter-select {% if date_to %}filter-select--on{% endif %}"><span>{{ t['ledger.to'] }}</span>
+            <input type="date" name="to" value="{{ date_to }}" data-autosubmit-date></label>
+    {% endcall %}
+
+    {% if rows %}
+    <div class="table-desktop table-wrap">
+    <table class="data-table audit-table">
+        <thead><tr>
+            <th>{{ t['audit.when'] }}</th>
+            <th>{{ t['audit.user'] }}</th>
+            <th>{{ t['audit.action'] }}</th>
+            <th>{{ t['audit.resource'] }}</th>
+            <th>{{ t['audit.detail'] }}</th>
+            <th class="col-secondary">{{ t['audit.ip'] }}</th>
+        </tr></thead>
+        <tbody>
+        {% for log in rows %}
+        <tr>
+            <td class="nowrap muted small">{{ log.timestamp.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td>{{ who(log) }}</td>
+            <td><span class="audit-action audit-action--{{ log.action|lower }}">{{ t['audit.action.' + log.action] }}</span></td>
+            <td class="nowrap">{{ what(log) }}</td>
+            <td class="audit-detail">{{ log.detail or '—' }}</td>
+            <td class="col-secondary muted small">{{ log.ip_address or '—' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <div class="list-cards">
+        {% for log in rows %}
+        <div class="list-card">
+            <div class="list-card__top">
+                <span><span class="audit-action audit-action--{{ log.action|lower }}">{{ t['audit.action.' + log.action] }}</span> {{ what(log) }}</span>
+                <span class="muted small">{{ log.timestamp.strftime('%d/%m %H:%M') }}</span>
+            </div>
+            {% if log.detail %}<div class="audit-detail">{{ log.detail }}</div>{% endif %}
+            <div class="list-card__meta muted">{{ log.username }}{% if log.ip_address %} · {{ log.ip_address }}{% endif %}</div>
+        </div>
+        {% endfor %}
+    </div>
+    <p class="muted small" style="margin-top:8px;">{{ t['audit.utc'] }}</p>
+    {{ pager(pagination, 'journal.audit') }}
+    {% else %}
+    <div class="empty-state">
+        <span class="material-symbols-outlined">history</span>
+        <p>{{ t['list.no_match'] if filtered else t['audit.empty'] }}</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

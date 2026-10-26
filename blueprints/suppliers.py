@@ -8,7 +8,7 @@ from flask_login import login_required
 
 from exports import wants_xlsx, xlsx_response
 
-from app import form_response, get_t, is_modal_request, modal_ok, paginate
+from app import form_response, get_t, is_modal_request, log_action, modal_ok, paginate
 from models import CURRENCIES, Supplier, db
 
 suppliers_bp = Blueprint("suppliers", __name__, url_prefix="/fournisseurs")
@@ -64,8 +64,11 @@ def _save(row):
     for f, v in data.items():
         setattr(row, f, v)
     row.default_currency = currency
-    if row.id is None:
+    is_new = row.id is None
+    if is_new:
         db.session.add(row)
+        db.session.flush()
+    log_action("CREATE" if is_new else "UPDATE", "supplier", row.id, row.name)
     db.session.commit()
     return None
 
@@ -112,6 +115,7 @@ def edit(sid):
 def archive(sid):
     row = _get_or_404(sid)
     row.is_active = False
+    log_action("ARCHIVE", "supplier", row.id, row.name)
     db.session.commit()
     flash("success|" + get_t()["archive.done"])
     return redirect(url_for("suppliers.index"))
@@ -122,6 +126,7 @@ def archive(sid):
 def reactivate(sid):
     row = _get_or_404(sid)
     row.is_active = True
+    log_action("RESTORE", "supplier", row.id, row.name)
     db.session.commit()
     flash("success|" + get_t()["archive.restored"])
     return redirect(url_for("suppliers.index", archived=1))
@@ -135,6 +140,7 @@ def delete(sid):
     if row.has_history:
         flash("error|" + t["delete.has_history"])
         return redirect(url_for("suppliers.index", archived=1))
+    log_action("DELETE", "supplier", row.id, row.name)
     db.session.delete(row)
     db.session.commit()
     flash("success|" + t["delete.done"])

@@ -44,15 +44,16 @@ OPEN = {
     "notifications.count", "notifications.panel", "notifications.index",
 }
 
-# Pages only the super admin opens: people and roles.
-SUPER_ONLY_BLUEPRINTS = {"users"}
+# Pages only the super admin opens: people and roles, and the journals --
+# the activity log reads over everyone's shoulder, the errors carry tracebacks.
+SUPER_ONLY_BLUEPRINTS = {"users", "journal"}
 
 V, M, Y = "view", "manage", "yes"
 RULES = {
-    # settings, ports, error journal
+    # settings, ports
     "settings.index": ("settings", Y), "settings.port_new": ("settings", Y),
     "settings.port_edit": ("settings", Y), "settings.port_archive": ("settings", Y),
-    "settings.port_delete": ("settings", Y), "settings.errors": ("settings", Y),
+    "settings.port_delete": ("settings", Y),
     # suppliers
     "suppliers.index": ("suppliers", V), "suppliers.detail": ("suppliers", V),
     "suppliers.new": ("suppliers", M), "suppliers.edit": ("suppliers", M),
@@ -150,9 +151,9 @@ def enforce():
 
 
 # The one role created on a fresh install: everything a role can grant, at
-# its highest level. What stays outside any role -- users and roles -- is the
+# its highest level. What stays outside any role -- users, roles, journals -- is the
 # super admin's alone (SUPER_ONLY_BLUEPRINTS). Other roles are made by hand.
 SEED_ROLES = [
-    ("Manager", "Accès complet, sauf les utilisateurs et les rôles (réservés à l'administrateur).",
+    ("Manager", "Accès complet, sauf les utilisateurs, les rôles et les journaux (réservés à l'administrateur).",
      {area: levels[-1] for area, levels in AREAS.items()}),
 ]

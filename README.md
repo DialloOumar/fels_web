@@ -16,6 +16,7 @@ Built on the same Flask + Postgres + Docker stack and design language as
 | Design: layout, light/dark, FR/EN, modals, toasts | Done |
 | Data model (all tables below) | Done, migrated |
 | Login, password change, CSRF, error journal | Done |
+| Activity log (who did what, when), super admin only, with the error journal under Journaux | Done |
 | Paramètres: USD→GNF rate, display currency, company details, ports | Done |
 | Fournisseurs, Clients, Modèles (catalog) | Done |
 | Purchases, pipeline board, customs/port costs, landed cost per vehicle | Done |
@@ -124,6 +125,7 @@ fels_web/
 | `sale_lines` | Model, agreed price, the unit once assigned |
 | `payments` | Money in (receipt REC-YYYY-NNN) or out (to a supplier or a cost); voided, never deleted |
 | `error_events` | The error journal |
+| `audit_logs` | The activity log: each change, sign-in and refused sign-in, with the name and role at the time |
 
 ## License
 

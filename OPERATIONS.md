@@ -78,8 +78,12 @@ docker compose exec web flask reset-super-admin-password --password 'new-pw'
 ## Errors
 
 An unexpected error shows the user a reference such as `ERR-7F3A2C`. The full
-traceback is under Administration → Journal des erreurs, searchable by that
-reference, kept 90 days.
+traceback is under Administration → Journaux → Erreurs (super admin only),
+searchable by that reference, kept 90 days.
+
+The Activité tab beside it is the audit log: every creation, change,
+deletion, pipeline stage, payment, void, import, sign-in and refused sign-in,
+with who, when and from which IP. It is never pruned.
 
 ```bash
 docker compose logs -f web                  # follow the app's log

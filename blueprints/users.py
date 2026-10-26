@@ -16,7 +16,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 from flask_login import current_user, login_required
 
 from access import AREAS
-from app import form_response, get_t, is_modal_request, modal_ok
+from app import form_response, get_t, is_modal_request, log_action, modal_ok
 from models import Role, User, db
 
 users_bp = Blueprint("users", __name__, url_prefix="/parametres/utilisateurs")
@@ -82,6 +82,11 @@ def _save_user(user, is_new):
     if is_new:
         user.lang = current_user.lang
         db.session.add(user)
+    db.session.flush()
+    detail = "%s · %s" % (user.username, user.role.name if user.role else "super_admin")
+    if not is_new and password:
+        detail += " · mot de passe réinitialisé"
+    log_action("CREATE" if is_new else "UPDATE", "user", user.id, detail)
     db.session.commit()
     return None
 
@@ -130,6 +135,7 @@ def user_toggle(uid):
         flash("error|" + t["user.error.self"])
     else:
         user.is_active = not user.is_active
+        log_action("RESTORE" if user.is_active else "ARCHIVE", "user", user.id, user.username)
         db.session.commit()
         flash("success|" + (t["user.activated"] if user.is_active else t["user.deactivated"]) % {"name": user.full_name})
     return redirect(url_for("users.index"))
@@ -178,8 +184,12 @@ def _role_form(role):
             role.name = name[:60]
             role.description = (request.form.get("description") or "").strip()[:255] or None
             role.permissions = _read_grid()
-            if role.id is None:
+            is_new = role.id is None
+            if is_new:
                 db.session.add(role)
+            db.session.flush()
+            log_action("CREATE" if is_new else "UPDATE", "role", role.id, "%s · %s" % (
+                role.name, ", ".join("%s=%s" % kv for kv in role.permissions.items()) or "aucun accès"))
             db.session.commit()
             flash("success|" + t["role.saved"] % {"name": role.name})
             return redirect(url_for("users.roles"))
@@ -208,6 +218,7 @@ def role_delete(rid):
     if role.users:
         flash("error|" + t["role.error.in_use"] % {"n": len(role.users)})
     else:
+        log_action("DELETE", "role", role.id, role.name)
         db.session.delete(role)
         db.session.commit()
         flash("success|" + t["delete.done"])

@@ -1,0 +1,11 @@
+{# The Journals page's two tabs. Expects `active` ('audit' or 'errors') and `tab_counts`. #}
+<nav class="tabs" aria-label="{{ t['nav.journal'] }}">
+    <a href="{{ url_for('journal.audit') }}" class="tab {% if active == 'audit' %}tab--on{% endif %}" {% if active == 'audit' %}aria-current="page"{% endif %}>
+        <span class="material-symbols-outlined">history</span> {{ t['tabs.audit'] }}
+        <span class="tab__count">{{ tab_counts.audit|num }}</span>
+    </a>
+    <a href="{{ url_for('journal.errors') }}" class="tab {% if active == 'errors' %}tab--on{% endif %}" {% if active == 'errors' %}aria-current="page"{% endif %}>
+        <span class="material-symbols-outlined">error</span> {{ t['tabs.errors'] }}
+        <span class="tab__count">{{ tab_counts.errors|num }}</span>
+    </a>
+</nav>

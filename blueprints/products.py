@@ -6,7 +6,7 @@ archived, never deleted."""
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 
-from app import form_response, get_t, is_modal_request, modal_ok, paginate
+from app import form_response, get_t, is_modal_request, log_action, modal_ok, paginate
 from blueprints.stock import tab_counts
 from models import PRODUCT_CATEGORIES, Product, db
 
@@ -66,8 +66,11 @@ def _save(row):
         if clash.first():
             return t["product.error.code_exists"]
     row.name, row.code, row.category, row.description = name, code, category, description
-    if row.id is None:
+    is_new = row.id is None
+    if is_new:
         db.session.add(row)
+        db.session.flush()
+    log_action("CREATE" if is_new else "UPDATE", "product", row.id, row.name)
     db.session.commit()
     return None
 
@@ -103,6 +106,7 @@ def edit(pid):
 def archive(pid):
     row = _get_or_404(pid)
     row.is_active = False
+    log_action("ARCHIVE", "product", row.id, row.name)
     db.session.commit()
     flash("success|" + get_t()["archive.done"])
     return redirect(url_for("products.index"))
@@ -113,6 +117,7 @@ def archive(pid):
 def reactivate(pid):
     row = _get_or_404(pid)
     row.is_active = True
+    log_action("RESTORE", "product", row.id, row.name)
     db.session.commit()
     flash("success|" + get_t()["archive.restored"])
     return redirect(url_for("products.index", archived=1))
@@ -126,6 +131,7 @@ def delete(pid):
     if row.has_history:
         flash("error|" + t["delete.has_history"])
         return redirect(url_for("products.index", archived=1))
+    log_action("DELETE", "product", row.id, row.name)
     db.session.delete(row)
     db.session.commit()
     flash("success|" + t["delete.done"])

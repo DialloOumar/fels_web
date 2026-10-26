@@ -1,11 +1,11 @@
 """Paramètres — the rate, the display currency, the company details printed
-on receipts, the list of ports, and the error journal."""
+on receipts, and the list of ports."""
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 
 from app import (SETTINGS_SCHEMA, form_response, get_setting, get_t,
-                 is_modal_request, modal_ok, paginate, parse_rate, set_setting)
-from models import CURRENCIES, ErrorEvent, Port, db
+                 is_modal_request, log_action, modal_ok, parse_rate, set_setting)
+from models import CURRENCIES, Port, db
 
 settings_bp = Blueprint("settings", __name__, url_prefix="/parametres")
 
@@ -43,8 +43,14 @@ def index():
             else:
                 errors[key] = t["settings.error.int"] % {"min": spec["min"], "max": spec["max"]}
         if not errors:
+            changed = []
             for key, value in form.items():
+                before = get_setting(key, "") or ""
+                if before != value:
+                    changed.append("%s: %s → %s" % (key, before or "—", value or "—"))
                 set_setting(key, value)
+            if changed:
+                log_action("UPDATE", "settings", None, " · ".join(changed))
             db.session.commit()
             flash("success|" + t["settings.saved"])
             return redirect(url_for("settings.index"))
@@ -75,9 +81,12 @@ def _save_port(port):
     if clash.first():
         return t["port.error.exists"]
     port.name = name
-    if port.id is None:
+    is_new = port.id is None
+    if is_new:
         port.sort_order = (db.session.query(db.func.max(Port.sort_order)).scalar() or 0) + 1
         db.session.add(port)
+        db.session.flush()
+    log_action("CREATE" if is_new else "UPDATE", "port", port.id, port.name)
     db.session.commit()
     return None
 
@@ -111,6 +120,7 @@ def port_edit(pid):
 def port_archive(pid):
     port = _port_or_404(pid)
     port.is_active = not port.is_active
+    log_action("RESTORE" if port.is_active else "ARCHIVE", "port", port.id, port.name)
     db.session.commit()
     flash("success|" + get_t()["archive.done" if not port.is_active else "archive.restored"])
     return redirect(url_for("settings.index"))
@@ -124,21 +134,8 @@ def port_delete(pid):
     if port.has_history:
         flash("error|" + t["delete.has_history"])
     else:
+        log_action("DELETE", "port", port.id, port.name)
         db.session.delete(port)
         db.session.commit()
         flash("success|" + t["delete.done"])
     return redirect(url_for("settings.index"))
-
-
-# ── Error journal ────────────────────────────────────────────────────────────
-
-
-@settings_bp.route("/erreurs")
-@login_required
-def errors():
-    q = ErrorEvent.query
-    ref = (request.args.get("q") or "").strip()
-    if ref:
-        q = q.filter(ErrorEvent.ref.ilike("%" + ref + "%"))
-    pagination = paginate(q.order_by(ErrorEvent.created_at.desc()))
-    return render_template("errors.html", pagination=pagination, rows=pagination.items, search=ref)

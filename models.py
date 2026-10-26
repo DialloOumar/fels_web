@@ -167,6 +167,25 @@ class ErrorEvent(db.Model):
     form_keys  = db.Column(db.String(300))
 
 
+class AuditLog(db.Model):
+    """Who did what, and when: one row per change, sign-in and failed
+    sign-in. The name and role are copied at the time, so the trail reads the
+    same after a user is renamed, changes role or is deactivated. Written by
+    log_action() in the same transaction as the change it describes."""
+    __tablename__ = "audit_logs"
+
+    id            = db.Column(db.Integer, primary_key=True)
+    timestamp     = db.Column(db.DateTime, nullable=False, default=utcnow, index=True)
+    user_id       = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    username      = db.Column(db.String(80), nullable=False)     # snapshot
+    actor_role    = db.Column(db.String(80))                     # snapshot
+    action        = db.Column(db.String(30), nullable=False, index=True)   # CREATE | UPDATE | DELETE | LOGIN | …
+    resource_type = db.Column(db.String(40), nullable=False, index=True)
+    resource_id   = db.Column(db.Integer)
+    detail        = db.Column(db.String(255))
+    ip_address    = db.Column(db.String(45))
+
+
 # ── Catalog ──────────────────────────────────────────────────────────────────
 
 PRODUCT_CATEGORIES = ("tractor", "trailer", "truck", "pickup", "other")

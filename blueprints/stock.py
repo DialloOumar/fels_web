@@ -8,7 +8,7 @@ from flask_login import login_required
 
 from exports import wants_xlsx, xlsx_response
 
-from app import ListPage, form_response, get_t, is_modal_request, modal_ok
+from app import ListPage, form_response, get_t, is_modal_request, log_action, modal_ok
 from models import Port, Product, Purchase, PurchaseLine, Supplier, Unit, db
 
 stock_bp = Blueprint("stock", __name__, url_prefix="/stock")
@@ -112,6 +112,8 @@ def edit(uid):
         if error is None:
             unit.chassis_number = chassis[:60] if chassis else None
             unit.note = note
+            log_action("UPDATE", "unit", unit.id, "%s · %s · %s" % (
+                unit.product.name, unit.chassis_number or "sans châssis", unit.purchase_line.purchase.invoice_number))
             db.session.commit()
             flash("success|" + t["unit.saved"])
             back = request.form.get("back") or url_for("stock.index")

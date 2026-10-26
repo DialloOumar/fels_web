@@ -22,9 +22,9 @@ from sqlalchemy.exc import IntegrityError
 
 from exports import wants_xlsx, xlsx_response
 
-from app import (ListPage, current_rate, form_response, get_setting, get_t,
-                 is_modal_request, modal_ok, paginate, parse_date, parse_money,
-                 rate_field_value)
+from app import (ListPage, current_rate, form_response, fr, get_setting, get_t,
+                 is_modal_request, log_action, modal_ok, money_text, paginate,
+                 parse_date, parse_money, rate_field_value)
 from blueprints.payments import _parse_payment
 from models import (CURRENCIES, PAYMENT_METHODS, Customer, Payment, Product,
                     Sale, SaleLine, Unit, convert, db, next_number)
@@ -58,6 +58,14 @@ def _commit_numbered(obj, column, prefix, attr):
             db.session.rollback()
             db.session.add(obj)
     raise RuntimeError("could not allocate a number in %s" % prefix)
+
+
+def _sale_label(sale):
+    return "%s · %s · %s" % (sale.number, sale.customer.name, money_text(sale.total, sale.currency))
+
+
+def _log_sale(action, sale, extra=None):
+    log_action(action, "sale", sale.id, _sale_label(sale) + (" · " + extra if extra else ""))
 
 
 # ── List ─────────────────────────────────────────────────────────────────────
@@ -189,8 +197,11 @@ def _save(sale):
         sale.created_by = current_user.id
         db.session.add(sale)
         _commit_numbered(sale, Sale.number, "VT-%d-" % sale_date.year, "number")
+        _log_sale("CREATE", sale)
     else:
-        db.session.commit()
+        db.session.flush()
+        _log_sale("UPDATE", sale)
+    db.session.commit()
 
 
 def _form_context(sale):
@@ -281,6 +292,7 @@ def confirm(sid):
     sale = _get_or_404(sid)
     if sale.status == "preorder":
         sale.status = "confirmed"
+        _log_sale("CONFIRM", sale)
         db.session.commit()
         flash("success|" + get_t()["sale.confirmed"])
     return redirect(url_for("sales.detail", sid=sid))
@@ -305,6 +317,7 @@ def deliver(sid):
         else:
             sale.status = "delivered"
             sale.delivered_on = when
+            _log_sale("DELIVER", sale, when.strftime("%d/%m/%Y"))
             db.session.commit()
             flash("success|" + t["sale.delivered"])
             if sale.balance > 0:
@@ -321,6 +334,7 @@ def undeliver(sid):
     sale = _get_or_404(sid)
     if sale.status == "delivered":
         sale.status, sale.delivered_on = "confirmed", None
+        _log_sale("UNDELIVER", sale)
         db.session.commit()
         flash("success|" + get_t()["sale.undelivered"])
     return redirect(url_for("sales.detail", sid=sid))
@@ -337,6 +351,7 @@ def cancel(sid):
         flash("error|" + t["sale.error.cancel_paid"])
     elif sale.status != "cancelled":
         sale.status = "cancelled"
+        _log_sale("CANCEL", sale)
         db.session.commit()
         flash("success|" + t["sale.cancelled"])
     return redirect(url_for("sales.detail", sid=sid))
@@ -359,6 +374,9 @@ def receipt_new(sid):
             p = Payment(direction="in", sale_id=sale.id, created_by=current_user.id, **values)
             db.session.add(p)
             _commit_numbered(p, Payment.receipt_number, "REC-%d-" % values["paid_on"].year, "receipt_number")
+            log_action("CREATE", "receipt", p.id, "%s · %s · %s · %s" % (
+                p.receipt_number, sale.number, money_text(p.amount, p.currency), fr("method." + p.method)))
+            db.session.commit()
             flash("success|" + t["receipt.saved"] % {"number": p.receipt_number})
             in_sale = convert(values["amount"], values["currency"], sale.currency, values["rate"])
             db.session.refresh(sale)

@@ -2,11 +2,12 @@
 {% from "_search.html" import searchbox with context %}
 {% from "_pager.html" import pager with context %}
 
-{% block title %}{{ t['nav.errors'] }}{% endblock %}
-{% block page_title %}{{ t['nav.errors'] }}{% endblock %}
+{% block title %}{{ t['tabs.errors'] }}{% endblock %}
+{% block page_title %}{{ t['nav.journal'] }}{% endblock %}
 
 {% block content %}
 <section class="card">
+    {% with active = 'errors' %}{% include "_journal_tabs.html" %}{% endwith %}
     <p class="muted small" style="margin-bottom:12px;">{{ t['errors.intro'] }}</p>
     {{ searchbox(search) }}
     {% if rows %}
@@ -22,7 +23,7 @@
         <pre class="error-event__trace">{{ e.traceback }}</pre>
     </details>
     {% endfor %}
-    {{ pager(pagination, 'settings.errors') }}
+    {{ pager(pagination, 'journal.errors') }}
     {% else %}
     <div class="empty-state">
         <span class="material-symbols-outlined">task_alt</span>

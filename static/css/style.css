@@ -1832,12 +1832,12 @@ a.list-card--link:hover { border-color: var(--md-primary); }
    user block on two short lines. A shorter window tightens once more. If a
    screen is shorter still, the list scrolls and the user block stays put. */
 .sidebar { padding: 8px 10px 10px; }
-.sidebar-logo { padding: 4px 10px 8px; }
+.sidebar-logo { padding: 4px 10px 8px; margin-bottom: 12px; }   /* air between the logo and the menu */
 .sidebar-logo-img { width: 100px; }
 .sidebar-nav { gap: 1px; }
-.sidebar-nav a, .sidebar-nav a.sidebar-sub { height: 34px; padding: 0 12px; gap: 10px; font-size: 0.84rem; }
+.sidebar-nav a, .sidebar-nav a.sidebar-sub { height: 33px; padding: 0 12px; gap: 10px; font-size: 0.84rem; }
 .sidebar-nav a .nav-icon, .sidebar-nav a .material-symbols-outlined { font-size: 19px; }
-.sidebar-section { padding: 9px 12px 3px; font-size: 0.64rem; line-height: 1.2; letter-spacing: 0.09em; }
+.sidebar-section { padding: 8px 12px 3px; font-size: 0.64rem; line-height: 1.2; letter-spacing: 0.09em; }
 .sidebar-nav > li:first-child + .sidebar-section { padding-top: 7px; }
 
 .sidebar-user {
@@ -1865,7 +1865,7 @@ a.list-card--link:hover { border-color: var(--md-primary); }
 @media (max-height: 620px) {
     .sidebar-nav a, .sidebar-nav a.sidebar-sub { height: 30px; }
     .sidebar-section { padding: 6px 12px 2px; }
-    .sidebar-logo { padding-bottom: 4px; }
+    .sidebar-logo { padding-bottom: 4px; margin-bottom: 8px; }
     .sidebar-logo-img { width: 92px; }
 }
 
@@ -1895,3 +1895,44 @@ a.list-card--link:hover { border-color: var(--md-primary); }
 .seg__opt--view input:checked + span { background: var(--c-blue-bg); color: var(--c-blue); }
 .seg__opt--manage input:checked + span, .seg__opt--yes input:checked + span { background: var(--c-green-bg); color: var(--c-green); }
 .seg__opt input:focus-visible + span { outline: 2px solid var(--md-primary); outline-offset: -2px; }
+
+/* ── A field: its label, the "?" beside it, the control, then any note ──
+   A grid rather than a column, so the explanation mark sits on the label's
+   own line instead of under the control, and a short note (Facultatif.) or
+   an error still follows the control. */
+.field { display: grid; grid-template-columns: auto 1fr; column-gap: 6px; row-gap: 6px; align-items: center; }
+.field > label { grid-row: 1; grid-column: 1; order: 0; }
+.field > .hint-dot { grid-row: 1; grid-column: 2; justify-self: start; margin-left: 0; position: relative; vertical-align: baseline; }
+.field > input, .field > select, .field > textarea, .field > .field-hint, .field > .field-error,
+.field > div, .field > p { grid-column: 1 / -1; }
+.field > input, .field > select, .field > textarea { grid-row: 2; }
+.field > .field-hint { margin-top: -2px; }
+/* On the label's line the explanation opens downward, aligned to the mark:
+   upward it would be cut off at the top of a dialog. */
+.field > .hint-dot::after {
+    top: calc(100% + 8px); bottom: auto; left: -6px; transform: none;
+    max-width: min(280px, calc(100vw - 48px));
+}
+
+/* Activity log (Journaux). The action is a badge coloured by its kind: what
+   adds is green, what changes blue, what removes or undoes red, the steps of
+   a sale or a purchase teal, sign-ins neutral and a refused one amber. */
+.audit-table td { vertical-align: top; }
+.audit-detail { max-width: 420px; overflow-wrap: anywhere; font-size: 0.86rem; }
+.nowrap { white-space: nowrap; }
+.audit-action {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: var(--shape-control);
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--md-surface-container-high);
+    color: var(--md-on-surface-variant);
+}
+.audit-action--create, .audit-action--restore, .audit-action--import { background: var(--c-green-bg); color: var(--c-green); }
+.audit-action--update   { background: var(--c-blue-bg);  color: var(--c-blue); }
+.audit-action--delete, .audit-action--void, .audit-action--cancel,
+.audit-action--archive, .audit-action--undeliver { background: var(--c-red-bg); color: var(--c-red); }
+.audit-action--stage, .audit-action--confirm, .audit-action--deliver { background: var(--c-teal-bg); color: var(--c-teal); }
+.audit-action--login_failed { background: var(--c-amber-bg); color: var(--c-amber); }

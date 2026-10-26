@@ -26,7 +26,7 @@ from decimal import Decimal, InvalidOperation
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required
 
-from app import current_rate, get_t
+from app import current_rate, get_t, log_action
 from models import (PRODUCT_CATEGORIES, Customer, Payment, Port, Product,
                     Purchase, PurchaseLine, Sale, SaleLine, Supplier, Unit,
                     db, next_number)
@@ -542,6 +542,7 @@ def _apply(proposal):
                 counts["payments"] += 1
             counts["sales"] += 1
 
+    log_action("IMPORT", "import", None, ", ".join("%s: %d" % kv for kv in counts.items()))
     db.session.commit()
     return counts
 
