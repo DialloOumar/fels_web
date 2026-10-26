@@ -1821,3 +1821,50 @@ a.list-card--link:hover { border-color: var(--md-primary); }
 .alert-kind--warn .alert-kind__head .material-symbols-outlined { color: var(--c-amber); }
 .alert-kind--info .alert-kind__head .material-symbols-outlined { color: var(--md-on-surface-variant); }
 .alert-kind__count { min-width: 22px; height: 22px; padding: 0 7px; border-radius: var(--shape-full); display: inline-flex; align-items: center; justify-content: center; background: var(--md-surface-container-high); font-size: 0.75rem; font-weight: 700; }
+
+/* The Vehicles page's tabs, first thing in its card. */
+.card > .tabs:first-child { margin: -4px 0 12px; }
+.tab .material-symbols-outlined { font-size: 18px; }
+
+/* ── Compact navigation ──
+   Every entry fits a laptop screen (about 650px of window height) with no
+   scrolling; under 620px the rows tighten once more: tighter rows, slimmer section labels, a smaller logo, and the
+   user block on two short lines. A shorter window tightens once more. If a
+   screen is shorter still, the list scrolls and the user block stays put. */
+.sidebar { padding: 8px 10px 10px; }
+.sidebar-logo { padding: 4px 10px 8px; }
+.sidebar-logo-img { width: 100px; }
+.sidebar-nav { gap: 1px; }
+.sidebar-nav a, .sidebar-nav a.sidebar-sub { height: 34px; padding: 0 12px; gap: 10px; font-size: 0.84rem; }
+.sidebar-nav a .nav-icon, .sidebar-nav a .material-symbols-outlined { font-size: 19px; }
+.sidebar-section { padding: 9px 12px 3px; font-size: 0.64rem; line-height: 1.2; letter-spacing: 0.09em; }
+.sidebar-nav > li:first-child + .sidebar-section { padding-top: 7px; }
+
+.sidebar-user {
+    margin-top: 6px; padding: 8px 8px 8px 12px;
+    flex-direction: column; align-items: stretch; gap: 6px;
+}
+.sidebar-user-info { flex-direction: row; align-items: baseline; gap: 6px; }
+.sidebar-user-name { font-size: 0.82rem; }
+.sidebar-user-role { font-size: 0.68rem; white-space: nowrap; }
+.sidebar-user-actions { display: flex; gap: 4px; }
+.sidebar-user-actions form { display: contents; }
+.sidebar-icon-btn {
+    width: 34px; height: 30px; flex: 1 1 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 0; border-radius: var(--shape-control); background: rgba(255, 255, 255, 0.05);
+    color: var(--nav-fg); cursor: pointer; font: inherit; text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+}
+.sidebar-icon-btn .material-symbols-outlined { font-size: 18px; }
+.sidebar-icon-btn--text { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; }
+.sidebar-icon-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; text-decoration: none; }
+.sidebar-icon-btn.is-on { background: var(--nav-active-bg); color: var(--nav-active-fg); }
+.sidebar-icon-btn--out:hover { background: var(--md-error-container); color: var(--md-on-error-container); }
+
+@media (max-height: 620px) {
+    .sidebar-nav a, .sidebar-nav a.sidebar-sub { height: 30px; }
+    .sidebar-section { padding: 6px 12px 2px; }
+    .sidebar-logo { padding-bottom: 4px; }
+    .sidebar-logo-img { width: 92px; }
+}

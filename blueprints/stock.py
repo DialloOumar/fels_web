@@ -18,6 +18,12 @@ UNIT_STATUSES = ("available", "reserved", "delivered")
 WHERE = ("incoming", "in_stock")
 
 
+def tab_counts():
+    """The numbers on the Vehicles page's tabs: every vehicle, and the
+    models of the catalog still in use."""
+    return {"units": Unit.query.count(), "products": Product.query.filter_by(is_active=True).count()}
+
+
 @stock_bp.route("/")
 @login_required
 def index():
@@ -73,7 +79,7 @@ def index():
     return render_template(
         "stock.html", rows=pagination.items, pagination=pagination, search=search,
         product_id=product_id, port_id=port_id, status=status, where=where, opts=opts,
-        landed=_landed_costs(pagination.items))
+        landed=_landed_costs(pagination.items), tab_counts=tab_counts())
 
 
 def _landed_costs(units):

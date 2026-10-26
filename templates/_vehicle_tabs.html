@@ -1,0 +1,13 @@
+{# The Vehicles page's two tabs: the vehicles themselves, and the catalog of
+   models they belong to. Links, so the open tab is in the address. Expects
+   `active` ('units' or 'products') and `tab_counts`. #}
+<nav class="tabs" aria-label="{{ t['nav.stock'] }}">
+    <a href="{{ url_for('stock.index') }}" class="tab {% if active == 'units' %}tab--on{% endif %}" {% if active == 'units' %}aria-current="page"{% endif %}>
+        <span class="material-symbols-outlined">inventory_2</span> {{ t['tabs.units'] }}
+        <span class="tab__count">{{ tab_counts.units }}</span>
+    </a>
+    <a href="{{ url_for('products.index') }}" class="tab {% if active == 'products' %}tab--on{% endif %}" {% if active == 'products' %}aria-current="page"{% endif %}>
+        <span class="material-symbols-outlined">category</span> {{ t['tabs.products'] }}
+        <span class="tab__count">{{ tab_counts.products }}</span>
+    </a>
+</nav>

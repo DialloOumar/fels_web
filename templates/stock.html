@@ -8,6 +8,7 @@
 
 {% block content %}
 <section class="card">
+    {% with active = 'units' %}{% include "_vehicle_tabs.html" %}{% endwith %}
     <div class="card-header card-header--end">
         <div class="header-actions">{{ export_button() }}</div>
     </div>

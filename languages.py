@@ -211,6 +211,8 @@ TRANSLATIONS = {
         "nav.purchases":     "Achats",
         "nav.stock_section": "Stock",
         "nav.stock":         "Véhicules",
+        "tabs.units":        "Véhicules",
+        "tabs.products":     "Modèles",
 
         # Shared fields and errors
         "field.rate":        "Taux du jour (GNF pour 1 USD)",
@@ -847,6 +849,8 @@ TRANSLATIONS = {
         "nav.purchases":     "Purchases",
         "nav.stock_section": "Stock",
         "nav.stock":         "Vehicles",
+        "tabs.units":        "Vehicles",
+        "tabs.products":     "Models",
 
         "field.rate":        "Rate of the day (GNF for 1 USD)",
         "field.rate_short":  "rate",

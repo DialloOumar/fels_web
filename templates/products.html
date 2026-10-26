@@ -3,11 +3,12 @@
 {% from "_pager.html" import pager with context %}
 {% from "_macros.html" import row_actions, archive_toggle with context %}
 
-{% block title %}{{ t['nav.products'] }}{% endblock %}
-{% block page_title %}{{ t['nav.products'] }}{% endblock %}
+{% block title %}{{ t['nav.products'] }} · {{ t['nav.stock'] }}{% endblock %}
+{% block page_title %}{{ t['nav.stock'] }}{% endblock %}
 
 {% block content %}
 <section class="card">
+    {% with active = 'products' %}{% include "_vehicle_tabs.html" %}{% endwith %}
     <div class="card-header card-header--end">
         <div class="header-actions">
             {{ archive_toggle('products.index', show_archived, archived_count) }}

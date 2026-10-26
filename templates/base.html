@@ -35,7 +35,7 @@
             </a></li>
 
             <li class="sidebar-section">{{ t['nav.stock_section'] }}</li>
-            <li><a href="{{ url_for('stock.index') }}" class="sidebar-sub {% if request.blueprint == 'stock' %}active{% endif %}">
+            <li><a href="{{ url_for('stock.index') }}" class="sidebar-sub {% if request.blueprint in ('stock', 'products') %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">inventory_2</span> {{ t['nav.stock'] }}
             </a></li>
 
@@ -52,11 +52,6 @@
                 <span class="nav-icon material-symbols-outlined">payments</span> {{ t['nav.payments'] }}
             </a></li>
 
-            <li class="sidebar-section">{{ t['nav.catalog'] }}</li>
-            <li><a href="{{ url_for('products.index') }}" class="sidebar-sub {% if request.blueprint == 'products' %}active{% endif %}">
-                <span class="nav-icon material-symbols-outlined">category</span> {{ t['nav.products'] }}
-            </a></li>
-
             <li class="sidebar-section">{{ t['nav.admin'] }}</li>
             <li><a href="{{ url_for('settings.index') }}" class="sidebar-sub {% if request.blueprint == 'settings' and request.endpoint != 'settings.errors' %}active{% endif %}">
                 <span class="nav-icon material-symbols-outlined">settings</span> {{ t['nav.settings'] }}
@@ -69,26 +64,28 @@
             </a></li>
         </ul>
 
+        {# Who is signed in, on one line, and their tools as a row of icons:
+           the block stays two lines high so the menu above it never has to
+           scroll on a laptop screen. Each icon carries its name as a tooltip. #}
         <div class="sidebar-user">
             <div class="sidebar-user-info">
                 <span class="sidebar-user-name">{{ current_user.full_name }}</span>
                 <span class="sidebar-user-role">{{ t['role.super_admin'] if is_super_admin else t['role.user'] }}</span>
-                <a href="{{ url_for('signature.mine') }}" class="sidebar-change-pw">
-                    <span class="material-symbols-outlined" style="font-size:16px;">signature</span> {{ t['sig.title'] }}
-                </a>
-                <a href="{{ url_for('change_password') }}" class="sidebar-change-pw">
-                    <span class="material-symbols-outlined" style="font-size:16px;">lock_reset</span> {{ t['nav.change_password'] }}
-                </a>
-                <a href="{{ url_for('set_language', lang='fr' if lang == 'en' else 'en') }}" class="sidebar-lang">
-                    <span class="material-symbols-outlined" style="font-size:16px;">translate</span> {{ 'EN' if lang == 'fr' else 'FR' }}
-                </a>
             </div>
-            <form method="post" action="{{ url_for('logout') }}">
-                {{ csrf_field() }}
-                <button type="submit" class="logout-btn" title="{{ t['auth.logout'] }}" aria-label="{{ t['auth.logout'] }}">
-                    <span class="material-symbols-outlined">logout</span>
-                </button>
-            </form>
+            <div class="sidebar-user-actions">
+                <a href="{{ url_for('signature.mine') }}" class="sidebar-icon-btn {% if request.endpoint == 'signature.mine' %}is-on{% endif %}"
+                   title="{{ t['sig.title'] }}" aria-label="{{ t['sig.title'] }}"><span class="material-symbols-outlined">signature</span></a>
+                <a href="{{ url_for('change_password') }}" class="sidebar-icon-btn {% if request.endpoint == 'change_password' %}is-on{% endif %}"
+                   title="{{ t['nav.change_password'] }}" aria-label="{{ t['nav.change_password'] }}"><span class="material-symbols-outlined">lock_reset</span></a>
+                <a href="{{ url_for('set_language', lang='fr' if lang == 'en' else 'en') }}" class="sidebar-icon-btn sidebar-icon-btn--text"
+                   title="{{ 'English' if lang == 'fr' else 'Français' }}" aria-label="{{ 'English' if lang == 'fr' else 'Français' }}">{{ 'EN' if lang == 'fr' else 'FR' }}</a>
+                <form method="post" action="{{ url_for('logout') }}">
+                    {{ csrf_field() }}
+                    <button type="submit" class="sidebar-icon-btn sidebar-icon-btn--out" title="{{ t['auth.logout'] }}" aria-label="{{ t['auth.logout'] }}">
+                        <span class="material-symbols-outlined">logout</span>
+                    </button>
+                </form>
+            </div>
         </div>
     </nav>
 

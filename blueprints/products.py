@@ -1,4 +1,5 @@
-"""Modèles — the catalog of what is bought and sold: "Shacman 430 HP",
+"""Modèles — the second tab of the Vehicles page: the catalog of what is
+bought and sold: "Shacman 430 HP",
 "Fence trailer 16 m". Purchase and sale lines point here, so stock and
 margins are counted per model. A model named on a purchase or a sale is
 archived, never deleted."""
@@ -6,6 +7,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 from flask_login import login_required
 
 from app import form_response, get_t, is_modal_request, modal_ok, paginate
+from blueprints.stock import tab_counts
 from models import PRODUCT_CATEGORIES, Product, db
 
 products_bp = Blueprint("products", __name__, url_prefix="/modeles")
@@ -39,7 +41,7 @@ def index():
     return render_template("products.html", rows=pagination.items, pagination=pagination,
                            search=search, show_archived=show_archived, category=category,
                            category_opts=[(c, t["category." + c]) for c in PRODUCT_CATEGORIES],
-                           archived_count=archived_count)
+                           archived_count=archived_count, tab_counts=tab_counts())
 
 
 def _save(row):
