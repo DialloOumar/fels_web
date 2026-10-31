@@ -129,13 +129,16 @@ def _csrf_protect():
 
 # ── i18n ─────────────────────────────────────────────────────────────────────
 
-LANGS = ("fr", "en")
+LANGS = ("fr", "en", "de")
+# Each language under its own name, as the language menu lists them.
+LANG_NAMES = (("fr", "Français"), ("en", "English"), ("de", "Deutsch"))
 
 
 class _Translations(dict):
     """A language's dictionary that never raises: a key missing from English
-    falls back to French, and a key missing everywhere shows as itself, so a
-    forgotten translation is visible on the page instead of blank."""
+    or German falls back to French, and a key missing everywhere shows as
+    itself, so a forgotten translation is visible on the page instead of
+    blank."""
 
     def __missing__(self, key):
         return TRANSLATIONS["fr"].get(key, key)
@@ -380,6 +383,7 @@ def _inject_globals():
     return {
         "t": get_t(),
         "lang": current_lang(),
+        "lang_names": LANG_NAMES,
         "v": STATIC_VERSION,
         "app_version": APP_VERSION,
         "csrf_field": csrf_field,

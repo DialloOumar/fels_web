@@ -1,0 +1,27 @@
+{# The language menu: the current language's code, opening onto the three
+   languages, each written in its own name so anyone can find theirs.
+
+   `button_class` styles the button where the menu sits (the top bar, the
+   login card, the sidebar's row of icons); `up` opens the list above the
+   button, for the sidebar's bottom edge. main.js closes it on a click
+   elsewhere or on Escape.
+
+   Usage:  {% from "_lang_menu.html" import lang_menu with context %}
+           {{ lang_menu('lang-toggle', icon=true) }}
+#}
+{% macro lang_menu(button_class, icon=false, up=false) -%}
+<details class="lang-menu {% if up %}lang-menu--up{% endif %}">
+    <summary class="{{ button_class }}" title="{{ t['lang.choose'] }}" aria-label="{{ t['lang.choose'] }}">
+        {%- if icon %}<span class="material-symbols-outlined">translate</span> {% endif %}{{ lang|upper -}}
+    </summary>
+    <div class="lang-menu__list" role="menu">
+        {% for code, name in lang_names %}
+        <a href="{{ url_for('set_language', lang=code) }}" role="menuitemradio" lang="{{ code }}" hreflang="{{ code }}"
+           aria-checked="{{ 'true' if code == lang else 'false' }}" class="lang-menu__item {% if code == lang %}is-on{% endif %}">
+            <span class="lang-menu__code">{{ code|upper }}</span> {{ name }}
+            {% if code == lang %}<span class="material-symbols-outlined">check</span>{% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</details>
+{%- endmacro %}

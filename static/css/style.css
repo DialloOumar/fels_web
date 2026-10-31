@@ -1936,3 +1936,28 @@ a.list-card--link:hover { border-color: var(--md-primary); }
 .audit-action--archive, .audit-action--undeliver { background: var(--c-red-bg); color: var(--c-red); }
 .audit-action--stage, .audit-action--confirm, .audit-action--deliver { background: var(--c-teal-bg); color: var(--c-teal); }
 .audit-action--login_failed { background: var(--c-amber-bg); color: var(--c-amber); }
+
+/* ── Language menu ──
+   The current language's code; a click opens the three languages, each in
+   its own name. Opens below in the top bar and on the login card, above in
+   the sidebar's row of icons, where it sits at the bottom of the screen. */
+.lang-menu { position: relative; }
+.lang-menu > summary { list-style: none; cursor: pointer; }
+.lang-menu > summary::-webkit-details-marker { display: none; }
+.lang-menu__list {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 40;
+    min-width: 170px; padding: 6px 0;
+    background: var(--md-surface); color: var(--md-on-surface);
+    border: 1px solid var(--md-outline-variant); border-radius: var(--shape-lg);
+    box-shadow: var(--elev-3);
+}
+.lang-menu--up .lang-menu__list { top: auto; bottom: calc(100% + 6px); }
+.lang-menu__item { display: flex; align-items: center; gap: 10px; padding: 8px 14px; color: inherit; font-size: 0.88rem; }
+.lang-menu__item:hover { background: var(--md-surface-container); text-decoration: none; }
+.lang-menu__item.is-on { color: var(--md-primary); font-weight: 600; }
+.lang-menu__code { width: 22px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; color: var(--md-on-surface-variant); }
+.lang-menu__item .material-symbols-outlined { margin-left: auto; font-size: 18px; }
+/* In the sidebar's row the menu takes the place of one icon button. */
+.sidebar-user-actions > .lang-menu { flex: 1 1 0; display: flex; }
+.sidebar-user-actions > .lang-menu > summary { width: 100%; }
+.lang-menu[open] > .sidebar-icon-btn { background: var(--nav-active-bg); color: var(--nav-active-fg); }

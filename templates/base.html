@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% from "_lang_menu.html" import lang_menu with context %}
 <html lang="{{ lang }}"{% if theme %} data-theme="{{ theme }}"{% endif %}>
 <head>
     <meta charset="UTF-8">
@@ -108,8 +109,7 @@
                    title="{{ t['sig.title'] }}" aria-label="{{ t['sig.title'] }}"><span class="material-symbols-outlined">signature</span></a>
                 <a href="{{ url_for('change_password') }}" class="sidebar-icon-btn {% if request.endpoint == 'change_password' %}is-on{% endif %}"
                    title="{{ t['nav.change_password'] }}" aria-label="{{ t['nav.change_password'] }}"><span class="material-symbols-outlined">lock_reset</span></a>
-                <a href="{{ url_for('set_language', lang='fr' if lang == 'en' else 'en') }}" class="sidebar-icon-btn sidebar-icon-btn--text"
-                   title="{{ 'English' if lang == 'fr' else 'Français' }}" aria-label="{{ 'English' if lang == 'fr' else 'Français' }}">{{ 'EN' if lang == 'fr' else 'FR' }}</a>
+                {{ lang_menu('sidebar-icon-btn sidebar-icon-btn--text', up=true) }}
                 <form method="post" action="{{ url_for('logout') }}">
                     {{ csrf_field() }}
                     <button type="submit" class="sidebar-icon-btn sidebar-icon-btn--out" title="{{ t['auth.logout'] }}" aria-label="{{ t['auth.logout'] }}">
@@ -160,9 +160,7 @@
                aria-label="{{ t['theme.light'] if theme == 'dark' else t['theme.dark'] }}">
                 <span class="material-symbols-outlined">{{ 'light_mode' if theme == 'dark' else 'dark_mode' }}</span>
             </a>
-            <a href="{{ url_for('set_language', lang='fr' if lang == 'en' else 'en') }}" class="lang-toggle">
-                <span class="material-symbols-outlined">translate</span> {{ 'EN' if lang == 'fr' else 'FR' }}
-            </a>
+            {{ lang_menu('lang-toggle', icon=true) }}
         </header>
 
         <div class="content">

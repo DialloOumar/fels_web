@@ -13,7 +13,7 @@ Built on the same Flask + Postgres + Docker stack and design language as
 | Area | State |
 |---|---|
 | Setup: Docker, Caddy, migrations, seed, backups | Done |
-| Design: layout, light/dark, FR/EN, modals, toasts | Done |
+| Design: layout, light/dark, FR/EN/DE, modals, toasts | Done |
 | Data model (all tables below) | Done, migrated |
 | Login, password change, CSRF, error journal | Done |
 | Activity log (who did what, when), super admin only, with the error journal under Journaux | Done |
@@ -51,7 +51,7 @@ Built on the same Flask + Postgres + Docker stack and design language as
 - **Backend**: Flask 3 + SQLAlchemy 2 + Flask-Migrate (Alembic)
 - **Database**: Postgres 16
 - **Auth**: Flask-Login, hashed passwords, a CSRF token on every form
-- **i18n**: server-side French / English (`languages.py`)
+- **i18n**: server-side French / English / German (`languages.py`), chosen per user from the language menu
 - **Frontend**: server-rendered Jinja, vanilla JS, hand-rolled Material 3 CSS,
   self-hosted Barlow and Material Symbols (subset), "Atelier" theme (slate navigation, orange brand)
 - **Container**: Docker Compose (Postgres, gunicorn, Caddy with automatic HTTPS)
@@ -88,7 +88,7 @@ entrypoint applies it on boot.
 fels_web/
 ├── app.py              # Flask app, shared helpers, auth, dashboard, CLI
 ├── models.py           # SQLAlchemy models and the money rules
-├── languages.py        # FR/EN dictionaries
+├── languages.py        # FR/EN/DE dictionaries
 ├── s3_storage.py       # Object storage, for database backups
 ├── signatures.py       # A photographed signature reduced to transparent ink
 ├── blueprints/         # one module per area: settings, suppliers, customers, products,

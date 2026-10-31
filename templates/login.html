@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% from "_lang_menu.html" import lang_menu with context %}
 <html lang="{{ lang }}"{% if theme %} data-theme="{{ theme }}"{% endif %}>
 <head>
     <meta charset="utf-8">
@@ -33,9 +34,7 @@
     </form>
 
     <div style="display:flex; justify-content:center; gap:8px; margin-top:18px;">
-        <a href="{{ url_for('set_language', lang='fr' if lang == 'en' else 'en') }}" class="lang-toggle">
-            <span class="material-symbols-outlined">translate</span> {{ 'EN' if lang == 'fr' else 'FR' }}
-        </a>
+        {{ lang_menu('lang-toggle', icon=true) }}
         <a href="{{ url_for('set_theme', theme='light' if theme == 'dark' else 'dark') }}" class="lang-toggle theme-toggle" id="theme-toggle"
            data-to-dark="{{ url_for('set_theme', theme='dark') }}" data-to-light="{{ url_for('set_theme', theme='light') }}"
            data-label-dark="{{ t['theme.dark'] }}" data-label-light="{{ t['theme.light'] }}"

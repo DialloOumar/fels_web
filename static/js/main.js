@@ -504,6 +504,18 @@ document.addEventListener("change", function (e) {
     if (el && el.matches && el.matches("input[data-autosubmit-date]") && el.form && (!el.value || el.validity.valid)) el.form.submit();
 });
 
+// The language menus: close on a click anywhere else or on Escape.
+(function () {
+    var menus = document.querySelectorAll('details.lang-menu');
+    if (!menus.length) return;
+    document.addEventListener('click', function (e) {
+        menus.forEach(function (m) { if (m.open && !m.contains(e.target)) m.open = false; });
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') menus.forEach(function (m) { m.open = false; });
+    });
+})();
+
 // The bell: closes on a click anywhere else or on Escape, like any menu;
 // redraws its list each time it is opened; and keeps its number current.
 //
