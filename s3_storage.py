@@ -22,13 +22,18 @@ ERR_UNKNOWN        = "unknown"
 
 log = logging.getLogger(__name__)
 
+S3_BUCKET       = os.environ.get("S3_BUCKET", "").strip()
 S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL", "").strip()
 # boto3 wants a full URL; "fr-par-1.linodeobjects.com", as Linode's console
 # shows it, is taken to mean https.
 if S3_ENDPOINT_URL and "://" not in S3_ENDPOINT_URL:
     S3_ENDPOINT_URL = "https://" + S3_ENDPOINT_URL
+# The bucket's own address (felsstorage.fr-par-1.linodeobjects.com) is not
+# the endpoint: boto3 adds the bucket itself. Keep the region's address.
+if S3_BUCKET and "://%s." % S3_BUCKET in S3_ENDPOINT_URL:
+    S3_ENDPOINT_URL = S3_ENDPOINT_URL.replace("://%s." % S3_BUCKET, "://", 1)
+S3_ENDPOINT_URL = S3_ENDPOINT_URL.rstrip("/")
 S3_REGION       = os.environ.get("S3_REGION", "")
-S3_BUCKET       = os.environ.get("S3_BUCKET", "")
 S3_ACCESS_KEY   = os.environ.get("S3_ACCESS_KEY", "")
 S3_SECRET_KEY   = os.environ.get("S3_SECRET_KEY", "")
 # Per-environment folder inside the bucket (e.g. "prod/"). Empty: bucket root.
