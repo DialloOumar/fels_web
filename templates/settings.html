@@ -1,96 +1,116 @@
 {% extends "base.html" %}
+{% from "_hint.html" import hint with context %}
+{% from "_form.html" import form_section, form_bar, error_summary, with_unit, choice with context %}
 
 {% block title %}{{ t['nav.settings'] }}{% endblock %}
 {% block page_title %}{{ t['nav.settings'] }}{% endblock %}
 
 {% block content %}
-<section class="card" style="max-width: 760px;">
-    <form method="post" class="entry-form">
-        {{ csrf_field() }}
-        {% for group in groups %}
-        <fieldset class="settings-group">
-            <legend>{{ t['settings.group.' + group] }}</legend>
-            {% if group == 'currency' %}
-            <p class="muted small" style="margin:0 0 12px;">{{ t['settings.rate_explain'] }}</p>
-            {% elif group == 'invoice' %}
-            <p class="muted small" style="margin:0 0 12px;">{{ t['settings.invoice_explain'] }}</p>
-            {% endif %}
-
-            {% for key, spec in schema.items() if spec.group == group %}
-            <div class="field {% if errors.get(key) %}field--error{% endif %}">
-                {% if spec.type == 'select' %}
-                <select id="{{ key }}" name="{{ key }}">
-                    {% for opt in spec.options %}
-                    <option value="{{ opt }}" {% if values[key] == opt %}selected{% endif %}>{{ t[spec.labels + opt] if spec.labels else opt }}</option>
-                    {% endfor %}
-                </select>
-                {% elif spec.type == 'textarea' %}
-                <textarea id="{{ key }}" name="{{ key }}" rows="2" placeholder=" ">{{ values[key] }}</textarea>
-                {% elif spec.type == 'decimal' %}
-                <input type="text" inputmode="decimal" id="{{ key }}" name="{{ key }}" value="{{ values[key]|replace('.', ',') }}" autocomplete="off" style="max-width:160px;">
-                {% elif spec.type == 'int' %}
-                <input type="number" id="{{ key }}" name="{{ key }}" value="{{ values[key] }}" min="{{ spec.min }}" max="{{ spec.max }}" step="1" style="max-width:160px;">
-                {% elif spec.type == 'rate' %}
-                <input type="text" inputmode="decimal" id="{{ key }}" name="{{ key }}" value="{{ values[key] }}"
-                       placeholder="{{ t['settings.rate_placeholder'] }}" autocomplete="off">
-                {% else %}
-                <input type="text" id="{{ key }}" name="{{ key }}" value="{{ values[key] }}" placeholder=" ">
-                {% endif %}
-                <label for="{{ key }}">{{ t['settings.' + key] }}</label>
-                {% if errors.get(key) %}<div class="field-error">{{ errors[key] }}</div>{% endif %}
+{% set group_icons = {'currency': 'currency_exchange', 'company': 'store', 'invoice': 'receipt_long', 'alerts': 'notifications'} %}
+{% set units = {'usd_gnf_rate': 'GNF', 'vat_rate': '%', 'alert_stuck_days': t['settings.unit.days'], 'alert_rate_days': t['settings.unit.days']} %}
+{# The longer explanations wait behind the "?" beside the label. #}
+{% set helps = {'usd_gnf_rate': t['settings.rate_explain'], 'vat_enabled': t['settings.invoice_explain']} %}
+{# What may stay empty: a section is ticked once everything else is filled. #}
+{% set optional = ('receipt_footer', 'invoice_footer') %}
+{% set first_error = (errors.keys()|list)[0] if errors else '' %}
+<form method="post" class="entry-form form-page" data-form-page>
+    {{ csrf_field() }}
+    <div class="form-page__layout">
+        <nav class="form-toc" data-form-toc aria-label="{{ t['form.toc'] }}"></nav>
+        <div class="form-page__sections">
+            {{ error_summary(errors[first_error] if errors else '', first_error) }}
+            {# One section per group of the schema; a long text takes the
+               whole width, the others sit two by two. #}
+            {% for group in groups %}
+            {% call form_section(group, group_icons[group], t['settings.group.' + group], t['settings.group_help.' + group], check='filled') %}
+            <div class="settings-grid">
+                {% for key, spec in schema.items() if spec.group == group %}
+                <div class="field {% if spec.type == 'textarea' %}settings-grid__wide{% endif %} {% if errors.get(key) %}field--error{% endif %}"{% if key in optional %} data-optional{% endif %}>
+                    <label for="{{ key }}">{{ t['settings.' + key] }}</label>
+                    {% if spec.type == 'select' and spec.options|length < 5 %}
+                    {% set opts = [] %}
+                    {% for opt in spec.options %}{% set _ = opts.append((opt, t[spec.labels + opt] if spec.labels else opt)) %}{% endfor %}
+                    {{ choice(key, opts, values[key], id=key) }}
+                    {% elif spec.type == 'select' %}
+                    <select id="{{ key }}" name="{{ key }}">
+                        {% for opt in spec.options %}
+                        <option value="{{ opt }}" {% if values[key] == opt %}selected{% endif %}>{{ t[spec.labels + opt] if spec.labels else opt }}</option>
+                        {% endfor %}
+                    </select>
+                    {% elif spec.type == 'textarea' %}
+                    <textarea id="{{ key }}" name="{{ key }}" rows="2">{{ values[key] }}</textarea>
+                    {% elif spec.type == 'decimal' %}
+                    {% call with_unit(units[key]) %}<input type="text" inputmode="decimal" id="{{ key }}" name="{{ key }}" value="{{ values[key]|replace('.', ',') }}" autocomplete="off">{% endcall %}
+                    {% elif spec.type == 'int' %}
+                    {% call with_unit(units[key]) %}<input type="number" id="{{ key }}" name="{{ key }}" value="{{ values[key] }}" min="{{ spec.min }}" max="{{ spec.max }}" step="1">{% endcall %}
+                    {% elif spec.type == 'rate' %}
+                    {% call with_unit(units[key]) %}<input type="text" inputmode="decimal" id="{{ key }}" name="{{ key }}" value="{{ values[key] }}"
+                           placeholder="{{ t['settings.rate_placeholder'] }}" autocomplete="off">{% endcall %}
+                    {% else %}
+                    <input type="text" {% if key == 'company_email' %}inputmode="email" {% endif %}id="{{ key }}" name="{{ key }}" value="{{ values[key] }}">
+                    {% endif %}
+                    {% if key in helps %}{{ hint('', helps[key]) }}{% endif %}
+                    {% if key in optional %}<span class="field-hint">{{ t['form.optional'] }}</span>{% endif %}
+                    {% if errors.get(key) %}<div class="field-error"><span class="material-symbols-outlined">error</span>{{ errors[key] }}</div>{% endif %}
+                </div>
+                {% endfor %}
             </div>
+            {% endcall %}
             {% endfor %}
-        </fieldset>
-        {% endfor %}
-
-        <div class="form-actions">
-            <button type="submit" class="btn btn--primary">
-                <span class="material-symbols-outlined">save</span> {{ t['btn.save'] }}
-            </button>
         </div>
-    </form>
-</section>
+    </div>
+    {{ form_bar(url_for('dashboard')) }}
+</form>
 
 {# The ports a purchase can land at. One that a purchase names is archived
-   rather than deleted. #}
-<section class="card" style="max-width: 760px;">
-    <div class="card-header">
-        <h2>{{ t['port.title'] }}</h2>
-        <a href="{{ url_for('settings.port_new') }}" class="fab" data-modal-url="{{ url_for('settings.port_new') }}" data-modal-title="{{ t['port.new'] }}">
-            <span class="material-symbols-outlined">add</span> {{ t['port.new'] }}
-        </a>
-    </div>
-    {% if ports %}
-    <div class="table-wrap"><table class="data-table">
-        <tbody>
-        {% for p in ports %}
-        <tr>
-            <td><strong>{{ p.name }}</strong>
-                {% if not p.is_active %}<span class="badge badge--inactive" style="margin-left:6px;">{{ t['status.archived'] }}</span>{% endif %}</td>
-            <td class="row-actions">
-                <a href="{{ url_for('settings.port_edit', pid=p.id) }}" class="btn btn--sm btn--tonal btn--icon"
-                   data-modal-url="{{ url_for('settings.port_edit', pid=p.id) }}" data-modal-title="{{ t['port.edit'] }}"
-                   title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
-                <form method="post" action="{{ url_for('settings.port_archive', pid=p.id) }}" style="display:inline">
-                    {{ csrf_field() }}
-                    <button type="submit" class="btn btn--sm {{ 'btn--tonal' if p.is_active else 'btn--primary' }} btn--icon"
-                            title="{{ t['btn.archive'] if p.is_active else t['btn.reactivate'] }}" aria-label="{{ t['btn.archive'] if p.is_active else t['btn.reactivate'] }}">
-                        <span class="material-symbols-outlined">{{ 'archive' if p.is_active else 'unarchive' }}</span></button>
-                </form>
-                {% if not p.is_active and not p.has_history %}
-                <form method="post" action="{{ url_for('settings.port_delete', pid=p.id) }}" style="display:inline"
-                      data-confirm="{{ t['delete.confirm'] }}" data-confirm-title="{{ t['delete.title'] }}" data-confirm-ok="{{ t['btn.delete'] }}" data-confirm-danger>
-                    {{ csrf_field() }}
-                    <button type="submit" class="btn btn--sm btn--danger btn--icon" title="{{ t['delete.forever'] }}" aria-label="{{ t['delete.forever'] }}"><span class="material-symbols-outlined">delete</span></button>
-                </form>
+   rather than deleted. Each is saved on its own, in a window, so the list
+   stays outside the settings form above. #}
+<div class="form-page__layout form-page__after">
+    <div></div>
+    <div class="form-page__sections">
+        <section class="fsec" id="sec-ports" data-toc data-toc-icon="anchor" data-toc-title="{{ t['port.title'] }}" data-check="rows">
+            <div class="fsec__head">
+                <span class="fsec__icon material-symbols-outlined" aria-hidden="true">anchor</span>
+                <span class="fsec__text"><span class="fsec__title">{{ t['port.title'] }}</span><span class="fsec__desc">{{ t['settings.group_help.ports'] }}</span></span>
+                <a href="{{ url_for('settings.port_new') }}" class="btn btn--sm btn--tonal fsec__action" data-modal-url="{{ url_for('settings.port_new') }}" data-modal-title="{{ t['port.new'] }}">
+                    <span class="material-symbols-outlined">add</span> {{ t['port.new'] }}
+                </a>
+            </div>
+            <div class="fsec__body">
+                {% if ports %}
+                <div class="table-wrap"><table class="data-table">
+                    <tbody>
+                    {% for p in ports %}
+                    <tr data-row>
+                        <td><strong>{{ p.name }}</strong>
+                            {% if not p.is_active %}<span class="badge badge--inactive" style="margin-left:6px;">{{ t['status.archived'] }}</span>{% endif %}</td>
+                        <td class="row-actions">
+                            <a href="{{ url_for('settings.port_edit', pid=p.id) }}" class="btn btn--sm btn--tonal btn--icon"
+                               data-modal-url="{{ url_for('settings.port_edit', pid=p.id) }}" data-modal-title="{{ t['port.edit'] }}"
+                               title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
+                            <form method="post" action="{{ url_for('settings.port_archive', pid=p.id) }}" style="display:inline">
+                                {{ csrf_field() }}
+                                <button type="submit" class="btn btn--sm {{ 'btn--tonal' if p.is_active else 'btn--primary' }} btn--icon"
+                                        title="{{ t['btn.archive'] if p.is_active else t['btn.reactivate'] }}" aria-label="{{ t['btn.archive'] if p.is_active else t['btn.reactivate'] }}">
+                                    <span class="material-symbols-outlined">{{ 'archive' if p.is_active else 'unarchive' }}</span></button>
+                            </form>
+                            {% if not p.is_active and not p.has_history %}
+                            <form method="post" action="{{ url_for('settings.port_delete', pid=p.id) }}" style="display:inline"
+                                  data-confirm="{{ t['delete.confirm'] }}" data-confirm-title="{{ t['delete.title'] }}" data-confirm-ok="{{ t['btn.delete'] }}" data-confirm-danger>
+                                {{ csrf_field() }}
+                                <button type="submit" class="btn btn--sm btn--danger btn--icon" title="{{ t['delete.forever'] }}" aria-label="{{ t['delete.forever'] }}"><span class="material-symbols-outlined">delete</span></button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table></div>
+                {% else %}
+                <div class="empty-state"><p>{{ t['port.empty'] }}</p></div>
                 {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table></div>
-    {% else %}
-    <div class="empty-state"><p>{{ t['port.empty'] }}</p></div>
-    {% endif %}
-</section>
+            </div>
+        </section>
+    </div>
+</div>
 {% endblock %}

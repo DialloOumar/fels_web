@@ -610,3 +610,116 @@ document.addEventListener("change", function (e) {
         amount.focus();
     });
 })();
+
+
+// ── Long forms (templates/_form.html) ──
+// The summary at the side is built from the sections (data-toc, the form's
+// and any kept after it on the page) and each is ticked once complete; the
+// one on screen is marked. The save bar says when something changed, and
+// leaving asks first. The error summary's link takes you to its field.
+// A section says how it is judged complete with data-check, a test in
+// window.formChecks; without one, its required fields must be filled.
+window.formChecks = window.formChecks || {};
+window.formChecks.always = function () { return true; };
+// Every field filled in but those marked data-optional (the settings).
+window.formChecks.filled = function (sec) {
+    var fields = sec.querySelectorAll(".field:not([data-optional])");
+    for (var i = 0; i < fields.length; i++) {
+        var radios = fields[i].querySelectorAll("input[type=radio]");
+        if (radios.length) {
+            if (!fields[i].querySelector("input[type=radio]:checked")) return false;
+            continue;
+        }
+        var el = fields[i].querySelector("input:not([type=hidden]), select, textarea");
+        if (el && !el.value.trim()) return false;
+    }
+    return true;
+};
+// A list with at least one row (the ports).
+window.formChecks.rows = function (sec) { return !!sec.querySelector("[data-row]"); };
+(function () {
+    var form = document.querySelector("form[data-form-page]");
+    if (!form) return;
+    var toc = document.querySelector("[data-form-toc]");
+
+    function sections() {
+        return Array.prototype.slice.call(document.querySelectorAll("[data-toc]")).filter(function (sec) { return !sec.closest("[hidden]"); });
+    }
+    function complete(sec) {
+        var check = sec.getAttribute("data-check");
+        if (check && window.formChecks[check]) return window.formChecks[check](sec);
+        var needed = sec.querySelectorAll("input[required], select[required], textarea[required]");
+        if (!needed.length) return false;
+        for (var i = 0; i < needed.length; i++) {
+            var el = needed[i];
+            if (el.disabled || el.closest("[hidden]")) continue;
+            if (el.type === "radio") {
+                if (!sec.querySelector("input[name='" + el.name + "']:checked")) return false;
+            } else if (!el.value || (el.validity && !el.validity.valid)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    function tick() {
+        if (!toc) return;
+        sections().forEach(function (sec) {
+            var a = toc.querySelector('[data-for="' + sec.id + '"]');
+            if (!a) return;
+            var done = complete(sec);
+            a.classList.toggle("is-done", done);
+            a.querySelector(".form-toc__state").textContent = done ? "check_circle" : "";
+        });
+    }
+    if (toc) {
+        toc.innerHTML = "";
+        sections().forEach(function (sec) {
+            var a = document.createElement("a");
+            a.href = "#" + sec.id;
+            a.setAttribute("data-for", sec.id);
+            var icon = document.createElement("span");
+            icon.className = "material-symbols-outlined";
+            icon.textContent = sec.getAttribute("data-toc-icon");
+            var title = document.createElement("span");
+            title.textContent = sec.getAttribute("data-toc-title");
+            var state = document.createElement("span");
+            state.className = "material-symbols-outlined form-toc__state";
+            a.appendChild(icon); a.appendChild(title); a.appendChild(state);
+            toc.appendChild(a);
+        });
+        tick();
+        // The section on screen.
+        if ("IntersectionObserver" in window) {
+            var seen = new IntersectionObserver(function (entries) {
+                entries.forEach(function (e) {
+                    if (!e.isIntersecting) return;
+                    toc.querySelectorAll("a").forEach(function (a) { a.classList.toggle("is-on", a.getAttribute("data-for") === e.target.id); });
+                });
+            }, { rootMargin: "-30% 0px -60% 0px" });
+            sections().forEach(function (s) { seen.observe(s); });
+        }
+    }
+
+    // Changes not saved yet.
+    var dirty = false, note = form.querySelector("[data-dirty-note]");
+    function mark() { dirty = true; if (note) note.hidden = false; }
+    form.addEventListener("input", function () { mark(); tick(); });
+    form.addEventListener("change", function () { mark(); tick(); });
+    form.addEventListener("submit", function () { dirty = false; });
+    // Annuler leaves on purpose: no question. Captured first, before the
+    // link navigates.
+    document.addEventListener("click", function (e) {
+        if (e.target.closest && e.target.closest("a[data-back], a[data-modal-cancel]")) dirty = false;
+    }, true);
+    window.addEventListener("beforeunload", function (e) { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+    // The error summary's link: to the field, in the middle of the screen.
+    var link = form.querySelector("[data-error-link]");
+    if (link) link.addEventListener("click", function (e) {
+        var input = document.getElementById(link.getAttribute("href").slice(1));
+        if (!input) return;
+        e.preventDefault();
+        input.scrollIntoView({ block: "center" });
+        input.focus({ preventScroll: true });
+    });
+})();

@@ -1,0 +1,67 @@
+{# The pieces of a long form (the settings): a card per section with its
+   icon, title and purpose; a summary of the sections at the side, ticked as
+   they are filled in (main.js builds it from the sections); the save bar
+   stuck to the bottom; the error summary pointing at its field.
+
+   A long form:
+     <form class="entry-form form-page" data-form-page>
+       <div class="form-page__layout">
+         <nav class="form-toc" data-form-toc aria-label="..."></nav>
+         <div class="form-page__sections">
+           {{ error_summary(message, field_id) }}
+           {% call form_section('identity', 'badge', title, purpose) %} fields {% endcall %}
+         </div>
+       </div>
+       {{ form_bar(cancel_url) }}
+     </form>
+
+   A section outside the form (a list kept on the same page) still joins the
+   summary: give it data-toc, data-toc-icon and data-toc-title. #}
+
+{# One section. `check` names the test that ticks it in the summary
+   (window.formChecks in main.js); without one, its required fields. #}
+{% macro form_section(key, icon, title, desc='', check='') -%}
+<section class="fsec" id="sec-{{ key }}" data-toc data-toc-icon="{{ icon }}" data-toc-title="{{ title }}"{% if check %} data-check="{{ check }}"{% endif %}>
+    <div class="fsec__head">
+        <span class="fsec__icon material-symbols-outlined" aria-hidden="true">{{ icon }}</span>
+        <span class="fsec__text"><span class="fsec__title">{{ title }}</span>{% if desc %}<span class="fsec__desc">{{ desc }}</span>{% endif %}</span>
+    </div>
+    <div class="fsec__body">{{ caller() }}</div>
+</section>
+{%- endmacro %}
+
+{# The save bar, stuck to the bottom of the screen: it says when there are
+   changes not saved yet. #}
+{% macro form_bar(cancel_url, label=none, icon='save') -%}
+<div class="form-bar">
+    <span class="form-bar__state" data-dirty-note hidden><span class="form-bar__dot"></span>{{ t['form.unsaved'] }}</span>
+    <a href="{{ cancel_url }}" class="btn btn--outlined" data-back>{{ t['btn.cancel'] }}</a>
+    <button type="submit" class="btn btn--primary"><span class="material-symbols-outlined">{{ icon }}</span> {{ label or t['btn.save'] }}</button>
+</div>
+{%- endmacro %}
+
+{# What went wrong, at the top, with a link to the field it is about. #}
+{% macro error_summary(message, field_id='') -%}
+{% if message %}
+<div class="form-error" role="alert">
+    <span class="material-symbols-outlined">error</span>
+    <span><strong>{{ t['form.fix_this'] }}</strong> {{ message }}{% if field_id %} <a href="#{{ field_id }}" data-error-link>{{ t['form.go_to_field'] }}</a>{% endif %}</span>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{# A number with its unit inside the field: wrap the input. #}
+{% macro with_unit(unit) -%}
+<div class="input-unit">{{ caller() }}<span class="input-unit__unit">{{ unit }}</span></div>
+{%- endmacro %}
+
+{# A small set of choices as buttons (fewer than five): radios underneath,
+   so the form posts as a select would. options: [(value, label)]. The first
+   radio takes `id`, so the field's label points at the group. #}
+{% macro choice(name, options, current, id=none) -%}
+<div class="choice" role="radiogroup">
+    {% for value, text in options %}
+    <label class="choice__opt"><input type="radio" name="{{ name }}" value="{{ value }}"{% if loop.first and id %} id="{{ id }}"{% endif %} {% if (value|string) == (current|string) %}checked{% endif %}><span>{{ text }}</span></label>
+    {% endfor %}
+</div>
+{%- endmacro %}

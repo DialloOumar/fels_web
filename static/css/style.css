@@ -1281,21 +1281,7 @@ a.stat-card { text-decoration: none; color: inherit; }
     margin-top: 16px;
 }
 .pager-info { font-size: 0.85rem; color: var(--md-on-surface-variant); }
-/* ── Settings ── */
-.settings-group {
-    border: 1px solid var(--md-outline-variant);
-    border-radius: var(--shape-md);
-    padding: 16px 18px 6px;
-    margin: 0 0 20px;
-}
-.settings-group legend {
-    padding: 0 8px;
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: var(--md-on-surface-variant);
-}
+/* ── Errors on a field ── */
 .field--error input, .field--error select { border-color: var(--c-red); }
 .field-error { font-size: 0.74rem; color: var(--c-red); margin-top: 4px; }
 
@@ -1473,8 +1459,11 @@ body { font-size: 0.9rem; }
     .topbar .bell__btn, .topbar #reload-page { display: inline-flex; min-width: 40px; padding: 0 8px; }
     .bell__panel { position: fixed; top: 58px; left: 12px; right: 12px; width: auto; }
     /* Tighter still on a phone, where every pixel of width is the content's.
-       Not below 10px: a card would look stuck to the edge of the screen. */
-    .content { padding: 10px; gap: 10px; overflow-x: hidden; }
+       Not below 10px: a card would look stuck to the edge of the screen.
+       Clipped, not hidden: "hidden" makes .content a scroll box of its own,
+       and then nothing inside it (a form's save bar, its section chips)
+       can stick to the screen. "hidden" stays for browsers without clip. */
+    .content { padding: 10px; gap: 10px; overflow-x: hidden; overflow-x: clip; }
     .card { padding: 12px; min-width: 0; }
     .form-row { grid-template-columns: 1fr; }
     /* Keep the quantity and its remove button side by side when stacked */
@@ -2394,3 +2383,106 @@ a.list-card--link:hover { border-color: var(--md-primary); }
 .lines-box .lines-editor th:last-child, .lines-box .lines-editor td:last-child { padding-right: 10px; }
 .form-layout__aside { top: 66px; }
 :root[data-theme="dark"] .form-summary__total { border: 1px solid rgba(224, 176, 79, 0.28); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   Long forms (templates/_form.html), the system of the MyAfrica ERP: a card
+   per section with what it is for, a summary at the side ticked as sections
+   are filled in, the unit inside the field, the save bar stuck to the
+   bottom, the error on its field. Used by the settings.
+   ════════════════════════════════════════════════════════════════════════ */
+.form-page { gap: 0; }
+.form-page__layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 18px; align-items: start; max-width: 1080px; }
+.form-page__sections { display: grid; gap: 14px; min-width: 0; }
+
+/* The summary: one entry per section, the one on screen marked. */
+.form-toc { position: sticky; top: 66px; display: grid; gap: 2px; font-size: 0.88rem; }
+.form-toc a { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; color: var(--md-on-surface-variant); text-decoration: none; }
+.form-toc a:hover { background: var(--md-surface-container); text-decoration: none; }
+.form-toc a.is-on { background: var(--md-surface); color: var(--md-on-surface); font-weight: 600; box-shadow: inset 3px 0 0 var(--nav-active-mark); }
+.form-toc a .material-symbols-outlined { font-size: 18px; }
+.form-toc__state { margin-left: auto; font-size: 17px !important; color: var(--c-green); }
+/* Not done yet: an empty ring, drawn -- the icon font has no such glyph. */
+.form-toc a:not(.is-done) .form-toc__state { width: 13px; height: 13px; margin-right: 2px; border: 1.5px solid var(--md-outline-variant); border-radius: 50%; }
+
+/* A section: its icon, title and purpose, then its fields. */
+.fsec { background: var(--md-surface); border: 1px solid var(--md-outline-variant); border-radius: var(--shape-xl);
+    box-shadow: var(--elev-1); scroll-margin-top: 80px; min-width: 0; }
+.fsec__head { display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px 0; }
+.fsec__icon { width: 36px; height: 36px; flex: none; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+    background: var(--md-primary-container); color: var(--md-primary); font-size: 20px; }
+:root[data-theme="dark"] .fsec__icon { color: var(--md-on-primary-container); }
+.fsec__text { display: grid; gap: 1px; min-width: 0; }
+.fsec__title { font-weight: 700; font-size: 1.02rem; color: var(--md-on-surface); }
+.fsec__desc { font-size: 0.85rem; color: var(--md-on-surface-variant); }
+.fsec__action { margin-left: auto; flex: none; }
+.fsec__body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 16px; }
+.fsec__body > .table-wrap { margin: 0; }
+.fsec__body > .empty-state { padding: 8px 0; }
+
+/* Two fields a row; a long text takes the whole width. */
+.settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.settings-grid__wide { grid-column: 1 / -1; }
+
+/* A number with its unit inside the field: [ 8 650 | GNF ]. */
+.input-unit { display: flex; align-items: stretch; height: var(--field-h); border: 1px solid var(--field-border); border-radius: var(--shape-md);
+    background: var(--field-bg); overflow: hidden; transition: border-color .15s, box-shadow .15s; }
+.input-unit:hover { border-color: var(--field-border-hover); }
+.input-unit:focus-within { border-color: var(--md-primary); background: var(--md-surface); box-shadow: 0 0 0 3px var(--field-ring); }
+.field .input-unit > input { flex: 1; min-width: 0; height: 100% !important; border: 0 !important; border-radius: 0 !important;
+    background: transparent !important; box-shadow: none !important; }
+.input-unit__unit { display: flex; align-items: center; padding: 0 12px; color: var(--md-on-surface-variant); font-size: 0.85rem; font-weight: 600;
+    background: var(--md-surface-container); border-left: 1px solid var(--field-border); white-space: nowrap; }
+
+/* A few choices as joined buttons (USD | GNF, Non | Oui). */
+.choice { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--field-border); border-radius: var(--shape-md); overflow: hidden;
+    max-width: 100%; justify-self: start; background: var(--field-bg); }
+.choice__opt { position: relative; cursor: pointer; }
+.choice__opt input { position: absolute; opacity: 0; pointer-events: none; }
+.choice__opt span { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; font-weight: 600; font-size: 0.88rem;
+    color: var(--md-on-surface-variant); transition: background .15s, color .15s; }
+.choice__opt + .choice__opt span { border-left: 1px solid var(--field-border); }
+.choice__opt:hover span { background: var(--md-surface-container); color: var(--md-on-surface); }
+.choice__opt input:checked + span { background: var(--md-primary); color: var(--md-on-primary); }
+.choice__opt input:focus-visible + span { outline: 3px solid var(--nav-active-mark); outline-offset: -3px; }
+/* The old "label in capitals" rule reaches the labels that are buttons. */
+.field label.choice__opt { text-transform: none; letter-spacing: 0; font-size: inherit; color: inherit; font-weight: inherit; }
+
+/* The save bar, stuck to the bottom: the page's edges, not the column's. */
+.form-bar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+    margin: 16px -14px 0; padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--md-surface) 92%, transparent); backdrop-filter: blur(6px);
+    border-top: 1px solid var(--md-outline-variant); }
+.form-bar__state { margin-right: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--md-on-surface-variant); }
+.form-bar__state[hidden] { display: none; }
+.form-bar__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--nav-active-mark); }
+.form-bar .btn { min-height: 42px; min-width: 120px; }
+.form-bar .btn--outlined { border-color: var(--field-border); color: var(--md-on-surface-variant); }
+.form-bar .btn--outlined:hover { background: var(--md-surface-container); color: var(--md-on-surface); text-decoration: none; }
+
+/* What went wrong, at the top, and on its field. */
+.form-error { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--shape-lg);
+    background: var(--c-red-bg); color: var(--c-red); font-size: 0.9rem; }
+.form-error a { color: inherit; font-weight: 700; margin-left: 4px; }
+.field--error .input-unit, .field--error .choice { border-color: var(--md-error) !important; }
+.field > .field-error { grid-column: 1 / -1; display: flex; gap: 4px; align-items: center; font-size: 0.8rem; margin-top: 0; }
+.field > .field-error .material-symbols-outlined { font-size: 16px; }
+.field > input, .field > textarea, .field > select, .field > .input-unit, .field > .choice { scroll-margin-top: 120px; }
+
+/* The part of the page after the form (the ports): the same column. */
+.form-page__after { margin-top: 2px; }
+
+@media (max-width: 900px) {
+    .form-page__layout { grid-template-columns: minmax(0, 1fr); }
+    .form-page__after > div:first-child { display: none; }
+    .form-toc { top: 52px; z-index: 4; display: flex; overflow-x: auto; gap: 4px; padding: 6px 0;
+        background: var(--md-background); scrollbar-width: none; }
+    .form-toc a { white-space: nowrap; background: var(--md-surface); border: 1px solid var(--md-outline-variant); }
+    .settings-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 768px) {
+    .form-bar { margin: 16px -10px 0; padding-left: 10px; padding-right: 10px; }
+    .form-bar .btn { flex: 1; justify-content: center; }
+    .form-bar__state { flex-basis: 100%; }
+    .fsec__head { padding: 14px 14px 0; }
+    .fsec__body { padding: 14px; }
+}
