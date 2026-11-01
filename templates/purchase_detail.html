@@ -169,6 +169,52 @@
     {% endif %}
 </section>
 
+{# ── The papers: invoice, bill of lading, customs receipt… ── #}
+<section class="card" id="documents">
+    <div class="card-header">
+        <h2>{{ t['doc.title_section'] }}{% if row.documents %} · {{ row.documents|length }}{% endif %}</h2>
+        {% if can('purchases', 'manage') %}<a href="{{ url_for('purchases.document_new', pid=row.id) }}" class="fab"
+           data-modal-url="{{ url_for('purchases.document_new', pid=row.id) }}" data-modal-title="{{ t['doc.new'] }} · {{ row.invoice_number }}">
+            <span class="material-symbols-outlined">add</span> {{ t['doc.new'] }}</a>{% endif %}
+    </div>
+    {% if row.documents %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['doc.kind'] }}</th>
+            <th>{{ t['doc.number'] }}</th>
+            <th class="col-secondary">{{ t['doc.date'] }}</th>
+            <th>{{ t['doc.file'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for d in row.documents %}
+        <tr>
+            <td><strong>{{ d.title if d.kind == 'other' else t['doc.kind.' + d.kind] }}</strong>
+                {% if d.title and d.kind != 'other' %}<div class="muted small">{{ d.title }}</div>{% endif %}</td>
+            <td>{{ d.number or '—' }}</td>
+            <td class="col-secondary">{{ d.doc_date|fdate if d.doc_date else '—' }}</td>
+            <td><a href="{{ url_for('purchases.document_file', did=d.id) }}" target="_blank" rel="noopener" class="doc-file">
+                    <span class="material-symbols-outlined">{{ 'picture_as_pdf' if d.content_type == 'application/pdf' else ('photo_camera' if d.content_type.startswith('image/') else 'description') }}</span>
+                    {{ d.filename }}</a>
+                <div class="muted small">{{ d.size|filesize }}{% if d.uploader %} · {{ d.uploader.full_name }}{% endif %} · {{ d.created_at|fdate }}</div></td>
+            <td class="row-actions">
+                <a href="{{ url_for('purchases.document_file', did=d.id, download=1) }}" class="btn btn--sm btn--tonal btn--icon"
+                   title="{{ t['doc.download'] }}" aria-label="{{ t['doc.download'] }}"><span class="material-symbols-outlined">download</span></a>
+                {% if can('purchases', 'manage') %}<form method="post" action="{{ url_for('purchases.document_delete', did=d.id) }}" style="display:inline"
+                      data-confirm="{{ t['delete.confirm'] }}" data-confirm-title="{{ t['delete.title'] }}" data-confirm-ok="{{ t['btn.delete'] }}" data-confirm-danger>
+                    {{ csrf_field() }}
+                    <button type="submit" class="btn btn--sm btn--tonal btn--icon" title="{{ t['btn.delete'] }}" aria-label="{{ t['btn.delete'] }}"><span class="material-symbols-outlined">delete</span></button>
+                </form>{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['doc.empty'] }}</p></div>
+    {% endif %}
+</section>
+
 {# ── Payments out: to the supplier and against the costs ── #}
 <section class="card">
     <div class="card-header">
@@ -218,7 +264,7 @@
     <div class="card-header"><h2>{{ t['purchase.vehicles'] }} · {{ units|length }}</h2></div>
     <div class="table-wrap"><table class="data-table">
         <thead><tr>
-            <th>#</th>
+            <th>{{ t['unit.ref'] }}</th>
             <th>{{ t['purchase.line_product'] }}</th>
             <th>{{ t['unit.chassis'] }}</th>
             <th>{{ t['unit.status'] }}</th>
@@ -227,7 +273,7 @@
         <tbody>
         {% for u in units %}
         <tr>
-            <td class="muted">{{ loop.index }}</td>
+            <td class="nowrap"><code class="unit-ref">{{ u.ref }}</code></td>
             <td>{{ u.product.name }}</td>
             <td>{% if u.chassis_number %}<code>{{ u.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}
                 {% if u.note %}<div class="muted small">{{ u.note }}</div>{% endif %}</td>

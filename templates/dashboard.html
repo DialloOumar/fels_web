@@ -15,6 +15,7 @@
 {%- endmacro %}
 
 {% block content %}
+{% with active = 'overview' %}{% include "_dash_tabs.html" %}{% endwith %}
 {% set remaining = steps|rejectattr('done')|list %}
 {% if remaining %}
 <section class="card">

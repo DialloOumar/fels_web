@@ -6,21 +6,30 @@
 {% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
 <form method="post" class="entry-form" data-modal-form action="{{ form_action }}">
     {{ csrf_field() }}
-    <div class="expense-total" style="margin:0;">{{ t['payment.balance_now'] }} <strong>{{ balance|money(target_currency) }}</strong></div>
-    <div class="form-row">
-        <div class="field">
+    {# What is still owed, with a button that puts all of it in the amount. #}
+    <div class="balance-banner">
+        <div>
+            <div class="balance-banner__label">{{ t['payment.balance_now']|replace(' :', '')|replace(':', '') }}</div>
+            <div class="balance-banner__value">{{ balance|money(target_currency) }}</div>
+        </div>
+        {% if balance > 0 %}
+        <button type="button" class="btn btn--sm btn--tonal" data-fill-amount="{{ balance|money_field }}" data-fill-currency="{{ target_currency }}">
+            <span class="material-symbols-outlined">done</span> {{ t['payment.pay_all'] }}</button>
+        {% endif %}
+    </div>
+
+    {% set cur = request.form.get('currency') if posted else target_currency %}
+    <div class="field field--hero">
+        <div class="input-group">
             <input type="text" id="amount" name="amount" required data-money="cents" inputmode="decimal" autofocus
                    value="{{ request.form.get('amount') if posted else (balance|money_field if balance > 0 else '') }}">
-            <label for="amount">{{ t['payment.amount'] }}</label>
-        </div>
-        {% set cur = request.form.get('currency') if posted else target_currency %}
-        <div class="field">
-            <select id="currency" name="currency">
+            <select id="currency" name="currency" aria-label="{{ t['purchase.currency'] }}">
                 {% for c in currencies %}<option value="{{ c }}" {% if c == cur %}selected{% endif %}>{{ c }}</option>{% endfor %}
             </select>
-            <label for="currency">{{ t['purchase.currency'] }}</label>
         </div>
+        <label for="amount">{{ t['payment.amount'] }}</label>
     </div>
+
     <div class="form-row">
         <div class="field">
             <input type="date" id="paid_on" name="paid_on" required value="{{ request.form.get('paid_on') if posted else today.isoformat() }}">
@@ -33,22 +42,28 @@
             {{ hint(t['cost.rate_short'] % {'cur': target_currency}, t['payment.rate_hint']) }}
         </div>
     </div>
-    <div class="form-row">
-        {% set m = request.form.get('method') if posted else (default_method or 'bank') %}
-        <div class="field">
-            <select id="method" name="method">
-                {% for k in methods %}<option value="{{ k }}" {% if k == m %}selected{% endif %}>{{ t['method.' + k] }}</option>{% endfor %}
-            </select>
-            <label for="method">{{ t['payment.method'] }}</label>
+
+    {# How it was paid, as a row of choices: there are only a few, and one
+       tap beats opening a list. #}
+    {% set m = request.form.get('method') if posted else (default_method or 'bank') %}
+    <div class="field">
+        <div class="seg-choice" role="radiogroup" aria-labelledby="method-label">
+            {% for k in methods %}
+            <label class="seg-choice__opt"><input type="radio" name="method" value="{{ k }}" {% if k == m %}checked{% endif %}><span>{{ t['method.' + k] }}</span></label>
+            {% endfor %}
         </div>
+        <label id="method-label">{{ t['payment.method'] }}</label>
+    </div>
+
+    <div class="form-row">
         <div class="field">
             <input type="text" id="reference" name="reference" placeholder="{{ t['payment.reference_ph'] }}" value="{{ request.form.get('reference', '') }}">
             <label for="reference">{{ t['field.reference'] }}</label>
         </div>
-    </div>
-    <div class="field">
-        <input type="text" id="note" name="note" placeholder=" " value="{{ request.form.get('note', '') }}">
-        <label for="note">{{ t['field.note'] }}</label>
+        <div class="field">
+            <input type="text" id="note" name="note" placeholder=" " value="{{ request.form.get('note', '') }}">
+            <label for="note">{{ t['field.note'] }}</label>
+        </div>
     </div>
     {{ form_actions(back_url) }}
 </form>

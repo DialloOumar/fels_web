@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_hint.html" import hint with context %}
+{% from "_macros.html" import group_head with context %}
 
 {% set is_edit = row is not none %}
 {% set posted = request.method == 'POST' %}
@@ -32,121 +33,141 @@
     <td>
         <input type="hidden" name="line_id" value="{{ l.id }}">
         <select name="line_product" aria-label="{{ t['purchase.line_product'] }}">
-            <option value="">—</option>
+            <option value="">{{ t['form.choose'] }}</option>
             {% for p in products %}
             <option value="{{ p.id }}" {% if (p.id|string) == (l.product_id|string) %}selected{% endif %}>{{ p.name }}{% if p.code %} ({{ p.code }}){% endif %}</option>
             {% endfor %}
         </select>
+        <div class="line-stock small" data-line-stock aria-live="polite"></div>
         <input type="text" name="line_desc" value="{{ l.description }}" placeholder="{{ t['purchase.line_desc_ph'] }}" class="line-desc" aria-label="{{ t['field.description'] }}">
     </td>
     <td><input type="number" name="line_qty" value="{{ l.quantity }}" min="1" max="500" class="num" aria-label="{{ t['purchase.quantity'] }}"></td>
     <td><input type="text" name="line_price" value="{{ l.unit_price }}" data-money="cents" inputmode="decimal" class="num" aria-label="{{ t['purchase.unit_price'] }}"></td>
     <td class="num line-total">—</td>
     <td class="row-actions">
-        <button type="button" class="btn btn--sm btn--tonal btn--icon" data-line-remove title="{{ t['purchase.line_remove'] }}" aria-label="{{ t['purchase.line_remove'] }}">
+        <button type="button" class="line-remove" data-line-remove title="{{ t['purchase.line_remove'] }}" aria-label="{{ t['purchase.line_remove'] }}">
             <span class="material-symbols-outlined">delete</span></button>
     </td>
 </tr>
 {% endmacro %}
 
 {% block content %}
-<section class="card" style="max-width: 1080px;">
-    {% if error %}<div class="alert alert--error" style="margin-bottom:14px;">{{ error }}</div>{% endif %}
-    {% if not products %}
-    <div class="alert alert--warning" style="margin-bottom:14px;">{{ t['purchase.no_products'] }}
-        <a href="{{ url_for('products.index') }}">{{ t['nav.products'] }}</a></div>
-    {% endif %}
+{% if error %}<div class="alert alert--error" style="margin-bottom:14px;">{{ error }}</div>{% endif %}
+{% if not products %}
+<div class="alert alert--warning" style="margin-bottom:14px;">{{ t['purchase.no_products'] }}
+    <a href="{{ url_for('products.index') }}">{{ t['nav.products'] }}</a></div>
+{% endif %}
 
-    <form method="post" class="entry-form" id="purchase-form">
-        {{ csrf_field() }}
+{# What each model already has on the way and in stock, for the hint
+   under each line: a model already coming is not ordered twice unnoticed. #}
+<form method="post" class="entry-form form-layout" id="purchase-form"
+      data-model-figures='{{ model_figures|tojson }}'
+      data-stock-text="{{ t['purchase.stock_now'] }}" data-stock-first="{{ t['purchase.stock_first'] }}">
+    {{ csrf_field() }}
+    <div class="form-layout__main">
         {% set sel_supplier = (request.form.get('supplier_id') if posted else ((row.supplier_id if is_edit else preset_supplier) or ''))|string %}
-        <div class="form-row form-row--3">
-            <div class="field">
-                <select id="supplier_id" name="supplier_id" required>
-                    <option value="">—</option>
-                    {% for s in suppliers %}
-                    <option value="{{ s.id }}" data-currency="{{ s.default_currency }}" {% if (s.id|string) == sel_supplier %}selected{% endif %}>{{ s.name }}</option>
-                    {% endfor %}
-                </select>
-                <label for="supplier_id">{{ t['purchase.supplier'] }}</label>
+        <section class="card form-card">
+            {{ group_head('request_quote', t['purchase.group.invoice'], t['purchase.group.invoice_desc']) }}
+            <div class="form-group__body">
+                <div class="form-row form-row--3">
+                    <div class="field">
+                        <select id="supplier_id" name="supplier_id" required>
+                            <option value="">{{ t['form.choose'] }}</option>
+                            {% for s in suppliers %}
+                            <option value="{{ s.id }}" data-currency="{{ s.default_currency }}" {% if (s.id|string) == sel_supplier %}selected{% endif %}>{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <label for="supplier_id">{{ t['purchase.supplier'] }}</label>
+                    </div>
+                    <div class="field">
+                        <input type="text" id="invoice_number" name="invoice_number" required placeholder="{{ t['purchase.invoice_number_ph'] }}"
+                               value="{{ request.form.get('invoice_number') if posted else (row.invoice_number if is_edit else '') }}">
+                        <label for="invoice_number">{{ t['purchase.invoice_number'] }}</label>
+                    </div>
+                    <div class="field">
+                        <input type="date" id="invoice_date" name="invoice_date" required
+                               value="{{ request.form.get('invoice_date') if posted else (row.invoice_date.isoformat() if is_edit else today.isoformat()) }}">
+                        <label for="invoice_date">{{ t['purchase.invoice_date'] }}</label>
+                    </div>
+                </div>
+
+                <div class="form-row form-row--3">
+                    {% set sel_port = (request.form.get('port_id') if posted else (row.port_id if is_edit else ''))|string %}
+                    <div class="field">
+                        <select id="port_id" name="port_id">
+                            <option value="">—</option>
+                            {% for p in ports %}<option value="{{ p.id }}" {% if (p.id|string) == sel_port %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+                        </select>
+                        <label for="port_id">{{ t['purchase.port'] }}</label>
+                    </div>
+                    {% set preset = suppliers|selectattr('id', 'equalto', preset_supplier)|first if preset_supplier else none %}
+                    {% set sel_cur = request.form.get('currency') if posted else (row.currency if is_edit else (preset.default_currency if preset else 'USD')) %}
+                    <div class="field">
+                        <select id="currency" name="currency">
+                            {% for c in currencies %}<option value="{{ c }}" {% if sel_cur == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+                        </select>
+                        <label for="currency">{{ t['purchase.currency'] }}</label>
+                        {{ hint('', t['purchase.currency_hint']) }}
+                    </div>
+                </div>
             </div>
-            <div class="field">
-                <input type="text" id="invoice_number" name="invoice_number" required placeholder="{{ t['purchase.invoice_number_ph'] }}"
-                       value="{{ request.form.get('invoice_number') if posted else (row.invoice_number if is_edit else '') }}">
-                <label for="invoice_number">{{ t['purchase.invoice_number'] }}</label>
+        </section>
+
+        <section class="card form-card">
+            {{ group_head('inventory_2', t['purchase.lines'], t['purchase.group.lines_desc']) }}
+            <div class="lines-box">
+                <div class="table-wrap">
+                <table class="data-table lines-editor">
+                    <thead>
+                        <tr>
+                            <th>{{ t['purchase.line_product'] }}</th>
+                            <th class="num lines-col-qty">{{ t['purchase.quantity'] }}</th>
+                            <th class="num lines-col-price">{{ t['purchase.unit_price'] }}</th>
+                            <th class="num lines-col-total">{{ t['purchase.line_total'] }}</th>
+                            <th class="lines-col-x"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="lines-body">
+                        {% for l in lines %}{{ line_row(l) }}{% endfor %}
+                    </tbody>
+                </table>
+                </div>
+                <button type="button" class="lines-add" id="line-add">
+                    <span class="material-symbols-outlined">add</span> {{ t['purchase.line_add'] }}</button>
             </div>
+            {% if is_edit %}<p class="muted small form-card__foot">{{ t['purchase.units_sync_hint'] }}</p>{% endif %}
+        </section>
+
+        <section class="card form-card">
             <div class="field">
-                <input type="date" id="invoice_date" name="invoice_date" required
-                       value="{{ request.form.get('invoice_date') if posted else (row.invoice_date.isoformat() if is_edit else today.isoformat()) }}">
-                <label for="invoice_date">{{ t['purchase.invoice_date'] }}</label>
+                <textarea id="note" name="note" rows="2" placeholder=" ">{{ request.form.get('note') if posted else (row.note or '' if is_edit else '') }}</textarea>
+                <label for="note">{{ t['field.note'] }}</label>
+            </div>
+        </section>
+    </div>
+
+    {# The purchase at a glance, with the buttons, kept in view while the
+       lines are typed in from the supplier's paper. #}
+    <aside class="form-layout__aside">
+        <div class="card form-summary">
+            <div class="form-summary__title"><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span> {{ t['form.summary'] }}</div>
+            <dl class="form-summary__list">
+                <div><dt>{{ t['purchase.supplier'] }}</dt><dd id="sum-supplier">—</dd></div>
+                <div><dt>{{ t['purchase.quantity'] }}</dt><dd id="lines-qty">—</dd></div>
+            </dl>
+            <div class="form-summary__total">
+                <span>{{ t['purchase.total'] }}</span>
+                <strong id="lines-total">—</strong>
+            </div>
+            <div class="form-summary__actions">
+                <button type="submit" class="btn btn--primary"><span class="material-symbols-outlined">save</span> {{ t['btn.save'] }}</button>
+                <a href="{{ url_for('purchases.detail', pid=row.id) if is_edit else url_for('purchases.index') }}" class="btn btn--outlined" data-back>{{ t['btn.cancel'] }}</a>
             </div>
         </div>
+    </aside>
+</form>
 
-        <div class="form-row form-row--3">
-            {% set sel_port = (request.form.get('port_id') if posted else (row.port_id if is_edit else ''))|string %}
-            <div class="field">
-                <select id="port_id" name="port_id">
-                    <option value="">—</option>
-                    {% for p in ports %}<option value="{{ p.id }}" {% if (p.id|string) == sel_port %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
-                </select>
-                <label for="port_id">{{ t['purchase.port'] }}</label>
-            </div>
-            {% set preset = suppliers|selectattr('id', 'equalto', preset_supplier)|first if preset_supplier else none %}
-            {% set sel_cur = request.form.get('currency') if posted else (row.currency if is_edit else (preset.default_currency if preset else 'USD')) %}
-            <div class="field">
-                <select id="currency" name="currency">
-                    {% for c in currencies %}<option value="{{ c }}" {% if sel_cur == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
-                </select>
-                <label for="currency">{{ t['purchase.currency'] }}</label>
-                {{ hint('', t['purchase.currency_hint']) }}
-            </div>
-            <div class="field"></div>
-        </div>
-
-        <div class="form-section">
-            <div class="form-section__title">{{ t['purchase.lines'] }}</div>
-            <div class="table-wrap">
-            <table class="data-table lines-editor">
-                <thead>
-                    <tr>
-                        <th>{{ t['purchase.line_product'] }}</th>
-                        <th class="num lines-col-qty">{{ t['purchase.quantity'] }}</th>
-                        <th class="num lines-col-price">{{ t['purchase.unit_price'] }}</th>
-                        <th class="num lines-col-total">{{ t['purchase.line_total'] }}</th>
-                        <th class="lines-col-x"></th>
-                    </tr>
-                </thead>
-                <tbody id="lines-body">
-                    {% for l in lines %}{{ line_row(l) }}{% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td><button type="button" class="btn btn--sm btn--tonal" id="line-add">
-                            <span class="material-symbols-outlined">add</span> {{ t['purchase.line_add'] }}</button></td>
-                        <td class="num" id="lines-qty">—</td>
-                        <td class="num muted">{{ t['purchase.total'] }}</td>
-                        <td class="num"><strong id="lines-total">—</strong></td>
-                        <td></td>
-                    </tr>
-                </tfoot>
-            </table>
-            </div>
-            {% if is_edit %}<p class="muted small">{{ t['purchase.units_sync_hint'] }}</p>{% endif %}
-        </div>
-
-        <div class="field">
-            <textarea id="note" name="note" rows="2" placeholder=" ">{{ request.form.get('note') if posted else (row.note or '' if is_edit else '') }}</textarea>
-            <label for="note">{{ t['field.note'] }}</label>
-        </div>
-
-        <div class="form-actions">
-            <button type="submit" class="btn btn--primary"><span class="material-symbols-outlined">save</span> {{ t['btn.save'] }}</button>
-            <a href="{{ url_for('purchases.detail', pid=row.id) if is_edit else url_for('purchases.index') }}" class="btn btn--outlined" data-back>{{ t['btn.cancel'] }}</a>
-        </div>
-    </form>
-
-    <template id="line-template">{{ line_row({'id': '', 'product_id': '', 'quantity': 1, 'unit_price': '', 'description': ''}) }}</template>
-</section>
+<template id="line-template">{{ line_row({'id': '', 'product_id': '', 'quantity': 1, 'unit_price': '', 'description': ''}) }}</template>
 {% endblock %}
 
 {% block scripts %}
@@ -186,7 +207,9 @@
         });
         document.getElementById("lines-total").textContent = total ? fmt(total) : "—";
         document.getElementById("lines-qty").textContent = qty || "—";
+        document.getElementById("sum-supplier").textContent = supplier.value ? supplier.options[supplier.selectedIndex].text : "—";
     }
+    supplier.addEventListener("change", recalc);
     document.getElementById("line-add").addEventListener("click", function () {
         body.appendChild(tpl.content.cloneNode(true));
         var rows = body.querySelectorAll(".line-row");
@@ -202,6 +225,23 @@
         });
         recalc();
     });
+    // Under each line: what the chosen model already has on the way, in
+    // stock and still to sell, so a second order of it is a choice.
+    var form = document.getElementById("purchase-form");
+    var figures = JSON.parse(form.dataset.modelFigures || "{}");
+    function showStock(tr) {
+        var box = tr.querySelector("[data-line-stock]");
+        var f = figures[tr.querySelector('[name="line_product"]').value];
+        box.classList.remove("line-stock--coming");
+        if (!f) { box.textContent = ""; return; }
+        if (!f.orders && !f.reserved) { box.textContent = form.dataset.stockFirst; return; }
+        box.textContent = form.dataset.stockText.replace(/%\((\w+)\)s/g, function (_, k) { return f[k]; });
+        if (f.incoming > 0) box.classList.add("line-stock--coming");
+    }
+    body.addEventListener("change", function (e) {
+        if (e.target.name === "line_product") showStock(e.target.closest(".line-row"));
+    });
+    body.querySelectorAll(".line-row").forEach(showStock);
     body.addEventListener("input", recalc);
     cur.addEventListener("change", recalc);
     // A new purchase takes the supplier's usual currency; an existing one

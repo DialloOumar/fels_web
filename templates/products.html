@@ -6,6 +6,11 @@
 {% block title %}{{ t['nav.products'] }} · {{ t['nav.stock'] }}{% endblock %}
 {% block page_title %}{{ t['nav.stock'] }}{% endblock %}
 
+{# A count that opens the vehicles behind it, or a dash when there are none. #}
+{% macro stat_link(n, pid, where='', status='') -%}
+{% if n %}<a href="{{ url_for('stock.index', product=pid, where=where or none, status=status or none) }}">{{ n }}</a>{% else %}<span class="muted">0</span>{% endif %}
+{%- endmacro %}
+
 {% block content %}
 <section class="card">
     {% with active = 'products' %}{% include "_vehicle_tabs.html" %}{% endwith %}
@@ -27,20 +32,34 @@
     <table class="data-table">
         <thead>
             <tr>
+                <th>{{ t['product.ref'] }}</th>
                 <th>{{ t['product.name'] }}</th>
-                <th>{{ t['product.code'] }}</th>
                 <th>{{ t['product.category'] }}</th>
-                <th class="col-secondary">{{ t['field.description'] }}</th>
+                <th class="num">{{ t['stats.ordered'] }}</th>
+                <th class="num">{{ t['stats.incoming'] }}</th>
+                <th class="num">{{ t['stats.in_stock'] }}</th>
+                <th class="num stat-col-reserved">{{ t['stats.reserved'] }}</th>
+                <th class="num">{{ t['stats.free'] }}</th>
+                <th class="num col-secondary">{{ t['stats.delivered'] }}</th>
+                <th class="col-secondary">{{ t['stats.last_order'] }}</th>
                 <th></th>
             </tr>
         </thead>
         <tbody>
             {% for p in rows %}
+            {% set s = stats[p.id] %}
             <tr>
-                <td><strong>{{ p.name }}</strong></td>
-                <td>{% if p.code %}<code>{{ p.code }}</code>{% else %}—{% endif %}</td>
+                <td class="nowrap"><code>{{ p.ref or '—' }}</code></td>
+                <td><strong>{{ p.name }}</strong>
+                    {% if p.code or p.description %}<div class="muted small">{% if p.code %}<code>{{ p.code }}</code> {% endif %}{{ p.description or '' }}</div>{% endif %}</td>
                 <td><span class="chip chip--cat-{{ p.category }}">{{ t['category.' + p.category] }}</span></td>
-                <td class="col-secondary muted">{{ p.description or '' }}</td>
+                <td class="num nowrap">{% if s.orders %}{{ t['stats.ordered_value'] % {'n': s.orders, 'qty': s.ordered} }}{% else %}<span class="muted">—</span>{% endif %}</td>
+                <td class="num">{{ stat_link(s.incoming, p.id, where='incoming') }}</td>
+                <td class="num">{{ stat_link(s.in_stock, p.id, where='in_stock') }}</td>
+                <td class="num">{{ stat_link(s.reserved, p.id, status='reserved') }}{% if s.waiting %}<div class="small stat-waiting">{{ t['stats.waiting'] % {'n': s.waiting} }}</div>{% endif %}</td>
+                <td class="num"><strong class="{{ 'stock-negative' if s.free < 0 else '' }}">{{ s.free if (s.orders or s.waiting) else '—' }}</strong></td>
+                <td class="num col-secondary">{{ stat_link(s.delivered, p.id, status='delivered') }}</td>
+                <td class="col-secondary nowrap muted">{{ s.last_order|fdate if s.last_order else '—' }}</td>
                 <td class="row-actions">
                     {{ row_actions(p, url_for('products.edit', pid=p.id), url_for('products.archive', pid=p.id),
                                    url_for('products.reactivate', pid=p.id), url_for('products.delete', pid=p.id), t['product.edit'], 'products') }}
@@ -54,11 +73,13 @@
     <div class="list-cards">
         {% for p in rows %}
         <div class="list-card">
+            {% set s = stats[p.id] %}
             <div class="list-card__top">
                 <strong>{{ p.name }}</strong>
                 <span class="chip chip--cat-{{ p.category }}">{{ t['category.' + p.category] }}</span>
             </div>
-            {% if p.code or p.description %}<div class="list-card__meta muted">{% if p.code %}<code>{{ p.code }}</code>{% endif %} {{ p.description or '' }}</div>{% endif %}
+            <div class="list-card__meta muted"><code>{{ p.ref or '—' }}</code>{% if p.code %} · <code>{{ p.code }}</code>{% endif %} {{ p.description or '' }}</div>
+            {% if s.orders or s.waiting %}<div class="list-card__meta">{{ t['stats.summary'] % {'incoming': s.incoming, 'in_stock': s.in_stock, 'reserved': s.reserved, 'free': s.free} }}</div>{% endif %}
             <div class="list-card__actions">
                 {{ row_actions(p, url_for('products.edit', pid=p.id), url_for('products.archive', pid=p.id),
                                url_for('products.reactivate', pid=p.id), url_for('products.delete', pid=p.id), t['product.edit'], 'products') }}
@@ -66,6 +87,7 @@
         </div>
         {% endfor %}
     </div>
+    <p class="muted small" style="margin-top:8px;">{{ t['stats.hint'] }}</p>
     {{ pager(pagination, 'products.index') }}
     {% else %}
     <div class="empty-state">

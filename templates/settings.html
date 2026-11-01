@@ -12,6 +12,8 @@
             <legend>{{ t['settings.group.' + group] }}</legend>
             {% if group == 'currency' %}
             <p class="muted small" style="margin:0 0 12px;">{{ t['settings.rate_explain'] }}</p>
+            {% elif group == 'invoice' %}
+            <p class="muted small" style="margin:0 0 12px;">{{ t['settings.invoice_explain'] }}</p>
             {% endif %}
 
             {% for key, spec in schema.items() if spec.group == group %}
@@ -19,11 +21,13 @@
                 {% if spec.type == 'select' %}
                 <select id="{{ key }}" name="{{ key }}">
                     {% for opt in spec.options %}
-                    <option value="{{ opt }}" {% if values[key] == opt %}selected{% endif %}>{{ opt }}</option>
+                    <option value="{{ opt }}" {% if values[key] == opt %}selected{% endif %}>{{ t[spec.labels + opt] if spec.labels else opt }}</option>
                     {% endfor %}
                 </select>
                 {% elif spec.type == 'textarea' %}
                 <textarea id="{{ key }}" name="{{ key }}" rows="2" placeholder=" ">{{ values[key] }}</textarea>
+                {% elif spec.type == 'decimal' %}
+                <input type="text" inputmode="decimal" id="{{ key }}" name="{{ key }}" value="{{ values[key]|replace('.', ',') }}" autocomplete="off" style="max-width:160px;">
                 {% elif spec.type == 'int' %}
                 <input type="number" id="{{ key }}" name="{{ key }}" value="{{ values[key] }}" min="{{ spec.min }}" max="{{ spec.max }}" step="1" style="max-width:160px;">
                 {% elif spec.type == 'rate' %}

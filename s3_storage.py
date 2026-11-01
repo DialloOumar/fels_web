@@ -33,6 +33,7 @@ if S3_PREFIX and not S3_PREFIX.endswith("/"):
     S3_PREFIX += "/"
 
 BACKUP_PREFIX = S3_PREFIX + "backups/"       # database dumps, and nothing else
+DOCUMENT_PREFIX = S3_PREFIX + "documents/"   # files attached to purchases
 
 
 def _client():
@@ -125,3 +126,44 @@ def delete_backup(key: str) -> bool:
         return False
 
 
+# ── Purchase documents ───────────────────────────────────────────────────────
+# Same bucket, their own folder. Unlike a backup, a document the user just
+# attached must not vanish quietly: each call says whether it worked.
+
+
+def put_document(key: str, data: bytes, content_type: str) -> Optional[str]:
+    """Store one document under {S3_PREFIX}documents/<key>. Returns an
+    error code, or None on success."""
+    s3 = _client()
+    if s3 is None:
+        return ERR_NOT_CONFIGURED
+    try:
+        s3.put_object(Bucket=S3_BUCKET, Key=DOCUMENT_PREFIX + key, Body=data, ContentType=content_type)
+        return None
+    except (BotoCoreError, ClientError) as e:
+        log.exception("Document upload failed: %s", e)
+        return ERR_S3
+
+
+def get_document(key: str) -> Optional[bytes]:
+    """One document's bytes, or None if it cannot be read."""
+    s3 = _client()
+    if s3 is None:
+        return None
+    try:
+        return s3.get_object(Bucket=S3_BUCKET, Key=DOCUMENT_PREFIX + key)["Body"].read()
+    except (BotoCoreError, ClientError) as e:
+        log.exception("Document download failed: %s", e)
+        return None
+
+
+def delete_document(key: str) -> bool:
+    s3 = _client()
+    if s3 is None:
+        return False
+    try:
+        s3.delete_object(Bucket=S3_BUCKET, Key=DOCUMENT_PREFIX + key)
+        return True
+    except (BotoCoreError, ClientError) as e:
+        log.exception("Document delete failed: %s", e)
+        return False

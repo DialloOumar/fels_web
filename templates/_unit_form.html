@@ -4,7 +4,7 @@
 <form method="post" class="entry-form" data-modal-form action="{{ url_for('stock.edit', uid=row.id) }}">
     {{ csrf_field() }}
     <input type="hidden" name="back" value="{{ back }}">
-    <p class="muted small" style="margin:0;">{{ row.product.name }} · {{ row.purchase_line.purchase.invoice_number }} · {{ row.purchase_line.purchase.supplier.name }}</p>
+    <p class="muted small" style="margin:0;"><code class="unit-ref">{{ row.ref }}</code> {{ row.product.name }} · {{ row.purchase_line.purchase.invoice_number }} · {{ row.purchase_line.purchase.supplier.name }}</p>
     <div class="field">
         <input type="text" id="chassis_number" name="chassis_number" autofocus autocapitalize="characters" spellcheck="false"
                placeholder="{{ t['unit.chassis_ph'] }}" value="{{ request.form.get('chassis_number') if request.method == 'POST' else (row.chassis_number or '') }}">

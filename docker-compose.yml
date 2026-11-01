@@ -23,6 +23,8 @@ services:
       - "8000"                  # internal only; Caddy reaches it at web:8000
     ports:
       - "127.0.0.1:8002:8000"   # local debug on the host loopback (optional)
+    volumes:
+      - documents_data:/app/data/documents   # purchase documents, when no S3 bucket is set
     depends_on:
       db:
         condition: service_healthy
@@ -43,5 +45,6 @@ services:
 
 volumes:
   postgres_data:
+  documents_data:
   caddy_data:
   caddy_config:

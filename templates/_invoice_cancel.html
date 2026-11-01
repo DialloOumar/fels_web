@@ -1,0 +1,19 @@
+{# Cancelling keeps the invoice, struck through, with its number: the paper
+   may already be with the customer or the accountant. The reason is what a
+   later reader needs. #}
+{% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+<form method="post" class="entry-form" data-modal-form action="{{ url_for('sales.invoice_cancel', iid=inv.id) }}">
+    {{ csrf_field() }}
+    <div class="expense-total" style="margin:0;">
+        <strong>{{ inv.number }}</strong> · {{ inv.issued_on|fdate }} · {{ inv.customer_name }} · <strong>{{ inv.total|money(inv.currency) }}</strong>
+    </div>
+    <p class="muted small" style="margin:0;">{{ t['invoice.cancel_explain'] }}</p>
+    <div class="field">
+        <input type="text" id="reason" name="reason" required autofocus maxlength="255" placeholder="{{ t['invoice.reason_ph'] }}" value="{{ request.form.get('reason', '') }}">
+        <label for="reason">{{ t['payment.reason'] }}</label>
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn--danger"><span class="material-symbols-outlined">block</span> {{ t['invoice.cancel'] }}</button>
+        <a href="{{ back_url }}" class="btn btn--outlined" data-modal-cancel>{{ t['btn.cancel'] }}</a>
+    </div>
+</form>

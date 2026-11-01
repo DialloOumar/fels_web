@@ -5,6 +5,9 @@
 <form method="post" class="entry-form" data-modal-form
       action="{{ url_for('products.edit', pid=row.id) if row else url_for('products.new') }}">
     {{ csrf_field() }}
+    <p class="muted small product-ref-line" style="margin:0;">
+        {% if row and row.ref %}{{ t['product.ref'] }} <code class="unit-ref">{{ row.ref }}</code>{% endif %}
+        {{ t['product.ref_fixed'] if row and row.has_history else t['product.ref_hint'] }}</p>
     <div class="field">
         <input type="text" id="name" name="name" placeholder="{{ t['product.name_ph'] }}" required value="{{ val('name') }}">
         <label for="name">{{ t['product.name'] }}</label>

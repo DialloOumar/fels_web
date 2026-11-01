@@ -26,8 +26,9 @@ from app import (ListPage, current_rate, form_response, fr, get_setting, get_t,
                  is_modal_request, log_action, modal_ok, money_text, paginate,
                  parse_date, parse_money, rate_field_value)
 from blueprints.payments import _parse_payment
-from models import (CURRENCIES, PAYMENT_METHODS, Customer, Payment, Product,
-                    Sale, SaleLine, Unit, convert, db, next_number)
+from models import (CURRENCIES, PAYMENT_METHODS, Customer, Invoice, Payment,
+                    Product, Sale, SaleLine, Unit, convert, db, next_number,
+                    utcnow, vat_part)
 
 sales_bp = Blueprint("sales", __name__, url_prefix="/ventes")
 
@@ -90,7 +91,7 @@ def index():
         q = (q.outerjoin(SaleLine).outerjoin(Product, SaleLine.product_id == Product.id)
              .outerjoin(Unit, SaleLine.unit_id == Unit.id)
              .filter(db.or_(Sale.number.ilike(like), Customer.name.ilike(like), Product.name.ilike(like),
-                            Unit.chassis_number.ilike(like), Sale.note.ilike(like))).distinct())
+                            Unit.ref.ilike(like), Unit.chassis_number.ilike(like), Sale.note.ilike(like))).distinct())
     q = q.order_by(Sale.sale_date.desc(), Sale.id.desc())
     if pay not in PAY_STATUSES:
         pay = ""
@@ -101,7 +102,7 @@ def index():
                    t["purchase.currency"], t["sale.total"], t["sale.received"], t["sale.balance"],
                    t["purchase.payment"], t["sale.delivered_on"], t["field.note"]]
         data = [[s.number, s.customer.name, s.sale_date, t["sale.status." + s.status],
-                 ", ".join(l.product.name + (" (" + l.unit.chassis_number + ")" if l.unit and l.unit.chassis_number else "")
+                 ", ".join(l.product.name + (" (" + l.unit.label + ")" if l.unit else "")
                            for l in s.lines),
                  s.currency, s.total, s.paid_amount, s.balance, t["pay." + s.pay_status], s.delivered_on, s.note]
                 for s in rows]
@@ -116,7 +117,12 @@ def index():
         "pay": [(s, t["pay." + s]) for s in PAY_STATUSES if s != "cancelled"],
     }
     return render_template("sales.html", rows=pagination.items, pagination=pagination, search=search,
-                           customer_id=customer_id, status=status, pay=pay, opts=opts)
+                           customer_id=customer_id, status=status, pay=pay, opts=opts, tab_counts=_tab_counts())
+
+
+def _tab_counts():
+    """The numbers on the Sales page's tabs."""
+    return {"sales": Sale.query.count(), "invoices": Invoice.query.filter(Invoice.status != "cancelled").count()}
 
 
 # ── Create / edit ────────────────────────────────────────────────────────────
@@ -277,10 +283,11 @@ def line_margin(line, sale_currency):
 def detail(sid):
     sale = _get_or_404(sid)
     margins = {l.id: line_margin(l, sale.currency) for l in sale.lines}
+    outdated = invoice_outdated(sale)
     known = [m for m in margins.values() if m is not None]
     total_margin = sum((m[0] for m in known), Decimal("0")) if known and len(known) == len(sale.lines) else None
     return render_template("sale_detail.html", row=sale, margins=margins, total_margin=total_margin,
-                           editable=sale.status in EDITABLE)
+                           editable=sale.status in EDITABLE, invoice_outdated=outdated)
 
 
 # ── Life: confirm, deliver, cancel ───────────────────────────────────────────
@@ -349,6 +356,8 @@ def cancel(sid):
         flash("error|" + t["sale.error.cancel_delivered"])
     elif any(not p.is_voided for p in sale.payments):
         flash("error|" + t["sale.error.cancel_paid"])
+    elif sale.invoice is not None:
+        flash("error|" + t["sale.error.cancel_invoiced"])
     elif sale.status != "cancelled":
         sale.status = "cancelled"
         _log_sale("CANCEL", sale)
@@ -406,3 +415,144 @@ def receipt_print(pay_id):
     company = {k: get_setting("company_" + k, "") for k in ("name", "phone", "email", "address")}
     return render_template("receipt_print.html", p=p, sale=sale, paid_to_date=paid_to_date, left=left,
                            company=company, footer=get_setting("receipt_footer", ""))
+
+
+# ── Invoices ─────────────────────────────────────────────────────────────────
+
+
+def _vat_rate():
+    """The VAT rate to put on a new invoice, or None when VAT is off."""
+    if get_setting("vat_enabled", "0") != "1":
+        return None
+    try:
+        return Decimal(str(get_setting("vat_rate", "18") or "18"))
+    except Exception:
+        return None
+
+
+def _snapshot_lines(sale):
+    return [{"ref": l.unit.ref if l.unit else None,
+             "product": l.product.name,
+             "description": l.description,
+             "chassis": l.unit.chassis_number if l.unit else None,
+             "price": str(Decimal(l.price or 0).quantize(Decimal("0.01")))} for l in sale.lines]
+
+
+def invoice_outdated(sale):
+    """Whether the invoice in force no longer says what the sale says: a
+    price, a vehicle or the customer changed since it was issued."""
+    inv = sale.invoice
+    if inv is None:
+        return False
+    return (inv.lines != _snapshot_lines(sale) or Decimal(inv.total) != Decimal(sale.total)
+            or inv.currency != sale.currency or inv.customer_name != sale.customer.name)
+
+
+@sales_bp.route("/<int:sid>/facture/nouvelle", methods=["GET", "POST"])
+@login_required
+def invoice_new(sid):
+    """Issue the sale's invoice: everything it prints is copied now."""
+    sale = _get_or_404(sid)
+    t = get_t()
+    rate = _vat_rate()
+    error = None
+    if sale.status == "cancelled":
+        error = t["invoice.error.cancelled_sale"]
+    elif sale.invoice is not None:
+        error = t["invoice.error.exists"] % {"number": sale.invoice.number}
+    elif not sale.lines:
+        error = t["sale.error.no_lines"]
+    if request.method == "POST" and error is None:
+        issued_on = parse_date(request.form.get("issued_on"))
+        raw_due = (request.form.get("due_on") or "").strip()
+        due_on = parse_date(raw_due) if raw_due else None
+        if issued_on is None or (raw_due and due_on is None):
+            error = t["form.error.date"]
+        elif due_on and due_on < issued_on:
+            error = t["invoice.error.due"]
+        else:
+            c = sale.customer
+            inv = Invoice(sale=sale, issued_on=issued_on, due_on=due_on, currency=sale.currency,
+                          total=sale.total, vat_rate=rate, vat_amount=vat_part(sale.total, rate),
+                          customer_name=c.name, customer_address=c.address, customer_phone=c.phone,
+                          customer_tax_id=c.tax_id, lines=_snapshot_lines(sale),
+                          note=(request.form.get("note") or "").strip() or None, created_by=current_user.id)
+            db.session.add(inv)
+            _commit_numbered(inv, Invoice.number, "FAC-%d-" % issued_on.year, "number")
+            log_action("CREATE", "invoice", inv.id, "%s · %s · %s" % (
+                inv.number, sale.number, money_text(inv.total, inv.currency)))
+            db.session.commit()
+            flash("success|" + t["invoice.saved"] % {"number": inv.number})
+            return modal_ok() if is_modal_request() else redirect(url_for("sales.detail", sid=sid))
+    return form_response("invoice_form.html", "_invoice_form.html", sale=sale, error=error, vat_rate=rate,
+                         vat_amount=vat_part(sale.total, rate), today=date.today().isoformat())
+
+
+@sales_bp.route("/facture/<int:iid>")
+@login_required
+def invoice_print(iid):
+    """The invoice to hand over, as it was issued. What has been received
+    against the sale is shown as of today."""
+    inv = db.session.get(Invoice, iid) or abort(404)
+    sale = inv.sale
+    company = {k: get_setting("company_" + k, "") for k in ("name", "phone", "email", "address", "nif", "rccm")}
+    paid = sale.paid_amount if inv.currency == sale.currency else None
+    return render_template("invoice_print.html", inv=inv, sale=sale, company=company, paid=paid,
+                           left=max(Decimal(inv.total) - paid, Decimal("0")) if paid is not None else None,
+                           footer=get_setting("invoice_footer", "") or get_setting("receipt_footer", ""))
+
+
+@sales_bp.route("/facture/<int:iid>/annuler", methods=["GET", "POST"])
+@login_required
+def invoice_cancel(iid):
+    """Cancel an invoice: it stays, with its number and the reason, and a
+    new one can be issued for the sale."""
+    inv = db.session.get(Invoice, iid) or abort(404)
+    t = get_t()
+    back = url_for("sales.detail", sid=inv.sale_id)
+    if inv.is_cancelled:
+        flash("error|" + t["invoice.error.already_cancelled"])
+        return modal_ok() if is_modal_request() else redirect(back)
+    error = None
+    if request.method == "POST":
+        reason = (request.form.get("reason") or "").strip()
+        if not reason:
+            error = t["invoice.error.reason"]
+        else:
+            inv.status, inv.cancelled_at, inv.cancel_reason = "cancelled", utcnow(), reason[:255]
+            log_action("CANCEL", "invoice", inv.id, "%s · %s · %s" % (inv.number, inv.sale.number, inv.cancel_reason))
+            db.session.commit()
+            flash("success|" + t["invoice.cancelled"] % {"number": inv.number})
+            return modal_ok() if is_modal_request() else redirect(back)
+    return form_response("invoice_cancel.html", "_invoice_cancel.html", inv=inv, error=error, back_url=back)
+
+
+@sales_bp.route("/factures")
+@login_required
+def invoices():
+    """Every invoice issued, newest first: the register an accountant asks for."""
+    search = (request.args.get("q") or "").strip()
+    status = request.args.get("status") or ""
+    q = Invoice.query.join(Sale)
+    if status in ("issued", "cancelled"):
+        q = q.filter(Invoice.status == status)
+    else:
+        status = ""
+    if search:
+        like = "%" + search + "%"
+        q = q.filter(db.or_(Invoice.number.ilike(like), Invoice.customer_name.ilike(like), Sale.number.ilike(like)))
+    q = q.order_by(Invoice.issued_on.desc(), Invoice.id.desc())
+    t = get_t()
+    if wants_xlsx(request):
+        headers = [t["invoice.number"], t["invoice.issued_on"], t["sale.customer"], t["invoice.customer_nif"],
+                   t["sale.number"], t["purchase.currency"], t["invoice.net"], t["invoice.vat_rate"],
+                   t["invoice.vat"], t["invoice.total"], t["invoice.status"], t["invoice.cancel_reason"]]
+        data = [[i.number, i.issued_on, i.customer_name, i.customer_tax_id, i.sale.number, i.currency,
+                 i.net_amount, i.vat_rate, i.vat_amount, i.total, t["invoice.status." + i.status], i.cancel_reason]
+                for i in q.all()]
+        return xlsx_response("factures", t["invoice.register"], headers, data)
+    pagination = paginate(q)
+    return render_template("invoices.html", rows=pagination.items, pagination=pagination, search=search,
+                           status=status, tab_counts=_tab_counts(),
+                           status_opts=[(s, t["invoice.status." + s]) for s in ("issued", "cancelled")])
+

@@ -14,6 +14,7 @@ Built on the same Flask + Postgres + Docker stack and design language as
 |---|---|
 | Setup: Docker, Caddy, migrations, seed, backups | Done |
 | Design: layout, light/dark, FR/EN/DE, modals, toasts | Done |
+| Fels Guinée identity: the client's logo, black and gold theme, icons | Done |
 | Data model (all tables below) | Done, migrated |
 | Login, password change, CSRF, error journal | Done |
 | Activity log (who did what, when), super admin only, with the error journal under Journaux | Done |
@@ -22,12 +23,17 @@ Built on the same Flask + Postgres + Docker stack and design language as
 | Purchases, pipeline board, customs/port costs, landed cost per vehicle | Done |
 | Supplier payments (any currency, own rate), voiding | Done |
 | Stock: one row per vehicle, chassis numbers | Done |
+| References by category: models TRC-001, REM-001…, vehicles TRC-001-01… (never reused) | Done |
+| Model figures on the Models tab (ordered, on the way, in stock, reserved, to sell) and a warning before ordering a model already on its way | Done |
+| Documents on purchases: supplier invoice, BL, customs receipt… (PDF, photo, Word, Excel) | Done |
 | Dropdown filters on every list | Done |
 | Sales and pre-orders (VT-YYYY-NNN), vehicle assignment, delivery, cancellation | Done |
 | Receipts (REC-YYYY-NNN) in either currency, printable receipt | Done |
+| Invoices (FAC-YYYY-NNN): frozen copy of the sale, optional VAT inside the price (HT / TVA / TTC), amount in words, cancel and reissue, register with Excel export | Done |
 | Customer balances and printable statement, margin per vehicle | Done |
 | Payments ledger (in and out, filters, totals per currency) | Done |
 | Dashboard: receivables, payables, monthly cash chart, margin, stock, alerts | Done |
+| Statistics tab: best-selling models, categories, customers, suppliers, time per stage, unsold stock by age | Done |
 | Excel export of every list (filters kept) | Done |
 | Import of the client's existing workbook, with preview and model matching | Done |
 | Ma signature: company stamp + photographed signature on receipts and statements | Done |
@@ -123,6 +129,8 @@ fels_web/
 | `customers` | Who buys |
 | `sales` | A sale or pre-order, numbered VT-YYYY-NNN |
 | `sale_lines` | Model, agreed price, the unit once assigned |
+| `purchase_documents` | A file attached to a purchase: its type, number, date; the bytes are in the bucket or the documents volume |
+| `invoices` | A sale's invoice, numbered FAC-YYYY-NNN: customer, lines and tax copied when issued; cancelled, never deleted |
 | `payments` | Money in (receipt REC-YYYY-NNN) or out (to a supplier or a cost); voided, never deleted |
 | `error_events` | The error journal |
 | `audit_logs` | The activity log: each change, sign-in and refused sign-in, with the name and role at the time |

@@ -211,7 +211,17 @@ SETTINGS_SCHEMA = {
     "company_phone":    {"group": "company",  "type": "text",   "default": ""},
     "company_email":    {"group": "company",  "type": "text",   "default": ""},
     "company_address":  {"group": "company",  "type": "text",   "default": ""},
+    # The company's tax and trade register numbers, printed on invoices.
+    "company_nif":      {"group": "company",  "type": "text",   "default": ""},
+    "company_rccm":     {"group": "company",  "type": "text",   "default": ""},
     "receipt_footer":   {"group": "company",  "type": "textarea", "default": ""},
+    # Invoices. Prices are what the customer pays; with VAT on, the invoice
+    # shows the net, the VAT inside the price and the total (TTC). Off until
+    # the client confirms he charges it.
+    "vat_enabled":      {"group": "invoice",  "type": "select", "default": "0", "options": ("0", "1"),
+                         "labels": "settings.vat_enabled."},
+    "vat_rate":         {"group": "invoice",  "type": "decimal", "default": "18", "min": 0, "max": 100},
+    "invoice_footer":   {"group": "invoice",  "type": "textarea", "default": ""},
     # The bell: after how many days a purchase at one stage, and a rate not
     # re-entered, are worth a word.
     "alert_stuck_days": {"group": "alerts",   "type": "int",    "default": "30", "min": 1, "max": 365},
@@ -291,6 +301,36 @@ def _money(value, currency):
     return "%s %s" % (_num(Decimal(value)), currency)
 
 
+# Each currency's name in words, singular and plural, and its cents.
+CURRENCY_WORDS = {
+    "fr": {"USD": ("dollar américain", "dollars américains"), "GNF": ("franc guinéen", "francs guinéens"),
+           "cent": ("cent", "cents"), "and": "et"},
+    "en": {"USD": ("US dollar", "US dollars"), "GNF": ("Guinean franc", "Guinean francs"),
+           "cent": ("cent", "cents"), "and": "and"},
+    "de": {"USD": ("US-Dollar", "US-Dollar"), "GNF": ("Guinea-Franc", "Guinea-Franc"),
+           "cent": ("Cent", "Cent"), "and": "und"},
+}
+
+
+@app.template_filter("in_words")
+def amount_in_words(value, currency):
+    """An amount written out, as an invoice states it: "cent vingt-trois
+    mille dollars américains et cinquante cents". In the reader's language."""
+    from num2words import num2words
+    lang = current_lang()
+    words = CURRENCY_WORDS.get(lang, CURRENCY_WORDS["fr"])
+    amount = Decimal(value or 0).quantize(Decimal("0.01"))
+    whole, cents = int(amount), int((amount - int(amount)) * 100)
+    name = words.get(currency, (currency, currency))[0 if whole == 1 else 1]
+    # French: "un million de dollars", "deux milliards de francs".
+    if lang == "fr" and whole and whole % 1000000 == 0:
+        name = "de " + name
+    text = "%s %s" % (num2words(whole, lang=lang), name)
+    if cents:
+        text += " %s %s %s" % (words["and"], num2words(cents, lang=lang), words["cent"][0 if cents == 1 else 1])
+    return text
+
+
 @app.template_filter("money_field")
 def _money_field(value):
     """An amount as a form field holds it: digits, and a comma before the
@@ -314,6 +354,16 @@ def _fdate(value):
     if isinstance(value, (date, datetime)):
         return value.strftime("%d/%m/%Y")
     return value
+
+
+@app.template_filter("filesize")
+def _filesize(n):
+    """A file's size as people read it: 840 Ko, 2,4 Mo (KB, MB in English
+    and German)."""
+    t, n = get_t(), int(n or 0)
+    if n < 1024 * 1024:
+        return "%d %s" % (max(1, round(n / 1024)), t["size.kb"])
+    return ("%.1f %s" % (n / (1024 * 1024), t["size.mb"])).replace(".", ",")
 
 
 def parse_money(raw):
@@ -759,6 +809,7 @@ from blueprints.signature import signature_bp  # noqa: E402
 from blueprints.notifications import notifications_bp  # noqa: E402
 from blueprints.users import users_bp  # noqa: E402
 from blueprints.journal import journal_bp  # noqa: E402
+from blueprints.stats import stats_bp  # noqa: E402
 
 app.register_blueprint(settings_bp)
 app.register_blueprint(suppliers_bp)
@@ -773,6 +824,7 @@ app.register_blueprint(signature_bp)
 app.register_blueprint(notifications_bp)
 app.register_blueprint(users_bp)
 app.register_blueprint(journal_bp)
+app.register_blueprint(stats_bp)
 
 
 if __name__ == "__main__":

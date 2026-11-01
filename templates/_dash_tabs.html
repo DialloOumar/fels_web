@@ -1,0 +1,9 @@
+{# The dashboard's two tabs: today's picture, and the figures over a period. #}
+<nav class="tabs dash-tabs" aria-label="{{ t['nav.dashboard'] }}">
+    <a href="{{ url_for('dashboard') }}" class="tab {% if active == 'overview' %}tab--on{% endif %}" {% if active == 'overview' %}aria-current="page"{% endif %}>
+        <span class="material-symbols-outlined">space_dashboard</span> {{ t['tabs.overview'] }}
+    </a>
+    <a href="{{ url_for('stats.index') }}" class="tab {% if active == 'stats' %}tab--on{% endif %}" {% if active == 'stats' %}aria-current="page"{% endif %}>
+        <span class="material-symbols-outlined">bar_chart</span> {{ t['tabs.stats'] }}
+    </a>
+</nav>

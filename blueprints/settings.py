@@ -1,5 +1,7 @@
 """Paramètres — the rate, the display currency, the company details printed
 on receipts, and the list of ports."""
+from decimal import Decimal, InvalidOperation
+
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 
@@ -9,7 +11,7 @@ from models import CURRENCIES, Port, db
 
 settings_bp = Blueprint("settings", __name__, url_prefix="/parametres")
 
-GROUPS = ("currency", "company", "alerts")
+GROUPS = ("currency", "company", "invoice", "alerts")
 
 
 @settings_bp.route("/", methods=["GET", "POST"])
@@ -28,6 +30,20 @@ def index():
                 form["usd_gnf_rate"] = format(rate.normalize(), "f")
         if form["display_currency"] not in CURRENCIES:
             errors["display_currency"] = t["settings.error.currency"]
+        for key, spec in SETTINGS_SCHEMA.items():
+            if spec["type"] == "select" and key != "display_currency" and form[key] not in spec["options"]:
+                form[key] = spec["default"]
+            if spec["type"] == "decimal":
+                raw = form[key].replace(",", ".") or spec["default"]
+                try:
+                    n = Decimal(raw)
+                    ok = spec["min"] <= n <= spec["max"]
+                except InvalidOperation:
+                    ok = False
+                if ok:
+                    form[key] = format(n.normalize(), "f")
+                else:
+                    errors[key] = t["settings.error.decimal"] % {"min": spec["min"], "max": spec["max"]}
         for key, spec in SETTINGS_SCHEMA.items():
             if spec["type"] != "int":
                 continue

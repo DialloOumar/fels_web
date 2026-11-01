@@ -59,6 +59,16 @@
 </div>
 {%- endmacro %}
 
+{# The head of a group of fields: an icon, a title and, if there is one, a
+   line saying what the group is for. Inside <section class="form-group">,
+   before its <div class="form-group__body">. #}
+{% macro group_head(icon, title, desc='') -%}
+<header class="form-group__head">
+    <span class="form-group__icon material-symbols-outlined" aria-hidden="true">{{ icon }}</span>
+    <div><h3 class="form-group__title">{{ title }}</h3>{% if desc %}<p class="form-group__desc">{{ desc }}</p>{% endif %}</div>
+</header>
+{%- endmacro %}
+
 {# A labelled detail, for the definition grid of a detail page. #}
 {% macro detail(label, value) -%}
 <div><dt>{{ label }}</dt><dd>{{ value if value else '—' }}</dd></div>

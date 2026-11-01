@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}{{ t['invoice.issue'] }}{% endblock %}
+{% block page_title %}{{ t['invoice.issue'] }} · {{ sale.number }}{% endblock %}
+{% block content %}
+<section class="card" style="max-width: 640px;">
+    {% include "_invoice_form.html" %}
+</section>
+{% endblock %}

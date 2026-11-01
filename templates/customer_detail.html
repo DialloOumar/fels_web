@@ -26,6 +26,7 @@
         {{ detail(t['field.phone'], row.phone) }}
         {{ detail(t['field.email'], row.email) }}
         {{ detail(t['field.address'], row.address) }}
+        {% if row.tax_id %}{{ detail(t['customer.tax_id'], row.tax_id) }}{% endif %}
         {{ detail(t['field.created'], row.created_at|fdate) }}
     </dl>
     {% if row.note %}<p class="muted" style="margin-top:14px; white-space:pre-line;">{{ row.note }}</p>{% endif %}

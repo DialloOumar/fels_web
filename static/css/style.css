@@ -29,16 +29,16 @@
    and the ones written as CSS content: below (the alert marks). The modal's
    close button is an inline SVG on purpose, so it never depends on the font.
 
-   The list as of v4 (63 names), fetched from the Google Fonts css2 URL
+   The list as of v5 (66 names), fetched from the Google Fonts css2 URL
    above (opsz 24 / wght 400 / FILL 0 / GRAD 0, icon_names= this list) and
    checked with fontTools that each name has its ligature:
      account_balance, add, admin_panel_settings, anchor, archive,
-     arrow_back, assured_workload, bar_chart, block, category,
+     arrow_back, assured_workload, bar_chart, block, call, category,
      check, check_circle, chevron_left, chevron_right, close,
      currency_exchange, dark_mode, delete, description,
      directions_boat, done, download, edit, error, group,
      handshake, history, home, info, inventory_2, light_mode,
-     local_shipping, lock_reset, logout, menu, notifications,
+     local_shipping, location_on, lock_reset, logout, mail, menu, notifications,
      payments, pending_actions, person, photo_camera,
      picture_as_pdf, point_of_sale, print, receipt_long, refresh,
      request_quote, save, schedule, sell, settings, signature,
@@ -82,21 +82,23 @@
     font-style: normal;
     font-weight: 400;
     font-display: block;
-    src: url("../fonts/material-symbols.woff2?v=4") format("woff2");
+    src: url("../fonts/material-symbols.woff2?v=5") format("woff2");
 }
 
 /* ── Design tokens (light) ── */
 :root {
     --sidebar-w: 248px;
 
-    /* Color roles — orange brand (#C2410C) on slate neutrals */
-    --md-primary:                 #C2410C;
+    /* Color roles — the Fels Guinée gold on neutrals. The logo's own gold
+       (#C89236) is too light for white text; buttons, links and tabs use the
+       deep #946512 (5.1:1 on white), the bright gold stays on the black frame. */
+    --md-primary:                 #946512;
     --md-on-primary:              #ffffff;
-    --md-primary-container:       #FFEDD5;
-    --md-on-primary-container:    #431407;
+    --md-primary-container:       #F6EACB;
+    --md-on-primary-container:    #3D2A05;
     --md-secondary:               #475569;
-    --md-secondary-container:     #EEF2F6;
-    --md-on-secondary-container:  #1E293B;
+    --md-secondary-container:     #F0EEE9;
+    --md-on-secondary-container:  #2B2A27;
     --md-tertiary:                #0F766E;
     --md-error:                   #ba1a1a;
     --md-on-error:                #ffffff;
@@ -120,16 +122,16 @@
     --md-inverse-surface:         #1E293B;
     --md-inverse-on-surface:      #F1F5F9;
 
-    /* The navigation drawer is slate in both modes: it is the frame, the
-       page is the work. */
-    --nav-bg:            #0F172A;
-    --nav-fg:            #CBD5E1;
-    --nav-fg-muted:      #64748B;
+    /* The navigation drawer is the logo's black in both modes: it is the
+       frame, the page is the work. Gold marks where you are (7-9:1 on it). */
+    --nav-bg:            #0E0E10;
+    --nav-fg:            #D4D4D8;
+    --nav-fg-muted:      #71717A;
     --nav-hover:         rgba(255, 255, 255, 0.06);
-    --nav-active-bg:     rgba(234, 88, 12, 0.16);
-    --nav-active-fg:     #FDBA74;
-    --nav-active-mark:   #EA580C;
-    --nav-card:          #1E293B;
+    --nav-active-bg:     rgba(200, 146, 54, 0.16);
+    --nav-active-fg:     #E0B04F;
+    --nav-active-mark:   #C89236;
+    --nav-card:          #1A1A1D;
 
     /* Shape scale */
     --shape-xs: 4px;
@@ -172,7 +174,7 @@
     --c-pink:   #db2777; --c-pink-bg:   #fce7f3;
     /* Brand gradient, theme-independent so white text stays legible in
        light and dark mode — primary buttons, the add button, active chips. */
-    --accent-gradient: linear-gradient(135deg, #EA580C, #C2410C);
+    --accent-gradient: linear-gradient(135deg, #A0700F, #7E550C);
 }
 
 /* ── Night mode ──
@@ -195,13 +197,13 @@
 }
 
 :root[data-theme="dark"] {
-        --md-primary:                 #FDBA74;
-        --md-on-primary:              #431407;
-        --md-primary-container:       #7C2D12;
-        --md-on-primary-container:    #FFEDD5;
-        --md-secondary:               #94A3B8;
-        --md-secondary-container:     #273449;
-        --md-on-secondary-container:  #E2E8F0;
+        --md-primary:                 #E0B04F;
+        --md-on-primary:              #2A1D03;
+        --md-primary-container:       #4A3508;
+        --md-on-primary-container:    #FBF1DC;
+        --md-secondary:               #A1A1AA;
+        --md-secondary-container:     #26262A;
+        --md-on-secondary-container:  #E4E4E7;
         --md-error:                   #ffb4ab;
         --md-on-error:                #690005;
         --md-error-container:         #93000a;
@@ -210,22 +212,22 @@
         --md-success-container:       #14512a;
         --md-on-success-container:    #b6f2bf;
 
-        --md-background:              #0B1120;
-        --md-surface:                 #111827;
-        --md-surface-dim:             #0B1120;
-        --md-surface-container-low:   #111827;
-        --md-surface-container:       #1A2335;
-        --md-surface-container-high:  #243049;
-        --md-on-surface:              #E2E8F0;
-        --md-on-surface-variant:      #94A3B8;
-        --md-outline:                 #64748B;
-        --md-outline-variant:         #1F2A3D;
-        --md-surface-variant:         #1F2A3D;
-        --md-inverse-surface:         #E2E8F0;
-        --md-inverse-on-surface:      #1E293B;
+        --md-background:              #0E0E10;
+        --md-surface:                 #151517;
+        --md-surface-dim:             #0E0E10;
+        --md-surface-container-low:   #151517;
+        --md-surface-container:       #1C1C1F;
+        --md-surface-container-high:  #26262A;
+        --md-on-surface:              #E4E4E7;
+        --md-on-surface-variant:      #A1A1AA;
+        --md-outline:                 #71717A;
+        --md-outline-variant:         #2A2A2E;
+        --md-surface-variant:         #2A2A2E;
+        --md-inverse-surface:         #E4E4E7;
+        --md-inverse-on-surface:      #1C1C1F;
 
-        --nav-bg:            #070B14;
-        --nav-card:          #131B2B;
+        --nav-bg:            #070708;
+        --nav-card:          #141416;
 }
 
 /* Tells the browser to draw its own furniture -- scrollbars, form controls,
@@ -308,8 +310,8 @@ a:hover { text-decoration: underline; }
     display: block;
     width: 118px;
     max-width: 100%;
-    /* Reserve the box before the SVG loads so the nav never jumps. */
-    aspect-ratio: 637 / 150;
+    /* Reserve the box before the image loads so the nav never jumps. */
+    aspect-ratio: 708 / 167;
     height: auto;
 }
 
@@ -1139,7 +1141,12 @@ td.row-actions > * + * { margin-left: 6px; }
 }
 .auth-card__title { font-size: 1.6rem; font-weight: 700; color: var(--md-primary); }
 .auth-card__tagline { color: var(--md-on-surface-variant); margin: 4px 0 28px; font-size: 0.9rem; }
-.auth-logo { display: block; width: 210px; max-width: 100%; aspect-ratio: 637 / 150; height: auto; margin: 0 auto 28px; }
+.auth-logo { display: block; max-width: 100%; height: auto; margin: 0 auto 8px; }
+/* The illustration on the light card, the wordmark on the dark one. */
+.auth-logo--light { width: 300px; }
+.auth-logo--dark { display: none; width: 240px; margin-top: 8px; margin-bottom: 18px; }
+:root[data-theme="dark"] .auth-logo--light { display: none; }
+:root[data-theme="dark"] .auth-logo--dark { display: block; }
 .auth-form { gap: 20px; }
 .auth-form .btn { margin-top: 8px; height: 48px; }
 
@@ -1828,12 +1835,12 @@ a.list-card--link:hover { border-color: var(--md-primary); }
 
 /* ── Compact navigation ──
    Every entry fits a laptop screen (about 650px of window height) with no
-   scrolling; under 620px the rows tighten once more: tighter rows, slimmer section labels, a smaller logo, and the
+   scrolling; under 670px the rows tighten once more: tighter rows, slimmer section labels, a smaller logo, and the
    user block on two short lines. A shorter window tightens once more. If a
    screen is shorter still, the list scrolls and the user block stays put. */
 .sidebar { padding: 8px 10px 10px; }
-.sidebar-logo { padding: 4px 10px 8px; margin-bottom: 12px; }   /* air between the logo and the menu */
-.sidebar-logo-img { width: 100px; }
+.sidebar-logo { padding: 4px 10px 2px; margin-bottom: 18px; }   /* air between the logo and the menu */
+.sidebar-logo-img { width: 136px; }
 .sidebar-nav { gap: 1px; }
 .sidebar-nav a, .sidebar-nav a.sidebar-sub { height: 33px; padding: 0 12px; gap: 10px; font-size: 0.84rem; }
 .sidebar-nav a .nav-icon, .sidebar-nav a .material-symbols-outlined { font-size: 19px; }
@@ -1862,11 +1869,11 @@ a.list-card--link:hover { border-color: var(--md-primary); }
 .sidebar-icon-btn.is-on { background: var(--nav-active-bg); color: var(--nav-active-fg); }
 .sidebar-icon-btn--out:hover { background: var(--md-error-container); color: var(--md-on-error-container); }
 
-@media (max-height: 620px) {
+@media (max-height: 670px) {
     .sidebar-nav a, .sidebar-nav a.sidebar-sub { height: 30px; }
     .sidebar-section { padding: 6px 12px 2px; }
-    .sidebar-logo { padding-bottom: 4px; margin-bottom: 8px; }
-    .sidebar-logo-img { width: 92px; }
+    .sidebar-logo { padding-top: 2px; padding-bottom: 0; margin-bottom: 10px; }
+    .sidebar-logo-img { width: 112px; }
 }
 
 /* ── Users and roles ── */
@@ -1961,3 +1968,429 @@ a.list-card--link:hover { border-color: var(--md-primary); }
 .sidebar-user-actions > .lang-menu { flex: 1 1 0; display: flex; }
 .sidebar-user-actions > .lang-menu > summary { width: 100%; }
 .lang-menu[open] > .sidebar-icon-btn { background: var(--nav-active-bg); color: var(--nav-active-fg); }
+
+/* ── References (TRC-001, TRC-001-07) and model figures ── */
+.unit-ref { font-weight: 600; letter-spacing: 0.02em; }
+.stat-waiting { color: var(--c-amber); line-height: 1.25; margin-top: 2px; }
+/* Under a purchase line: what the chosen model already has. Amber when
+   some are still on their way, the case to look at twice. */
+.line-stock { margin: 4px 0 2px; color: var(--md-on-surface-variant); min-height: 1em; }
+.line-stock:empty { display: none; }
+.line-stock--coming { color: var(--c-amber); font-weight: 600; }
+
+/* A document's file name, with an icon of what it is. */
+.doc-file { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; overflow-wrap: anywhere; }
+.doc-file .material-symbols-outlined { font-size: 18px; }
+
+
+/* ── Statistics (the dashboard's second tab) ── */
+.stats-filter { margin-bottom: 0; }
+.stat-grid--5 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.stat-sub { font-size: 0.74rem; color: var(--md-on-surface-variant); margin-top: 2px; }
+.stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.stats-grid > .card { margin: 0; }
+@media (max-width: 1100px) { .stats-grid { grid-template-columns: minmax(0, 1fr); } }
+.stats-table td { vertical-align: middle; }
+/* A thin bar beside a figure: one hue, rounded ends, the figure always
+   written next to it -- the bar only helps the eye compare rows. */
+.stat-bar {
+    display: inline-block; width: 64px; height: 6px; vertical-align: middle; margin-right: 6px;
+    border-radius: 3px; background: var(--md-surface-container-high); overflow: hidden;
+}
+.stat-bar > span { display: block; height: 100%; border-radius: 3px; background: var(--md-primary); min-width: 2px; }
+/* The yard by age: four boxes, the late ones tinted. */
+.age-buckets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 700px) { .age-buckets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.age-bucket {
+    padding: 12px 14px; border-radius: var(--shape-md);
+    border: 1px solid var(--md-outline-variant); background: var(--md-surface-container-low);
+}
+.age-bucket__label { font-size: 0.78rem; color: var(--md-on-surface-variant); }
+.age-bucket__count { font-size: 1.5rem; font-weight: 700; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.age-bucket--late { border-color: var(--c-amber); background: var(--c-amber-bg); }
+.age-bucket--old  { border-color: var(--c-red);   background: var(--c-red-bg); }
+.age-bucket--late .age-bucket__label, .age-bucket--old .age-bucket__label { color: inherit; }
+.stat-col-reserved { width: 8.5em; }
+
+/* What an invoice will say, shown before it is issued. */
+.invoice-preview { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: var(--shape-md);
+                   background: var(--md-surface-container); }
+.invoice-preview > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Forms, second pass
+   The fields read as one family: a label in sentence case over a 42px
+   control with a visible resting border, a firmer one under the pointer,
+   and a gold ring on focus. Required fields carry a small gold star, set
+   from the control's own `required` so no template has to remember it.
+   Groups give a long form a shape (an icon, a title, one line of purpose);
+   the page forms put the figures and the buttons in a summary that stays
+   in view; a modal's buttons stay pinned to its bottom edge.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+    --field-bg: #FCFCFD;
+    --field-border: #CBD3DE;
+    --field-border-hover: #94A3B8;
+    --field-ring: rgba(148, 101, 18, 0.18);
+    --field-h: 42px;
+}
+:root[data-theme="dark"] {
+    --field-bg: #111113;
+    --field-border: #3A3A40;
+    --field-border-hover: #5A5A62;
+    --field-ring: rgba(224, 176, 79, 0.22);
+}
+
+.entry-form { gap: 18px; }
+
+/* Label: the question, in plain case and full ink. */
+.field > label, .field-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--md-on-surface);
+    text-transform: none;
+    letter-spacing: 0;
+}
+.field:has(> :is(input, select, textarea):required) > label::after,
+.field:has(> .control > :required) > label::after,
+.field:has(> .input-group > input:required) > label::after {
+    content: " *";
+    color: var(--md-primary);
+    font-weight: 700;
+}
+/* The short note under a control (Facultatif., the rate's unit). */
+.field > .field-hint, .field .field-hint {
+    font-size: 0.74rem;
+    font-weight: 400;
+    color: var(--md-on-surface-variant);
+}
+
+/* The controls. */
+.field input:not([type="radio"]):not([type="checkbox"]):not([type="file"]):not([type="color"]):not([type="range"]),
+.field select,
+.field textarea,
+.lines-editor select,
+.lines-editor input[type="text"],
+.lines-editor input[type="number"] {
+    height: var(--field-h);
+    padding: 0 12px;
+    border: 1px solid var(--field-border);
+    border-radius: var(--shape-md);
+    background-color: var(--field-bg);
+    color: var(--md-on-surface);
+    font: inherit;
+    font-size: 0.92rem;
+    transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+.field textarea { height: auto !important; min-height: 72px; padding: 10px 12px !important; line-height: 1.45; }
+.field input:hover:not(:focus):not(:disabled),
+.field select:hover:not(:focus):not(:disabled),
+.field textarea:hover:not(:focus):not(:disabled),
+.lines-editor select:hover:not(:focus),
+.lines-editor input:hover:not(:focus) { border-color: var(--field-border-hover); }
+.field input:focus, .field select:focus, .field textarea:focus,
+.lines-editor select:focus, .lines-editor input:focus {
+    outline: none;
+    border-color: var(--md-primary);
+    background-color: var(--md-surface);
+    box-shadow: 0 0 0 3px var(--field-ring);
+}
+.field input::placeholder, .field textarea::placeholder,
+.lines-editor input::placeholder { color: var(--md-outline); opacity: 1; }
+.field input:disabled, .field select:disabled { background-color: var(--md-surface-container); }
+
+/* Selects draw their own chevron, the same in every browser. */
+.field select, .lines-editor select, .input-group select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 34px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 18px;
+}
+/* A list still on its "Choose…" line reads as a prompt, not a value. */
+.field select:invalid, .lines-editor select:has(option[value=""]:checked) { color: var(--md-outline); }
+.field select option, .lines-editor select option { color: var(--md-on-surface); }
+
+/* Dates: the calendar mark tinted to match. */
+.field input[type="date"] { padding-right: 10px; }
+.field input[type="date"]::-webkit-calendar-picker-indicator { opacity: .55; cursor: pointer; }
+.field input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: .9; }
+
+/* A control with an icon at its start (phone, e-mail, address). */
+.field > .control, .field > .input-group { grid-row: 2; }
+.control { position: relative; display: block; }
+.control--icon > .material-symbols-outlined {
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    font-size: 19px; color: var(--md-outline); pointer-events: none;
+    transition: color .15s;
+}
+.control--icon > input { padding-left: 38px !important; }
+.control--icon:focus-within > .material-symbols-outlined { color: var(--md-primary); }
+
+/* An amount and its currency as one control: [ 10 000 | USD ]. */
+.input-group { display: flex; align-items: stretch; }
+.input-group > input { flex: 1; min-width: 0; border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+.input-group > select {
+    flex: none; width: 92px !important;
+    margin-left: -1px;
+    border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important;
+    background-color: var(--md-surface-container) !important;
+    font-weight: 600;
+}
+.input-group > input:focus, .input-group > select:focus { position: relative; z-index: 1; }
+
+/* The one figure a form is about (a payment's amount), set large. */
+.field--hero .input-group > input { height: 54px !important; font-size: 1.45rem !important; font-weight: 600; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+.field--hero .input-group > select { height: 54px !important; font-size: 1rem !important; }
+
+/* File inputs as a drop area. */
+.field input[type="file"] {
+    grid-row: 2;
+    width: 100%;
+    padding: 14px;
+    border: 1.5px dashed var(--field-border);
+    border-radius: var(--shape-md);
+    background: var(--field-bg);
+    color: var(--md-on-surface-variant);
+    font: inherit; font-size: 0.86rem;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+}
+.field input[type="file"]:hover { border-color: var(--md-primary); background: var(--md-surface); }
+.field input[type="file"]::file-selector-button {
+    margin-right: 12px; padding: 8px 14px;
+    border: 0; border-radius: var(--shape-control);
+    background: var(--md-primary-container); color: var(--md-on-primary-container);
+    font: inherit; font-weight: 600; font-size: 0.82rem; cursor: pointer;
+}
+
+/* Errors: the control turns red and the message says why. */
+.field--error input, .field--error select, .field--error textarea { border-color: var(--md-error) !important; }
+.field--error input:focus, .field--error select:focus { box-shadow: 0 0 0 3px rgba(186, 26, 26, .16); }
+
+/* ── Groups ── */
+.form-group { display: flex; flex-direction: column; gap: 14px; }
+.form-group + .form-group { padding-top: 18px; border-top: 1px solid var(--md-outline-variant); }
+.form-group__body { display: flex; flex-direction: column; gap: 16px; }
+.form-group__head { display: flex; align-items: center; gap: 12px; }
+.form-group__icon {
+    flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px;
+    border-radius: var(--shape-md);
+    background: var(--md-primary-container);
+    color: var(--md-primary);
+    font-size: 19px;
+}
+:root[data-theme="dark"] .form-group__icon { color: var(--md-on-primary-container); }
+.form-group__title { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--md-on-surface); line-height: 1.25; }
+.form-group__desc { margin: 2px 0 0; font-size: 0.8rem; color: var(--md-on-surface-variant); line-height: 1.35; }
+
+/* ── Buttons at the foot of a form ──
+   Save on the right, where the eye ends; cancel beside it, quieter. */
+.form-actions {
+    flex-direction: row-reverse;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+    padding-top: 16px;
+    border-top: 1px solid var(--md-outline-variant);
+}
+.form-actions .btn { min-width: 120px; }
+.form-actions .btn--outlined, .form-summary__actions .btn--outlined {
+    border-color: var(--field-border);
+    color: var(--md-on-surface-variant);
+}
+.form-actions .btn--outlined:hover, .form-summary__actions .btn--outlined:hover {
+    background: var(--md-surface-container); color: var(--md-on-surface); text-decoration: none;
+}
+/* In a dialog the buttons stay on its bottom edge while the fields scroll. */
+.modal__body:has(> .entry-form) { padding-bottom: 0; }
+.modal__body > .entry-form > .form-actions {
+    position: sticky; bottom: 0; z-index: 2;
+    margin: 4px -22px 0;
+    padding: 14px 22px 18px;
+    background: var(--md-surface-container-low);
+}
+.modal { overflow: hidden; }
+.modal__header { padding: 18px 22px; }
+.modal__header h2 { font-size: 1.08rem; font-weight: 700; }
+
+/* ── One-of choices as cards (a sale's status) ── */
+.choice-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.choice-card {
+    position: relative;
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 40px 14px 16px;
+    border: 1.5px solid var(--field-border);
+    border-radius: var(--shape-lg);
+    background: var(--field-bg);
+    cursor: pointer;
+    transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.choice-card:hover { border-color: var(--field-border-hover); }
+.choice-card input { position: absolute; opacity: 0; pointer-events: none; }
+.choice-card__icon {
+    flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--md-surface-container-high); color: var(--md-on-surface-variant);
+    font-size: 19px;
+}
+.choice-card__text { display: flex; flex-direction: column; gap: 2px; font-size: 0.8rem; color: var(--md-on-surface-variant); line-height: 1.4; }
+.choice-card__text strong { font-size: 0.92rem; color: var(--md-on-surface); }
+.choice-card::after {
+    content: ""; position: absolute; top: 14px; right: 14px;
+    width: 18px; height: 18px; border-radius: 50%; box-sizing: border-box;
+    border: 1.5px solid var(--field-border);
+    background: var(--md-surface);
+}
+.choice-card:has(input:checked) {
+    border-color: var(--md-primary);
+    background: color-mix(in srgb, var(--md-primary-container) 45%, var(--md-surface));
+    box-shadow: 0 0 0 3px var(--field-ring);
+}
+.choice-card:has(input:checked) .choice-card__icon { background: var(--md-primary); color: var(--md-on-primary); }
+.choice-card:has(input:checked)::after { border: 5px solid var(--md-primary); }
+.choice-card:has(input:focus-visible) { outline: 2px solid var(--md-primary); outline-offset: 2px; }
+
+/* Ticked chips (roles, multi-choice) take the brand too. */
+.checkbox-item { border-color: var(--field-border); background: var(--field-bg); border-radius: var(--shape-md); }
+.checkbox-item:has(input:checked) {
+    background: color-mix(in srgb, var(--md-primary-container) 55%, var(--md-surface));
+    border-color: var(--md-primary);
+    color: var(--md-on-surface);
+}
+
+/* ── A few choices in a row (how a payment was made) ── */
+.field > .seg-choice { grid-row: 2; }
+.seg-choice { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg-choice__opt { position: relative; cursor: pointer; }
+.seg-choice__opt input { position: absolute; opacity: 0; pointer-events: none; }
+.seg-choice__opt span {
+    display: inline-flex; align-items: center; height: 36px; padding: 0 14px;
+    border: 1px solid var(--field-border); border-radius: var(--shape-control);
+    background: var(--field-bg);
+    font-size: 0.84rem; font-weight: 600; color: var(--md-on-surface-variant);
+    transition: border-color .15s, background .15s, color .15s;
+}
+.seg-choice__opt:hover span { border-color: var(--field-border-hover); color: var(--md-on-surface); }
+.seg-choice__opt input:checked + span {
+    border-color: var(--md-primary);
+    background: var(--md-primary-container);
+    color: var(--md-on-primary-container);
+}
+.seg-choice__opt input:focus-visible + span { outline: 2px solid var(--md-primary); outline-offset: 2px; }
+
+/* ── What is owed, at the top of a payment ── */
+.balance-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    padding: 14px 16px;
+    border-radius: var(--shape-lg);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--md-primary-container) 80%, var(--md-surface)), var(--md-surface-container));
+    border: 1px solid color-mix(in srgb, var(--md-primary) 22%, transparent);
+}
+.balance-banner__label { font-size: 0.76rem; font-weight: 600; color: var(--md-on-surface-variant); }
+.balance-banner__value { font-size: 1.3rem; font-weight: 700; color: var(--md-on-surface); font-variant-numeric: tabular-nums; }
+
+/* ── Page forms: the work on the left, the summary on the right ── */
+.form-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; max-width: 1240px; }
+.form-layout__main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.form-layout__aside { position: sticky; top: 76px; }
+.form-card { display: flex; flex-direction: column; gap: 16px; padding: 20px 22px; }
+.form-card__foot { margin: 0; }
+.form-summary { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
+.form-summary__title { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--md-on-surface-variant); }
+.form-summary__title .material-symbols-outlined { font-size: 19px; color: var(--md-primary); }
+.form-summary__list { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.form-summary__list > div { display: flex; justify-content: space-between; gap: 12px; font-size: 0.86rem; }
+.form-summary__list dt { color: var(--md-on-surface-variant); }
+.form-summary__list dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.form-summary__total {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 14px 16px;
+    border-radius: var(--shape-md);
+    background: var(--nav-bg);
+    color: #fff;
+}
+.form-summary__total span { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--nav-active-fg); }
+.form-summary__total strong { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; overflow-wrap: anywhere; }
+.form-summary__actions { display: flex; flex-direction: column; gap: 8px; }
+.form-summary__actions .btn { width: 100%; height: 44px; }
+@media (max-width: 1100px) {
+    .form-layout { grid-template-columns: minmax(0, 1fr); }
+    .form-layout__aside { position: static; }
+}
+
+/* ── Lines editor (purchase and sale) ──
+   A boxed list: a tinted head, each line on its own band, the model's
+   precision typed in a quiet field under it, and adding a line as the box's
+   own last row. */
+.lines-box { border: 1px solid var(--md-outline-variant); border-radius: var(--shape-lg); overflow: hidden; background: var(--md-surface); }
+.lines-box .table-wrap { border: 0; border-radius: 0; margin: 0; }
+.lines-editor { margin: 0; }
+.lines-editor thead th {
+    background: var(--md-surface-container);
+    font-size: 0.72rem; font-weight: 700; letter-spacing: .04em;
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--md-outline-variant);
+}
+.lines-editor td { padding: 10px 8px; border-bottom: 1px solid var(--md-outline-variant); }
+.lines-editor tbody tr:hover td { background: color-mix(in srgb, var(--md-surface-container) 50%, transparent); }
+.lines-editor select, .lines-editor input[type="text"], .lines-editor input[type="number"] { height: 40px; font-size: 0.88rem; }
+.lines-editor input.num { text-align: right; font-variant-numeric: tabular-nums; }
+.lines-editor .line-total { line-height: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* The precision under the model: no box until it is pointed at or typed in. */
+.lines-editor input.line-desc {
+    margin-top: 6px; height: 32px !important; font-size: 0.8rem !important;
+    border-color: transparent !important; background-color: transparent !important;
+    padding-left: 10px;
+}
+.lines-editor input.line-desc:hover { border-color: var(--field-border) !important; }
+.lines-editor input.line-desc:focus { border-color: var(--md-primary) !important; background-color: var(--md-surface) !important; }
+.line-remove {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; margin-top: 2px;
+    border: 0; border-radius: var(--shape-control);
+    background: transparent; color: var(--md-on-surface-variant);
+    cursor: pointer; transition: background .15s, color .15s;
+}
+.line-remove .material-symbols-outlined { font-size: 20px; }
+.line-remove:hover { background: var(--md-error-container); color: var(--md-on-error-container); }
+.lines-add {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; height: 46px;
+    border: 0;
+    background: transparent; color: var(--md-primary);
+    font: inherit; font-size: 0.86rem; font-weight: 600;
+    cursor: pointer; transition: background .15s;
+}
+.lines-add:hover { background: color-mix(in srgb, var(--md-primary-container) 45%, transparent); }
+.lines-add .material-symbols-outlined { font-size: 20px; }
+.line-stock { margin-top: 6px; padding-left: 2px; }
+
+@media (max-width: 768px) {
+    .form-card { padding: 16px; }
+    .form-actions { flex-direction: column-reverse; align-items: stretch; }
+    .form-actions .btn { width: 100%; height: 46px; }
+    .field--hero .input-group > input { font-size: 1.25rem !important; }
+}
+
+/* A field in a row of taller ones (one with a note under it) keeps its
+   label and control at the top instead of spreading them out. */
+.field { align-content: start; }
+/* The older rule capitalises every label in a field; a choice is not a label. */
+.field .seg-choice__opt { text-transform: none; letter-spacing: 0; font-size: inherit; color: inherit; }
+/* The lines fit the form column: narrower figures, no sideways scroll at
+   a laptop's width. */
+.lines-box .lines-editor { min-width: 560px; }
+.lines-box .lines-editor .lines-col-qty { width: 76px; }
+.lines-box .lines-editor .lines-col-price { width: 150px; }
+.lines-box .lines-editor .lines-col-total { width: 130px; }
+.lines-box .lines-editor .lines-col-x { width: 48px; }
+.lines-box .lines-editor .lines-col-unit { width: 32%; }
+.lines-box .lines-editor th:last-child, .lines-box .lines-editor td:last-child { padding-right: 10px; }
+.form-layout__aside { top: 66px; }
+:root[data-theme="dark"] .form-summary__total { border: 1px solid rgba(224, 176, 79, 0.28); }

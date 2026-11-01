@@ -14,7 +14,7 @@ from models import Customer, db
 
 customers_bp = Blueprint("customers", __name__, url_prefix="/clients")
 
-FIELDS = ("name", "phone", "email", "address", "note")
+FIELDS = ("name", "phone", "email", "address", "tax_id", "note")
 
 
 def _get_or_404(cid):

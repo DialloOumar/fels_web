@@ -591,3 +591,22 @@ document.addEventListener("change", function (e) {
         if (e.key === 'Escape' && bell.open) bell.open = false;
     });
 })();
+
+
+// ── "The full balance" ──
+// A button with data-fill-amount puts that amount, and its currency, in the
+// form's amount field: the usual case of a payment is paying what is left.
+(function () {
+    document.addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-fill-amount]");
+        if (!btn) return;
+        var form = btn.closest("form");
+        var amount = form && form.querySelector('[name="amount"]');
+        if (!amount) return;
+        var cur = form.querySelector('[name="currency"]');
+        if (cur && btn.dataset.fillCurrency) cur.value = btn.dataset.fillCurrency;
+        amount.value = btn.dataset.fillAmount;
+        amount.dispatchEvent(new Event("input", { bubbles: true }));
+        amount.focus();
+    });
+})();

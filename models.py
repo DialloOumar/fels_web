@@ -189,6 +189,9 @@ class AuditLog(db.Model):
 # ── Catalog ──────────────────────────────────────────────────────────────────
 
 PRODUCT_CATEGORIES = ("tractor", "trailer", "truck", "pickup", "other")
+# Each category's prefix in the references the app gives: a model is TRC-001,
+# its vehicles TRC-001-01, TRC-001-02… (TRacteur, REMorque, CAMion, PicKuP, DIVers).
+CATEGORY_PREFIX = {"tractor": "TRC", "trailer": "REM", "truck": "CAM", "pickup": "PKP", "other": "DIV"}
 
 
 class Product(db.Model):
@@ -198,6 +201,8 @@ class Product(db.Model):
     __tablename__ = "products"
 
     id          = db.Column(db.Integer, primary_key=True)
+    ref         = db.Column(db.String(12), unique=True)            # TRC-001, given by the app
+    unit_seq    = db.Column(db.Integer, nullable=False, default=0, server_default="0")  # last vehicle number given
     name        = db.Column(db.String(120), nullable=False, unique=True)
     code        = db.Column(db.String(20), unique=True)            # short form: SHM430, FcT16
     category    = db.Column(db.String(12), nullable=False, default="other")
@@ -211,6 +216,29 @@ class Product(db.Model):
         deleted, so the old lines keep their meaning."""
         return (db.session.query(PurchaseLine.id).filter_by(product_id=self.id).first() is not None
                 or db.session.query(SaleLine.id).filter_by(product_id=self.id).first() is not None)
+
+
+def next_product_ref(category):
+    """The next free reference in a category: TRC-001, TRC-002…"""
+    prefix = CATEGORY_PREFIX.get(category, CATEGORY_PREFIX["other"]) + "-"
+    taken = db.session.query(Product.ref).filter(Product.ref.like(prefix + "%")).all()
+    numbers = [int(r[len(prefix):]) for (r,) in taken if r[len(prefix):].isdigit()]
+    return "%s%03d" % (prefix, max(numbers, default=0) + 1)
+
+
+def assign_unit_refs():
+    """Number every vehicle still without a reference, model by model, after
+    the ones already numbered: TRC-001-01, TRC-001-02… A number is never
+    reused, so a reference written on a paper stays that vehicle's. Called
+    before the commit of whatever created or re-modelled vehicles."""
+    db.session.flush()
+    for u in Unit.query.filter(Unit.ref.is_(None)).order_by(Unit.id).all():
+        p = u.product
+        if not p.ref:
+            p.ref = next_product_ref(p.category)
+        p.unit_seq = (p.unit_seq or 0) + 1
+        u.seq = p.unit_seq
+        u.ref = "%s-%02d" % (p.ref, u.seq)
 
 
 # ── Buying ───────────────────────────────────────────────────────────────────
@@ -290,6 +318,9 @@ class Purchase(db.Model):
                                cascade="all, delete-orphan", order_by="PurchaseCost.incurred_on")
     payments = db.relationship("Payment", back_populates="purchase",
                                order_by="Payment.paid_on")
+    documents = db.relationship("PurchaseDocument", back_populates="purchase", cascade="all, delete-orphan",
+                                order_by=lambda: (PurchaseDocument.doc_date.desc().nullslast(),
+                                                  PurchaseDocument.id.desc()))
 
     @property
     def goods_total(self):
@@ -378,6 +409,35 @@ class PurchaseLine(db.Model):
 COST_KINDS = ("customs_duty", "port_fees", "transit", "transport", "other")
 
 
+# The papers a purchase gathers on its way, roughly in the order they come.
+# The list is the code's; "other" takes a title for anything not in it.
+DOCUMENT_KINDS = ("supplier_invoice", "packing_list", "bill_of_lading", "certificate_of_origin",
+                  "customs_declaration", "customs_receipt", "delivery_note", "other")
+
+
+class PurchaseDocument(db.Model):
+    """A file attached to a purchase: the supplier's invoice, the bill of
+    lading, the customs receipt… The bytes live in documents_store, under
+    storage_key; this row says what the file is."""
+    __tablename__ = "purchase_documents"
+
+    id           = db.Column(db.Integer, primary_key=True)
+    purchase_id  = db.Column(db.Integer, db.ForeignKey("purchases.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind         = db.Column(db.String(30), nullable=False)
+    title        = db.Column(db.String(120))               # required for "other", a detail otherwise
+    number       = db.Column(db.String(60))                # BL no., declaration no.…
+    doc_date     = db.Column(db.Date)
+    filename     = db.Column(db.String(200), nullable=False)   # as uploaded, for the download
+    content_type = db.Column(db.String(100), nullable=False)
+    size         = db.Column(db.Integer, nullable=False)
+    storage_key  = db.Column(db.String(255), nullable=False, unique=True)
+    uploaded_by  = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    created_at   = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    purchase = db.relationship("Purchase", back_populates="documents")
+    uploader = db.relationship("User")
+
+
 class PurchaseCost(db.Model):
     """What a purchase costs on top of the supplier's price: customs duty,
     port fees, the transit agent, the truck to the yard. Spread over the
@@ -427,6 +487,8 @@ class Unit(db.Model):
     id               = db.Column(db.Integer, primary_key=True)
     purchase_line_id = db.Column(db.Integer, db.ForeignKey("purchase_lines.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id       = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=False, index=True)
+    seq              = db.Column(db.Integer)                         # its number within the model
+    ref              = db.Column(db.String(20), unique=True)         # TRC-001-07, given by the app
     chassis_number   = db.Column(db.String(60), unique=True)
     note             = db.Column(db.String(255))
     created_at       = db.Column(db.DateTime, nullable=False, default=utcnow)
@@ -462,13 +524,9 @@ class Unit(db.Model):
 
     @property
     def label(self):
-        """How a vehicle is named in a list: its chassis number, or its
-        purchase and place on it when the chassis is not known yet."""
-        if self.chassis_number:
-            return self.chassis_number
-        line = self.purchase_line
-        position = [u.id for u in line.units].index(self.id) + 1 if self.id in [u.id for u in line.units] else 0
-        return "%s · #%d" % (line.purchase.invoice_number, position)
+        """How a vehicle is named in a list: its reference, and its chassis
+        number once known."""
+        return "%s · %s" % (self.ref, self.chassis_number) if self.chassis_number else (self.ref or "—")
 
 
 # ── Selling ──────────────────────────────────────────────────────────────────
@@ -483,6 +541,7 @@ class Customer(db.Model):
     phone      = db.Column(db.String(60))
     email      = db.Column(db.String(120))
     address    = db.Column(db.String(255))
+    tax_id     = db.Column(db.String(60))                 # NIF, for a company buyer's invoices
     note       = db.Column(db.Text)
     is_active  = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
@@ -518,6 +577,13 @@ class Sale(db.Model):
     lines    = db.relationship("SaleLine", back_populates="sale",
                                cascade="all, delete-orphan", order_by="SaleLine.id")
     payments = db.relationship("Payment", back_populates="sale", order_by="Payment.paid_on")
+    invoices = db.relationship("Invoice", back_populates="sale", order_by="Invoice.id")
+
+    @property
+    def invoice(self):
+        """The invoice in force: the latest one not cancelled, if any."""
+        live = [i for i in self.invoices if i.status != "cancelled"]
+        return live[-1] if live else None
 
     @property
     def total(self):
@@ -543,6 +609,58 @@ class Sale(db.Model):
         if self.total > 0 and self.balance <= 0:
             return "paid"
         return "partial" if self.paid_amount > 0 else "unpaid"
+
+
+class Invoice(db.Model):
+    """A sale's invoice, numbered by the app (FAC-2026-001).
+
+    What it prints is copied when it is issued -- the customer, the lines,
+    the prices, the tax -- so a paper already handed over never changes when
+    the sale is edited later. To correct one it is cancelled, never deleted:
+    it keeps its number and the reason, and a new one is issued.
+
+    Prices are what the customer pays (TTC). With VAT on, the tax is the part
+    of that price above the net: vat = total x rate / (100 + rate)."""
+    __tablename__ = "invoices"
+
+    id            = db.Column(db.Integer, primary_key=True)
+    number        = db.Column(db.String(20), nullable=False, unique=True)
+    sale_id       = db.Column(db.Integer, db.ForeignKey("sales.id"), nullable=False, index=True)
+    issued_on     = db.Column(db.Date, nullable=False)
+    due_on        = db.Column(db.Date)
+    currency      = db.Column(db.String(3), nullable=False)
+    total         = db.Column(MONEY, nullable=False)          # what the customer pays, tax included
+    vat_rate      = db.Column(db.Numeric(5, 2))               # None: no VAT on this invoice
+    vat_amount    = db.Column(MONEY)
+    customer_name    = db.Column(db.String(120), nullable=False)
+    customer_address = db.Column(db.String(255))
+    customer_phone   = db.Column(db.String(60))
+    customer_tax_id  = db.Column(db.String(60))
+    lines         = db.Column(db.JSON, nullable=False)        # [{ref, product, description, chassis, price}]
+    note          = db.Column(db.Text)
+    status        = db.Column(db.String(12), nullable=False, default="issued")   # issued | cancelled
+    cancelled_at  = db.Column(db.DateTime)
+    cancel_reason = db.Column(db.String(255))
+    created_by    = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    created_at    = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    sale    = db.relationship("Sale", back_populates="invoices")
+    creator = db.relationship("User")
+
+    @property
+    def is_cancelled(self):
+        return self.status == "cancelled"
+
+    @property
+    def net_amount(self):
+        return Decimal(self.total) - Decimal(self.vat_amount or 0)
+
+
+def vat_part(total, rate):
+    """The VAT inside a price that includes it, to the cent."""
+    if rate is None:
+        return None
+    return (Decimal(total) * Decimal(rate) / (Decimal(100) + Decimal(rate))).quantize(CENT, rounding=ROUND_HALF_UP)
 
 
 class SaleLine(db.Model):

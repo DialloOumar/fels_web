@@ -6,9 +6,10 @@ archived, never deleted."""
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 
+from analytics import model_stats
 from app import form_response, get_t, is_modal_request, log_action, modal_ok, paginate
 from blueprints.stock import tab_counts
-from models import PRODUCT_CATEGORIES, Product, db
+from models import PRODUCT_CATEGORIES, Product, db, next_product_ref
 
 products_bp = Blueprint("products", __name__, url_prefix="/modeles")
 
@@ -33,15 +34,16 @@ def index():
         category = ""
     if search:
         like = "%" + search + "%"
-        q = q.filter(db.or_(Product.name.ilike(like), Product.code.ilike(like),
+        q = q.filter(db.or_(Product.name.ilike(like), Product.code.ilike(like), Product.ref.ilike(like),
                             Product.description.ilike(like)))
-    pagination = paginate(q.order_by(Product.category, Product.name))
+    pagination = paginate(q.order_by(Product.category, Product.ref, Product.name))
     archived_count = 0 if show_archived else Product.query.filter_by(is_active=False).count()
     t = get_t()
     return render_template("products.html", rows=pagination.items, pagination=pagination,
                            search=search, show_archived=show_archived, category=category,
                            category_opts=[(c, t["category." + c]) for c in PRODUCT_CATEGORIES],
-                           archived_count=archived_count, tab_counts=tab_counts())
+                           archived_count=archived_count, tab_counts=tab_counts(),
+                           stats=model_stats([p.id for p in pagination.items]))
 
 
 def _save(row):
@@ -65,6 +67,10 @@ def _save(row):
             clash = clash.filter(Product.id != row.id)
         if clash.first():
             return t["product.error.code_exists"]
+    # The reference follows the category until the model is first bought or
+    # sold; from then on it is written on its vehicles and stays.
+    if row.ref is None or (category != row.category and not row.has_history):
+        row.ref = next_product_ref(category)
     row.name, row.code, row.category, row.description = name, code, category, description
     is_new = row.id is None
     if is_new:

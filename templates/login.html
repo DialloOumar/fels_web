@@ -5,7 +5,6 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ t['auth.login'] }} — {{ t['app.title'] }}</title>
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/icon.svg') }}">
     {% include '_pwa_head.html' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ v }}">
     {% include '_theme_head.html' %}
@@ -13,7 +12,10 @@
 <body class="auth-body">
 
 <div class="auth-card">
-    <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="{{ t['app.title'] }}" class="auth-logo">
+    {# The full illustration on a light card; its white background would
+       show as a box on a dark one, so dark mode has the wordmark instead. #}
+    <img src="{{ url_for('static', filename='images/login-illustration.jpg') }}?v={{ v }}" alt="Fels Guinée" class="auth-logo auth-logo--light" width="804" height="627">
+    <img src="{{ url_for('static', filename='images/logo-on-dark.png') }}?v={{ v }}" alt="Fels Guinée" class="auth-logo auth-logo--dark" width="708" height="167">
     <p class="auth-card__tagline" style="text-align:center;">{{ t['app.tagline'] }}</p>
 
     {% if error %}

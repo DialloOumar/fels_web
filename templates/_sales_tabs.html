@@ -1,0 +1,11 @@
+{# The Sales page's two tabs. Expects `active` ('sales' or 'invoices') and `tab_counts`. #}
+<nav class="tabs" aria-label="{{ t['nav.sales'] }}">
+    <a href="{{ url_for('sales.index') }}" class="tab {% if active == 'sales' %}tab--on{% endif %}" {% if active == 'sales' %}aria-current="page"{% endif %}>
+        <span class="material-symbols-outlined">point_of_sale</span> {{ t['tabs.sales'] }}
+        <span class="tab__count">{{ tab_counts.sales|num }}</span>
+    </a>
+    <a href="{{ url_for('sales.invoices') }}" class="tab {% if active == 'invoices' %}tab--on{% endif %}" {% if active == 'invoices' %}aria-current="page"{% endif %}>
+        <span class="material-symbols-outlined">request_quote</span> {{ t['tabs.invoices'] }}
+        <span class="tab__count">{{ tab_counts.invoices|num }}</span>
+    </a>
+</nav>

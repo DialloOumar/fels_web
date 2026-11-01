@@ -99,6 +99,7 @@
             <td>
                 {% if l.unit %}
                 {% set p = l.unit.purchase_line.purchase %}
+                <code class="unit-ref">{{ l.unit.ref }}</code>
                 {% if l.unit.chassis_number %}<code>{{ l.unit.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}
                 <div class="small"><a href="{{ url_for('purchases.detail', pid=p.id) }}">{{ p.invoice_number }}</a> · {{ stage_badge(p.stage) }}</div>
                 {% else %}
@@ -113,6 +114,49 @@
         </tbody>
     </table></div>
     <p class="muted small" style="margin-top:8px;">{{ t['sale.margin_hint'] }}</p>
+</section>
+
+{# ── The invoice: issued once, cancelled and reissued to correct it ── #}
+<section class="card" id="invoice">
+    <div class="card-header">
+        <h2>{{ t['invoice.section'] }}</h2>
+        {% if row.status != 'cancelled' and not row.invoice and can('sales', 'manage') %}
+        <a href="{{ url_for('sales.invoice_new', sid=row.id) }}" class="fab"
+           data-modal-url="{{ url_for('sales.invoice_new', sid=row.id) }}" data-modal-title="{{ t['invoice.issue'] }} · {{ row.number }}">
+            <span class="material-symbols-outlined">request_quote</span> {{ t['invoice.issue'] }}</a>
+        {% endif %}
+    </div>
+    {% if invoice_outdated %}<div class="alert alert--warning" style="margin-bottom:10px;">{{ t['invoice.warn.outdated'] }}</div>{% endif %}
+    {% if row.invoices %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['invoice.number'] }}</th>
+            <th>{{ t['invoice.issued_on'] }}</th>
+            <th class="num">{{ t['invoice.total'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for i in row.invoices|reverse %}
+        <tr class="{% if i.is_cancelled %}row-voided{% endif %}">
+            <td><strong>{{ i.number }}</strong>
+                {% if i.is_cancelled %}<div class="small voided-note">{{ t['invoice.status.cancelled'] }} · {{ i.cancel_reason }}</div>
+                {% elif i.vat_rate is not none %}<div class="muted small">{{ t['invoice.vat'] }} {{ i.vat_rate|num }} % : {{ i.vat_amount|money(i.currency) }}</div>{% endif %}</td>
+            <td>{{ i.issued_on|fdate }}{% if i.due_on %}<div class="muted small">{{ t['invoice.due_on'] }} {{ i.due_on|fdate }}</div>{% endif %}</td>
+            <td class="num">{{ i.total|money(i.currency) }}</td>
+            <td class="row-actions">
+                <a href="{{ url_for('sales.invoice_print', iid=i.id) }}" class="btn btn--sm btn--tonal btn--icon" target="_blank" rel="noopener"
+                   title="{{ t['invoice.print'] }}" aria-label="{{ t['invoice.print'] }}"><span class="material-symbols-outlined">print</span></a>
+                {% if not i.is_cancelled and can('sales', 'manage') %}<a href="{{ url_for('sales.invoice_cancel', iid=i.id) }}" class="btn btn--sm btn--tonal btn--icon"
+                   data-modal-url="{{ url_for('sales.invoice_cancel', iid=i.id) }}" data-modal-title="{{ t['invoice.cancel'] }}"
+                   title="{{ t['invoice.cancel'] }}" aria-label="{{ t['invoice.cancel'] }}"><span class="material-symbols-outlined">block</span></a>{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['invoice.none'] }}</p></div>
+    {% endif %}
 </section>
 
 <section class="card">

@@ -45,9 +45,9 @@ def index():
         where = ""
     if search:
         like = "%" + search + "%"
-        q = q.filter(db.or_(Unit.chassis_number.ilike(like), Purchase.invoice_number.ilike(like),
+        q = q.filter(db.or_(Unit.ref.ilike(like), Unit.chassis_number.ilike(like), Purchase.invoice_number.ilike(like),
                             Product.name.ilike(like), Supplier.name.ilike(like)))
-    rows = q.order_by(Purchase.invoice_date.desc(), Unit.id).all()
+    rows = q.order_by(Purchase.invoice_date.desc(), Unit.ref, Unit.id).all()
     counts = {s: 0 for s in UNIT_STATUSES}
     for u in rows:
         counts[u.status] += 1
@@ -58,13 +58,13 @@ def index():
     t = get_t()
     if wants_xlsx(request):
         landed = _landed_costs(rows)
-        headers = [t["purchase.line_product"], t["unit.chassis"], t["unit.purchase"], t["purchase.supplier"],
+        headers = [t["unit.ref"], t["purchase.line_product"], t["unit.chassis"], t["unit.purchase"], t["purchase.supplier"],
                    t["purchase.port"], t["purchase.stage"], t["unit.status"], t["sale.number"], t["sale.customer"],
                    t["purchase.landed_unit"], t["purchase.currency"], t["field.note"]]
         data = []
         for u in rows:
             p, sl, lc = u.purchase_line.purchase, u.active_sale_line, landed.get(u.id)
-            data.append([u.product.name, u.chassis_number, p.invoice_number, p.supplier.name,
+            data.append([u.ref, u.product.name, u.chassis_number, p.invoice_number, p.supplier.name,
                          p.port.name if p.port else None, t["stage." + p.stage], t["unit.status." + u.status],
                          sl.sale.number if sl else None, sl.sale.customer.name if sl else None,
                          lc[0] if lc else None, lc[1] if lc else None, u.note])

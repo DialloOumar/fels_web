@@ -77,6 +77,8 @@ RULES = {
     "purchases.delete": ("purchases", M), "purchases.stage": ("purchases", M),
     "purchases.cost_new": ("purchases", M), "purchases.cost_edit": ("purchases", M),
     "purchases.cost_delete": ("purchases", M),
+    "purchases.document_file": ("purchases", V),
+    "purchases.document_new": ("purchases", M), "purchases.document_delete": ("purchases", M),
     # money
     "payments.purchase_payment": ("supplier_pay", Y), "payments.cost_payment": ("supplier_pay", Y),
     "payments.void": ("void", Y),
@@ -88,6 +90,10 @@ RULES = {
     "sales.new": ("sales", M), "sales.edit": ("sales", M), "sales.confirm": ("sales", M),
     "sales.deliver": ("sales", M), "sales.undeliver": ("sales", M), "sales.cancel": ("sales", M),
     "sales.receipt_new": ("sales", M),
+    "sales.invoices": ("sales", V), "sales.invoice_print": ("sales", V),
+    "sales.invoice_new": ("sales", M), "sales.invoice_cancel": ("sales", M),
+    # the dashboard's Statistics tab: the same figures as the dashboard, over a period
+    "stats.index": ("dashboard", V),
     # the Excel import
     "importer.upload": ("import", Y), "importer.preview": ("import", Y),
     "importer.confirm": ("import", Y), "importer.discard": ("import", Y),

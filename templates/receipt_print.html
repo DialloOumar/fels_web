@@ -15,7 +15,7 @@
 
 <header class="doc-head">
     <div>
-        <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="" class="doc-logo">
+        <img src="{{ url_for('static', filename='images/logo.png') }}?v={{ v }}" alt="" class="doc-logo">
         <div class="doc-company">
             {% if company.name %}<strong>{{ company.name }}</strong><br>{% endif %}
             {% if company.address %}{{ company.address }}<br>{% endif %}
@@ -60,7 +60,7 @@
     {% for l in sale.lines %}
     <tr>
         <td><strong>{{ l.product.name }}</strong>{% if l.description %}<div class="small muted">{{ l.description }}</div>{% endif %}</td>
-        <td>{% if l.unit and l.unit.chassis_number %}{{ l.unit.chassis_number }}{% elif l.unit %}<span class="muted">{{ t['receipt.chassis_later'] }}</span>{% else %}<span class="muted">{{ t['sale.unit_tbd'] }}</span>{% endif %}</td>
+        <td>{% if l.unit %}{{ l.unit.ref }}<div class="small">{% if l.unit.chassis_number %}{{ l.unit.chassis_number }}{% else %}<span class="muted">{{ t['receipt.chassis_later'] }}</span>{% endif %}</div>{% else %}<span class="muted">{{ t['sale.unit_tbd'] }}</span>{% endif %}</td>
         <td class="r">{{ l.price|money(sale.currency) }}</td>
     </tr>
     {% endfor %}

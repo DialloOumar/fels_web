@@ -1,29 +1,49 @@
-{% from "_macros.html" import form_actions with context %}
+{% from "_macros.html" import form_actions, group_head with context %}
+{% from "_hint.html" import hint with context %}
 {% macro val(field) -%}{{ request.form.get(field) if request.method == 'POST' else ((row[field] or '') if row else '') }}{%- endmacro %}
 {% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
 <form method="post" class="entry-form" data-modal-form
       action="{{ url_for('customers.edit', cid=row.id) if row else url_for('customers.new') }}">
     {{ csrf_field() }}
-    <div class="field">
-        <input type="text" id="name" name="name" placeholder=" " required value="{{ val('name') }}">
-        <label for="name">{{ t['customer.name'] }}</label>
-    </div>
-
-    <div class="form-row">
-        <div class="field">
-            <input type="tel" id="phone" name="phone" placeholder=" " value="{{ val('phone') }}">
-            <label for="phone">{{ t['field.phone'] }}</label>
+    <section class="form-group">
+        {{ group_head('person', t['form.group.identity']) }}
+        <div class="form-group__body">
+            <div class="form-row">
+                <div class="field">
+                    <input type="text" id="name" name="name" placeholder=" " required value="{{ val('name') }}">
+                    <label for="name">{{ t['customer.name'] }}</label>
+                </div>
+                <div class="field">
+                    <input type="text" id="tax_id" name="tax_id" placeholder=" " maxlength="60" value="{{ val('tax_id') }}">
+                    <label for="tax_id">{{ t['customer.tax_id'] }}</label>
+                    {{ hint(t['form.optional'], t['customer.tax_id_hint']) }}
+                </div>
+            </div>
         </div>
-        <div class="field">
-            <input type="email" id="email" name="email" placeholder=" " autocapitalize="none" value="{{ val('email') }}">
-            <label for="email">{{ t['field.email'] }}</label>
-        </div>
-    </div>
+    </section>
 
-    <div class="field">
-        <input type="text" id="address" name="address" placeholder=" " value="{{ val('address') }}">
-        <label for="address">{{ t['field.address'] }}</label>
-    </div>
+    <section class="form-group">
+        {{ group_head('call', t['form.group.contact']) }}
+        <div class="form-group__body">
+            <div class="form-row">
+                <div class="field">
+                    <div class="control control--icon"><span class="material-symbols-outlined" aria-hidden="true">call</span>
+                        <input type="tel" id="phone" name="phone" placeholder="+224 6XX XX XX XX" value="{{ val('phone') }}"></div>
+                    <label for="phone">{{ t['field.phone'] }}</label>
+                </div>
+                <div class="field">
+                    <div class="control control--icon"><span class="material-symbols-outlined" aria-hidden="true">mail</span>
+                        <input type="email" id="email" name="email" placeholder=" " autocapitalize="none" value="{{ val('email') }}"></div>
+                    <label for="email">{{ t['field.email'] }}</label>
+                </div>
+            </div>
+            <div class="field">
+                <div class="control control--icon"><span class="material-symbols-outlined" aria-hidden="true">location_on</span>
+                    <input type="text" id="address" name="address" placeholder=" " value="{{ val('address') }}"></div>
+                <label for="address">{{ t['field.address'] }}</label>
+            </div>
+        </div>
+    </section>
 
     <div class="field">
         <textarea id="note" name="note" rows="2" placeholder=" ">{{ val('note') }}</textarea>

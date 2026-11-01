@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% from "_filters.html" import filter_select with context %}
+
+{% block title %}{{ t['tabs.stats'] }} · {{ t['nav.dashboard'] }}{% endblock %}
+{% block page_title %}{{ t['nav.dashboard'] }}{% endblock %}
+
+{# Days as people say them: "12 j". #}
+{% macro days(n) -%}{% if n is none %}—{% else %}{{ t['stats.days'] % {'n': '%.0f'|format(n)} }}{% endif %}{%- endmacro %}
+{% macro pct(n) -%}{% if n is none %}—{% else %}{{ ('%.1f'|format(n))|replace('.', ',') }} %{% endif %}{%- endmacro %}
+{% macro money_or_dash(v) -%}{% if v is none %}—{% else %}{{ v|money(display) }}{% endif %}{%- endmacro %}
+{# A thin bar beside a figure, its length against the largest in the table.
+   The figure stays written next to it: the bar only helps the eye compare. #}
+{% macro bar(value, top) -%}
+<span class="stat-bar" aria-hidden="true"><span style="width: {{ ((value / top * 100) if top else 0)|round(1) }}%"></span></span>
+{%- endmacro %}
+
+{% block content %}
+{% with active = 'stats' %}{% include "_dash_tabs.html" %}{% endwith %}
+
+<form method="get" class="filter-bar filter-bar--live stats-filter">
+    {{ filter_select('period', t['stats.period'], period_opts, period) }}
+    <span class="muted small">{% if start %}{{ start|fdate }} – {{ end|fdate }}{% else %}{{ t['stats.period_all'] }}{% endif %}
+        · {{ t['stats.in_currency'] % {'cur': display} }}</span>
+    <noscript><button type="submit" class="btn btn--sm btn--primary">{{ t['search.filter'] }}</button></noscript>
+</form>
+{% if not rate %}<div class="alert alert--warning">{{ t['stats.no_rate'] }}</div>{% endif %}
+
+{% set tot = sales.total %}
+<div class="stat-grid stat-grid--5">
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--blue material-symbols-outlined">sell</span>
+        <div><div class="stat-value">{{ tot.sold }}</div><div class="stat-label">{{ t['stats.sold'] }}</div></div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--teal material-symbols-outlined">payments</span>
+        <div><div class="stat-value">{{ tot.revenue|money(display) }}</div><div class="stat-label">{{ t['stats.revenue'] }}</div>
+            {% if sales.unconverted %}<div class="stat-sub">{{ t['stats.unconverted'] % {'n': sales.unconverted} }}</div>{% endif %}</div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--amber material-symbols-outlined">trending_up</span>
+        <div><div class="stat-value">{{ tot.margin|money(display) if tot.margin_known else '—' }}</div><div class="stat-label">{{ t['stats.margin'] }}</div>
+            {% if tot.margin_known %}<div class="stat-sub">{{ pct(tot.margin_pct) }} · {{ t['stats.per_vehicle'] % {'amount': tot.avg_margin|money(display)} }}</div>{% endif %}
+            {% if tot.margin_known < tot.sold %}<div class="stat-sub">{{ t['stats.margin_known'] % {'n': tot.margin_known, 'of': tot.sold} }}</div>{% endif %}</div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--indigo material-symbols-outlined">local_shipping</span>
+        <div><div class="stat-value">{{ days(delays.door_to_door) }}</div><div class="stat-label">{{ t['stats.door_to_door'] }}</div>
+            {% if delays.n %}<div class="stat-sub">{{ t['stats.over_purchases'] % {'n': delays.n} }}</div>{% endif %}</div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--green material-symbols-outlined">warehouse</span>
+        <div><div class="stat-value">{{ days(sales.yard_days) }}</div><div class="stat-label">{{ t['stats.yard_days'] }}</div>
+            {% if sales.sold_ahead %}<div class="stat-sub">{{ t['stats.sold_ahead'] % {'n': sales.sold_ahead} }}</div>{% endif %}</div>
+    </div>
+</div>
+
+{# ── What sells ── #}
+<section class="card">
+    <div class="card-header"><h2>{{ t['stats.best_models'] }}</h2></div>
+    {% if sales.models %}
+    <div class="table-wrap"><table class="data-table stats-table">
+        <thead><tr>
+            <th>{{ t['product.ref'] }}</th>
+            <th>{{ t['product.name'] }}</th>
+            <th class="col-secondary">{{ t['product.category'] }}</th>
+            <th class="num">{{ t['stats.sold_short'] }}</th>
+            <th class="num">{{ t['stats.revenue'] }}</th>
+            <th class="num col-secondary">{{ t['stats.avg_price'] }}</th>
+            <th class="num">{{ t['stats.avg_margin'] }}</th>
+            <th class="num">{{ t['stats.margin_pct'] }}</th>
+        </tr></thead>
+        <tbody>
+        {% for r in sales.models %}
+        <tr>
+            <td class="nowrap"><code class="unit-ref">{{ r.product.ref }}</code></td>
+            <td><strong>{{ r.product.name }}</strong></td>
+            <td class="col-secondary"><span class="chip chip--cat-{{ r.product.category }}">{{ t['category.' + r.product.category] }}</span></td>
+            <td class="num nowrap">{{ bar(r.sold, top_sold) }} <strong>{{ r.sold }}</strong></td>
+            <td class="num">{{ r.revenue|money(display) }}</td>
+            <td class="num col-secondary">{{ money_or_dash(r.avg_price) }}</td>
+            <td class="num">{{ money_or_dash(r.avg_margin) }}</td>
+            <td class="num"><span class="{{ 'stock-negative' if r.margin_pct is not none and r.margin_pct < 0 else '' }}">{{ pct(r.margin_pct) }}</span></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}<div class="empty-state empty-state--plain"><p>{{ t['stats.empty'] }}</p></div>{% endif %}
+</section>
+
+<div class="stats-grid">
+    <section class="card">
+        <div class="card-header"><h2>{{ t['stats.by_category'] }}</h2></div>
+        {% if sales.categories %}
+        <div class="table-wrap"><table class="data-table stats-table">
+            <thead><tr>
+                <th>{{ t['product.category'] }}</th>
+                <th class="num">{{ t['stats.sold_short'] }}</th>
+                <th class="num">{{ t['stats.revenue'] }}</th>
+                <th class="num">{{ t['stats.margin_pct'] }}</th>
+            </tr></thead>
+            <tbody>
+            {% for cat, r in sales.categories %}
+            <tr>
+                <td><span class="chip chip--cat-{{ cat }}">{{ t['category.' + cat] }}</span></td>
+                <td class="num">{{ r.sold }}</td>
+                <td class="num nowrap">{{ bar(r.revenue, top_revenue) }} {{ r.revenue|money(display) }}</td>
+                <td class="num">{{ pct(r.margin_pct) }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table></div>
+        {% else %}<div class="empty-state empty-state--plain"><p>{{ t['stats.empty'] }}</p></div>{% endif %}
+    </section>
+
+    <section class="card">
+        <div class="card-header"><h2>{{ t['stats.best_customers'] }}</h2></div>
+        {% if sales.customers %}
+        <div class="table-wrap"><table class="data-table stats-table">
+            <thead><tr>
+                <th>{{ t['sale.customer'] }}</th>
+                <th class="num">{{ t['stats.sold_short'] }}</th>
+                <th class="num">{{ t['stats.revenue'] }}</th>
+                <th class="num">{{ t['stats.still_owes'] }}</th>
+            </tr></thead>
+            <tbody>
+            {% for r in sales.customers %}
+            <tr>
+                <td><a href="{{ url_for('customers.detail', cid=r.customer.id) }}">{{ r.customer.name }}</a>
+                    <div class="muted small">{{ t['stats.n_sales'] % {'n': r.sales} }}</div></td>
+                <td class="num">{{ r.sold }}</td>
+                <td class="num">{{ r.revenue|money(display) }}</td>
+                <td class="num">{% if r.balance > 0 %}<span class="stock-negative">{{ r.balance|money(display) }}</span>{% else %}<span class="muted">0</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table></div>
+        {% else %}<div class="empty-state empty-state--plain"><p>{{ t['stats.empty'] }}</p></div>{% endif %}
+    </section>
+
+    {# ── Buying: suppliers and the road ── #}
+    <section class="card">
+        <div class="card-header"><h2>{{ t['stats.suppliers'] }}</h2></div>
+        {% if suppliers %}
+        <div class="table-wrap"><table class="data-table stats-table">
+            <thead><tr>
+                <th>{{ t['purchase.supplier'] }}</th>
+                <th class="num">{{ t['stats.vehicles'] }}</th>
+                <th class="num">{{ t['stats.bought'] }}</th>
+                <th class="num">{{ t['stats.lead'] }}</th>
+            </tr></thead>
+            <tbody>
+            {% for r in suppliers %}
+            <tr>
+                <td><a href="{{ url_for('suppliers.detail', sid=r.supplier.id) }}">{{ r.supplier.name }}</a>
+                    <div class="muted small">{{ t['stats.n_purchases'] % {'n': r.purchases} }}</div></td>
+                <td class="num">{{ r.vehicles }}</td>
+                <td class="num">{{ r.amount|money(display) }}</td>
+                <td class="num">{{ days(r.lead_days) }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table></div>
+        {% else %}<div class="empty-state empty-state--plain"><p>{{ t['stats.empty'] }}</p></div>{% endif %}
+    </section>
+
+    <section class="card">
+        <div class="card-header"><h2>{{ t['stats.delays'] }}</h2></div>
+        {% set top_days = delays.steps|selectattr('days')|map(attribute='days')|max if delays.steps|selectattr('days')|list else 0 %}
+        <div class="table-wrap"><table class="data-table stats-table">
+            <thead><tr>
+                <th>{{ t['stats.step'] }}</th>
+                <th class="num">{{ t['stats.avg_days'] }}</th>
+                <th class="num col-secondary">{{ t['stats.purchases_short'] }}</th>
+            </tr></thead>
+            <tbody>
+            {% for s in delays.steps %}
+            <tr>
+                <td>{{ t['stage.' + s.from] }} → {{ t['stage.' + s.to] }}</td>
+                <td class="num nowrap">{% if s.days is not none %}{{ bar(s.days, top_days) }} {% endif %}<strong>{{ days(s.days) }}</strong></td>
+                <td class="num col-secondary muted">{{ s.n }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table></div>
+        <p class="muted small" style="margin-top:8px;">{{ t['stats.delays_hint'] }}</p>
+    </section>
+</div>
+
+{# ── Money waiting in the yard ── #}
+<section class="card">
+    <div class="card-header">
+        <h2>{{ t['stats.stock_age'] }}</h2>
+        <span class="muted small">{{ t['stats.stock_now'] % {'n': stock.count} }}{% if stock.count %} · {{ stock.value|money(display) }}{% endif %}</span>
+    </div>
+    <div class="age-buckets">
+        {% for b in stock.buckets %}
+        <div class="age-bucket {% if b.low >= 90 and b.count %}age-bucket--old{% elif b.low >= 60 and b.count %}age-bucket--late{% endif %}">
+            <div class="age-bucket__label">{% if b.high is none %}{{ t['stats.age_over'] % {'n': b.low} }}{% elif b.low == 0 %}{{ t['stats.age_under'] % {'n': b.high} }}{% else %}{{ t['stats.age_between'] % {'a': b.low, 'b': b.high} }}{% endif %}</div>
+            <div class="age-bucket__count">{{ b.count }}</div>
+            <div class="muted small">{{ b.value|money(display) if b.count else '—' }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% if stock.oldest %}
+    <div class="table-wrap" style="margin-top:12px;"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['unit.ref'] }}</th>
+            <th>{{ t['product.name'] }}</th>
+            <th class="col-secondary">{{ t['unit.purchase'] }}</th>
+            <th class="num">{{ t['stats.in_yard'] }}</th>
+            <th class="num">{{ t['purchase.landed_unit'] }}</th>
+        </tr></thead>
+        <tbody>
+        {% for d, u, value in stock.oldest %}
+        <tr>
+            <td class="nowrap"><a href="{{ url_for('stock.index', q=u.ref) }}"><code class="unit-ref">{{ u.ref }}</code></a></td>
+            <td>{{ u.product.name }}{% if u.chassis_number %}<div class="muted small"><code>{{ u.chassis_number }}</code></div>{% endif %}</td>
+            <td class="col-secondary"><a href="{{ url_for('purchases.detail', pid=u.purchase_line.purchase_id) }}">{{ u.purchase_line.purchase.invoice_number }}</a></td>
+            <td class="num"><strong class="{{ 'stock-negative' if d >= 90 else '' }}">{{ days(d) }}</strong></td>
+            <td class="num">{{ money_or_dash(value) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% endif %}
+    {% if stock.unvalued %}<p class="muted small" style="margin-top:8px;">{{ t['stats.unvalued'] % {'n': stock.unvalued} }}</p>{% endif %}
+</section>
+
+<p class="muted small">{{ t['stats.page_hint'] % {'cur': display} }}</p>
+{% endblock %}

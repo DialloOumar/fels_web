@@ -29,7 +29,7 @@ from flask_login import current_user, login_required
 from app import current_rate, get_t, log_action
 from models import (PRODUCT_CATEGORIES, Customer, Payment, Port, Product,
                     Purchase, PurchaseLine, Sale, SaleLine, Supplier, Unit,
-                    db, next_number)
+                    assign_unit_refs, db, next_number, next_product_ref)
 
 importer_bp = Blueprint("importer", __name__, url_prefix="/parametres/import")
 
@@ -433,7 +433,8 @@ def _apply(proposal):
             cat = f.get("new_cat_%d" % i) or "other"
             existing = Product.query.filter(db.func.lower(Product.name) == name.lower()).first()
             if existing is None:
-                existing = Product(name=name, category=cat if cat in PRODUCT_CATEGORIES else "other")
+                cat = cat if cat in PRODUCT_CATEGORIES else "other"
+                existing = Product(name=name, category=cat, ref=next_product_ref(cat))
                 db.session.add(existing)
                 db.session.flush()
             product_of[_norm(tok)] = existing
@@ -542,6 +543,7 @@ def _apply(proposal):
                 counts["payments"] += 1
             counts["sales"] += 1
 
+    assign_unit_refs()
     log_action("IMPORT", "import", None, ", ".join("%s: %d" % kv for kv in counts.items()))
     db.session.commit()
     return counts

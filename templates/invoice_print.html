@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ inv.number }} — {{ t['app.title'] }}</title>
+    {% include "_print_style.html" %}
+</head>
+<body>
+<div class="print-toolbar">
+    <span class="print-toolbar__hint">{{ t['print.hint'] }}</span>
+    <a href="{{ url_for('sales.detail', sid=sale.id) }}">{{ t['btn.back'] }}</a>
+    <button type="button" onclick="window.print()">{{ t['print.print'] }}</button>
+</div>
+
+{# Everything below the toolbar is the invoice as it was issued: the
+   customer, the lines and the tax were copied that day. #}
+<header class="doc-head">
+    <div>
+        <img src="{{ url_for('static', filename='images/logo.png') }}?v={{ v }}" alt="" class="doc-logo">
+        {# One line each, and no empty line for what is not filled in. #}
+        {% set contact = [company.phone, company.email]|select|join(' · ') %}
+        {% set ids = [(t['invoice.nif'] ~ ' ' ~ company.nif) if company.nif else '', (t['invoice.rccm'] ~ ' ' ~ company.rccm) if company.rccm else '']|select|join(' · ') %}
+        <div class="doc-company">
+            {% if company.name %}<strong>{{ company.name }}</strong>{% endif %}
+            {% for line in [company.address, contact, ids]|select %}<br>{{ line }}{% endfor %}
+        </div>
+    </div>
+    <div class="doc-title">
+        <h1>{{ t['invoice.title'] }}</h1>
+        <div class="doc-no">{{ inv.number }}</div>
+        <div class="doc-date">{{ inv.issued_on|fdate }}</div>
+        {% if inv.due_on %}<div class="doc-date">{{ t['invoice.due_on'] }} : {{ inv.due_on|fdate }}</div>{% endif %}
+        {% if inv.is_cancelled %}<div class="doc-no" style="color:#B91C1C;">{{ t['invoice.cancelled_stamp'] }}</div>{% endif %}
+    </div>
+</header>
+
+<div class="doc-parties">
+    <div class="doc-box">
+        <div class="doc-box__label">{{ t['invoice.billed_to'] }}</div>
+        <div class="doc-box__main">{{ inv.customer_name }}</div>
+        {% if inv.customer_address %}<div class="small muted">{{ inv.customer_address }}</div>{% endif %}
+        {% if inv.customer_phone %}<div class="small muted">{{ inv.customer_phone }}</div>{% endif %}
+        {% if inv.customer_tax_id %}<div class="small muted">{{ t['customer.tax_id'] }} {{ inv.customer_tax_id }}</div>{% endif %}
+    </div>
+    <div class="doc-box">
+        <div class="doc-box__label">{{ t['receipt.for_sale'] }}</div>
+        <div class="doc-box__main">{{ sale.number }}</div>
+        <div class="small muted">{{ t['sale.date'] }} {{ sale.sale_date|fdate }} · {{ t['purchase.currency'] }} {{ inv.currency }}</div>
+    </div>
+</div>
+
+<table class="doc-table">
+    <thead><tr>
+        <th>{{ t['unit.ref'] }}</th>
+        <th>{{ t['purchase.line_product'] }}</th>
+        <th>{{ t['unit.chassis'] }}</th>
+        <th class="r">{{ t['invoice.price_ttc'] if inv.vat_rate is not none else t['sale.price'] }}</th>
+    </tr></thead>
+    <tbody>
+    {% for l in inv.lines %}
+    <tr>
+        <td>{{ l.ref or '—' }}</td>
+        <td><strong>{{ l.product }}</strong>{% if l.description %}<div class="small muted">{{ l.description }}</div>{% endif %}</td>
+        <td>{% if l.chassis %}{{ l.chassis }}{% else %}<span class="muted">{{ t['receipt.chassis_later'] }}</span>{% endif %}</td>
+        <td class="r">{{ l.price|money(inv.currency) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<div class="doc-sums">
+    {% if inv.vat_rate is not none %}
+    <div><span>{{ t['invoice.net'] }}</span><span>{{ inv.net_amount|money(inv.currency) }}</span></div>
+    <div><span>{{ t['invoice.vat'] }} {{ inv.vat_rate|num }} %</span><span>{{ inv.vat_amount|money(inv.currency) }}</span></div>
+    <div class="doc-sums__total"><span>{{ t['invoice.total'] }}</span><span>{{ inv.total|money(inv.currency) }}</span></div>
+    {% else %}
+    <div class="doc-sums__total"><span>{{ t['sale.total'] }}</span><span>{{ inv.total|money(inv.currency) }}</span></div>
+    {% endif %}
+    {% if paid is not none and not inv.is_cancelled %}
+    <div><span>{{ t['invoice.paid_today'] % {'date': today|fdate} }}</span><span>{{ paid|money(inv.currency) }}</span></div>
+    <div><span>{{ t['receipt.left_to_pay'] }}</span><span>{{ left|money(inv.currency) }}</span></div>
+    {% endif %}
+</div>
+
+<p class="doc-words">{{ t['invoice.in_words'] % {'words': inv.total|in_words(inv.currency)} }}</p>
+{% if inv.note %}<p class="small" style="white-space:pre-line;">{{ inv.note }}</p>{% endif %}
+{% if inv.is_cancelled %}<p class="small" style="color:#B91C1C;">{{ t['invoice.cancelled_on'] % {'date': inv.cancelled_at|fdate, 'reason': inv.cancel_reason} }}</p>{% endif %}
+
+{# The company's side carries the stamp of whoever issued the invoice, with
+   their signature over it when they have set one up (Ma signature). #}
+{% set issuer = inv.created_by and inv.creator %}
+<div class="doc-sign">
+    <div>{{ t['receipt.sign_customer'] }}</div>
+    <div class="doc-sign__stamped">
+        {% if issuer and user_has_stamp(issuer) %}<img class="doc-stamp" src="{{ url_for('signature.stamp_svg', user_id=issuer.id) }}" alt="">{% endif %}
+        <span>{{ t['receipt.sign_company'] }}{% if issuer %} · {{ issuer.full_name }}{% endif %}</span>
+    </div>
+</div>
+
+<footer class="doc-foot">
+    <span style="white-space:pre-line;">{{ footer }}</span>
+    <span>{{ inv.number }} · {{ sale.number }}</span>
+</footer>
+</body>
+</html>

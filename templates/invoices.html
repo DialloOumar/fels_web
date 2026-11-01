@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% from "_filters.html" import filter_bar, filter_select with context %}
+{% from "_pager.html" import pager with context %}
+{% from "_macros.html" import export_button with context %}
+
+{% block title %}{{ t['tabs.invoices'] }} · {{ t['nav.sales'] }}{% endblock %}
+{% block page_title %}{{ t['nav.sales'] }}{% endblock %}
+
+{% block content %}
+<section class="card">
+    {% with active = 'invoices' %}{% include "_sales_tabs.html" %}{% endwith %}
+    <div class="card-header">
+        <p class="muted small" style="margin:0; flex:1;">{{ t['invoice.intro'] }}</p>
+        <div class="header-actions">{{ export_button() }}</div>
+    </div>
+
+    {% call filter_bar(search, active=status) %}
+        {{ filter_select('status', t['invoice.status'], [('', t['list.all'])] + status_opts, status) }}
+    {% endcall %}
+
+    {% if rows %}
+    <div class="table-desktop table-wrap">
+    <table class="data-table">
+        <thead><tr>
+            <th>{{ t['invoice.number'] }}</th>
+            <th>{{ t['invoice.issued_on'] }}</th>
+            <th>{{ t['sale.customer'] }}</th>
+            <th class="col-secondary">{{ t['sale.number'] }}</th>
+            <th class="num col-secondary">{{ t['invoice.vat'] }}</th>
+            <th class="num">{{ t['invoice.total'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for i in rows %}
+        <tr class="{% if i.is_cancelled %}row-voided{% endif %}">
+            <td><strong>{{ i.number }}</strong>
+                {% if i.is_cancelled %}<div class="small voided-note">{{ t['invoice.status.cancelled'] }} · {{ i.cancel_reason }}</div>{% endif %}</td>
+            <td>{{ i.issued_on|fdate }}</td>
+            <td>{{ i.customer_name }}{% if i.customer_tax_id %}<div class="muted small">{{ t['customer.tax_id'] }} {{ i.customer_tax_id }}</div>{% endif %}</td>
+            <td class="col-secondary"><a href="{{ url_for('sales.detail', sid=i.sale_id) }}">{{ i.sale.number }}</a></td>
+            <td class="num col-secondary">{% if i.vat_rate is not none %}{{ i.vat_amount|money(i.currency) }}<div class="muted small">{{ i.vat_rate|num }} %</div>{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td class="num"><strong>{{ i.total|money(i.currency) }}</strong></td>
+            <td class="row-actions">
+                <a href="{{ url_for('sales.invoice_print', iid=i.id) }}" class="btn btn--sm btn--tonal btn--icon" target="_blank" rel="noopener"
+                   title="{{ t['invoice.print'] }}" aria-label="{{ t['invoice.print'] }}"><span class="material-symbols-outlined">print</span></a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <div class="list-cards">
+        {% for i in rows %}
+        <a class="list-card {% if i.is_cancelled %}row-voided{% endif %}" href="{{ url_for('sales.invoice_print', iid=i.id) }}" target="_blank" rel="noopener">
+            <div class="list-card__top"><strong>{{ i.number }}</strong><span class="list-card__amount">{{ i.total|money(i.currency) }}</span></div>
+            <div class="list-card__meta muted">{{ i.issued_on|fdate }} · {{ i.customer_name }} · {{ i.sale.number }}{% if i.is_cancelled %} · {{ t['invoice.status.cancelled'] }}{% endif %}</div>
+        </a>
+        {% endfor %}
+    </div>
+    {{ pager(pagination, 'sales.invoices') }}
+    {% else %}
+    <div class="empty-state">
+        <span class="material-symbols-outlined">request_quote</span>
+        <p>{{ t['list.no_match'] if (search or status) else t['invoice.empty'] }}</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

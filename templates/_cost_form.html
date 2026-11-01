@@ -23,25 +23,24 @@
             <label for="incurred_on">{{ t['cost.incurred_on'] }}</label>
         </div>
     </div>
+    {% set cur = val('currency', 'GNF') %}
     <div class="form-row">
         <div class="field">
-            <input type="text" id="amount" name="amount" required data-money="cents" inputmode="decimal"
-                   value="{{ request.form.get('amount') if posted else (row.amount|money_field if row else '') }}">
+            <div class="input-group">
+                <input type="text" id="amount" name="amount" required data-money="cents" inputmode="decimal"
+                       value="{{ request.form.get('amount') if posted else (row.amount|money_field if row else '') }}">
+                <select id="currency" name="currency" aria-label="{{ t['purchase.currency'] }}">
+                    {% for c in currencies %}<option value="{{ c }}" {% if c == cur %}selected{% endif %}>{{ c }}</option>{% endfor %}
+                </select>
+            </div>
             <label for="amount">{{ t['cost.amount'] }}</label>
         </div>
-        {% set cur = val('currency', 'GNF') %}
         <div class="field">
-            <select id="currency" name="currency">
-                {% for c in currencies %}<option value="{{ c }}" {% if c == cur %}selected{% endif %}>{{ c }}</option>{% endfor %}
-            </select>
-            <label for="currency">{{ t['purchase.currency'] }}</label>
+            <input type="text" id="rate" name="rate" inputmode="decimal" placeholder="{{ t['settings.rate_placeholder'] }}"
+                   value="{{ request.form.get('rate') if posted else (row.rate|rate_field if row else default_rate) }}">
+            <label for="rate">{{ t['field.rate'] }}</label>
+            {{ hint(t['cost.rate_short'] % {'cur': purchase.currency}, t['cost.rate_hint']) }}
         </div>
-    </div>
-    <div class="field">
-        <input type="text" id="rate" name="rate" inputmode="decimal" placeholder="{{ t['settings.rate_placeholder'] }}"
-               value="{{ request.form.get('rate') if posted else (row.rate|rate_field if row else default_rate) }}">
-        <label for="rate">{{ t['field.rate'] }}</label>
-        {{ hint(t['cost.rate_short'] % {'cur': purchase.currency}, t['cost.rate_hint']) }}
     </div>
     <div class="form-row">
         <div class="field">

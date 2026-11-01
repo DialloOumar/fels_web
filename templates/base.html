@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ t['app.title'] }}{% endblock %} — {{ t['app.title'] }}</title>
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/icon.svg') }}">
     {% include '_pwa_head.html' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ v }}">
     {% include '_theme_head.html' %}
@@ -14,7 +13,7 @@
     <nav class="sidebar">
         <div class="sidebar-logo">
             <a href="{{ url_for('dashboard') }}" class="sidebar-logo-link">
-                <img src="{{ url_for('static', filename='images/logo-on-dark.svg') }}" alt="{{ t['app.title'] }}" class="sidebar-logo-img">
+                <img src="{{ url_for('static', filename='images/logo-on-dark.png') }}?v={{ v }}" alt="Fels Guinée" class="sidebar-logo-img" width="708" height="167">
             </a>
         </div>
         {# In the order the goods move: bought, then sold. The catalog and

@@ -1,0 +1,42 @@
+{% from "_hint.html" import hint with context %}
+{# Issuing the invoice. What it will say is shown first -- the customer, the
+   total and the tax as the settings have them -- because once issued it is
+   copied as is: a later change to the sale needs a new invoice. #}
+{% set posted = request.method == 'POST' %}
+{% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+{% if not (error and not posted) %}
+<form method="post" class="entry-form" data-modal-form action="{{ url_for('sales.invoice_new', sid=sale.id) }}">
+    {{ csrf_field() }}
+    <div class="invoice-preview">
+        <div><span class="muted small">{{ t['sale.customer'] }}</span><strong>{{ sale.customer.name }}</strong>
+            {% if sale.customer.tax_id %}<span class="muted small">{{ t['customer.tax_id'] }} {{ sale.customer.tax_id }}</span>{% endif %}</div>
+        {% if vat_rate is not none %}
+        <div><span class="muted small">{{ t['invoice.net'] }}</span><span>{{ (sale.total - vat_amount)|money(sale.currency) }}</span></div>
+        <div><span class="muted small">{{ t['invoice.vat'] }} {{ vat_rate|num }} %</span><span>{{ vat_amount|money(sale.currency) }}</span></div>
+        {% endif %}
+        <div><span class="muted small">{{ t['invoice.total'] if vat_rate is not none else t['sale.total'] }}</span><strong>{{ sale.total|money(sale.currency) }}</strong></div>
+    </div>
+    <p class="muted small" style="margin:0;">{{ t['invoice.vat_on_note'] % {'rate': vat_rate|num} if vat_rate is not none else t['invoice.vat_off_note'] }}</p>
+    {% if sale.lines|selectattr('unit', 'none')|list %}<div class="alert alert--warning" style="margin:0;">{{ t['invoice.warn.no_vehicle'] }}</div>{% endif %}
+    <div class="form-row">
+        <div class="field">
+            <input type="date" id="issued_on" name="issued_on" required value="{{ request.form.get('issued_on', today) if posted else today }}">
+            <label for="issued_on">{{ t['invoice.issued_on'] }}</label>
+        </div>
+        <div class="field">
+            <input type="date" id="due_on" name="due_on" value="{{ request.form.get('due_on', '') if posted else '' }}">
+            <label for="due_on">{{ t['invoice.due_on'] }}</label>
+            {{ hint(t['form.optional'], t['invoice.due_hint']) }}
+        </div>
+    </div>
+    <div class="field">
+        <textarea id="note" name="note" rows="2" placeholder="{{ t['invoice.note_ph'] }}">{{ request.form.get('note', '') if posted else '' }}</textarea>
+        <label for="note">{{ t['field.note'] }}</label>
+        {{ hint(t['form.optional'], t['invoice.note_hint']) }}
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn--primary"><span class="material-symbols-outlined">request_quote</span> {{ t['invoice.issue'] }}</button>
+        <a href="{{ url_for('sales.detail', sid=sale.id) }}" class="btn btn--outlined" data-modal-cancel>{{ t['btn.cancel'] }}</a>
+    </div>
+</form>
+{% endif %}

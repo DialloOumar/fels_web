@@ -1,0 +1,41 @@
+{% from "_macros.html" import form_actions with context %}
+{% from "_hint.html" import hint with context %}
+{# A paper of the purchase: what it is, its number and date when it has
+   them, and the file -- a scan, a photo taken on the phone, a PDF. #}
+{% set posted = request.method == 'POST' %}
+{% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+<form method="post" class="entry-form" data-modal-form enctype="multipart/form-data"
+      action="{{ url_for('purchases.document_new', pid=purchase.id) }}">
+    {{ csrf_field() }}
+    <div class="form-row">
+        {% set kind = request.form.get('kind') if posted else 'supplier_invoice' %}
+        <div class="field">
+            <select id="kind" name="kind">
+                {% for k in kinds %}<option value="{{ k }}" {% if k == kind %}selected{% endif %}>{{ t['doc.kind.' + k] }}</option>{% endfor %}
+            </select>
+            <label for="kind">{{ t['doc.kind'] }}</label>
+        </div>
+        <div class="field">
+            <input type="text" id="title" name="title" maxlength="120" placeholder="{{ t['doc.title_ph'] }}" value="{{ request.form.get('title', '') if posted else '' }}">
+            <label for="title">{{ t['doc.title'] }}</label>
+            {{ hint(t['doc.title_short'], t['doc.title_hint']) }}
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="field">
+            <input type="text" id="number" name="number" maxlength="60" placeholder="{{ t['doc.number_ph'] }}" value="{{ request.form.get('number', '') if posted else '' }}">
+            <label for="number">{{ t['doc.number'] }}</label>
+            {{ hint(t['form.optional'], t['doc.number_hint']) }}
+        </div>
+        <div class="field">
+            <input type="date" id="doc_date" name="doc_date" value="{{ request.form.get('doc_date', '') if posted else today }}">
+            <label for="doc_date">{{ t['doc.date'] }}</label>
+        </div>
+    </div>
+    <div class="field">
+        <input type="file" id="file" name="file" required accept="{{ accept }}">
+        <label for="file">{{ t['doc.file'] }}</label>
+        {{ hint(t['doc.file_short'] % {'mb': max_mb}, t['doc.file_hint']) }}
+    </div>
+    {{ form_actions(url_for('purchases.detail', pid=purchase.id)) }}
+</form>

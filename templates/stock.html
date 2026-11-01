@@ -25,7 +25,7 @@
         <thead>
             <tr>
                 <th>{{ t['purchase.line_product'] }}</th>
-                <th>{{ t['unit.chassis'] }}</th>
+                <th>{{ t['unit.ref_chassis'] }}</th>
                 <th class="col-secondary">{{ t['unit.purchase'] }}</th>
                 <th>{{ t['purchase.stage'] }}</th>
                 <th>{{ t['unit.status'] }}</th>
@@ -39,7 +39,8 @@
             {% set lc = landed.get(u.id) %}
             <tr>
                 <td><strong>{{ u.product.name }}</strong></td>
-                <td>{% if u.chassis_number %}<code>{{ u.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}</td>
+                <td class="nowrap"><code class="unit-ref">{{ u.ref }}</code>
+                    <div class="small">{% if u.chassis_number %}<code>{{ u.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}</div></td>
                 <td class="col-secondary"><a href="{{ url_for('purchases.detail', pid=p.id) }}">{{ p.invoice_number }}</a>
                     <div class="muted small">{{ p.supplier.name }}{% if p.port %} · {{ p.port.name }}{% endif %}</div></td>
                 <td>{{ stage_badge(p.stage) }}</td>
@@ -66,7 +67,7 @@
         {% set p = u.purchase_line.purchase %}
         <div class="list-card">
             <div class="list-card__top"><strong>{{ u.product.name }}</strong>{{ unit_badge(u.status) }}</div>
-            <div class="list-card__meta muted">{% if u.chassis_number %}<code>{{ u.chassis_number }}</code> · {% endif %}{{ p.invoice_number }} · {{ t['stage.' + p.stage] }}</div>
+            <div class="list-card__meta muted"><code class="unit-ref">{{ u.ref }}</code> · {% if u.chassis_number %}<code>{{ u.chassis_number }}</code> · {% endif %}{{ p.invoice_number }} · {{ t['stage.' + p.stage] }}</div>
             <div class="list-card__actions">
                 {% if can('stock', 'manage') %}<a href="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" class="btn btn--sm btn--tonal btn--icon"
                    data-modal-url="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" data-modal-title="{{ t['unit.edit'] }}"

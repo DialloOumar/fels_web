@@ -12,7 +12,7 @@
    - `ADMIN_USERNAME` / `ADMIN_PASSWORD`: used once to create the administrator.
      Change the password after the first sign-in.
    - `SESSION_COOKIE_SECURE=1`
-   - `S3_*`: the object storage bucket and keys, for backups
+   - `S3_*`: the object storage bucket and keys, for backups and purchase documents
 4. Build and start:
 
    ```bash
@@ -154,3 +154,48 @@ safety file.
 docker compose exec -T web python scripts/backup_db.py --rotate-only --dry-run
 docker compose exec -T web python scripts/backup_db.py --rotate-only
 ```
+
+## Purchase documents
+
+Files attached to purchases (supplier invoice, BL, customs receipt…) are kept:
+
+- in the S3 bucket, under `{S3_PREFIX}documents/<purchase id>/`, when `S3_*`
+  is filled in: off the server, so losing the server loses no paper. The
+  backup rotation only ever touches `backups/`, never this folder.
+- otherwise in the `documents_data` Docker volume (`/app/data/documents` in
+  the container). It survives rebuilds, but lives on the server only: fill in
+  `S3_*` before the client starts relying on it. To copy it off the server:
+
+  ```bash
+  docker run --rm -v fels_web_documents_data:/d -v "$PWD":/out alpine       tar czf /out/documents-$(date +%F).tar.gz -C /d .
+  ```
+
+Switching from the volume to S3 later does not move the existing files:
+copy the volume's folders into `documents/` in the bucket first.
+
+Accepted: PDF, JPG, PNG, WEBP, HEIC, Word, Excel; 15 MB a file. The types
+offered are listed in `models.DOCUMENT_KINDS`, with their names in
+`languages.py` (`doc.kind.*`).
+
+## Invoices
+
+Before the first invoice, under Paramètres:
+
+- **Entreprise**: the company name, address, NIF and RCCM printed at the top.
+- **Facturation**: whether VAT applies (off until the client confirms), its
+  rate (18 % by default), and the footer line (payment terms, bank details).
+  Sale prices are what the customer pays: with VAT on, the invoice shows the
+  VAT inside the price (total x rate / (100 + rate)), the net and the total.
+
+An issued invoice copies the customer, the lines and the tax of that day; a
+later change to the sale does not alter it -- the sale page then warns, and
+the invoice is cancelled (with a reason, keeping its number) and reissued.
+
+## Logo and colours
+
+The logo files in `static/images/` were cut from the client's artwork
+(`logo.png` for light paper, `logo-on-dark.png` for the sidebar, the F mark
+for the icons, `login-illustration.jpg`). With the original vector file from
+the client's designer, replace them at the same names. The colours are the
+tokens at the top of `static/css/style.css`.
+

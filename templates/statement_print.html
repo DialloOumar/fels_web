@@ -15,7 +15,7 @@
 
 <header class="doc-head">
     <div>
-        <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="" class="doc-logo">
+        <img src="{{ url_for('static', filename='images/logo.png') }}?v={{ v }}" alt="" class="doc-logo">
         <div class="doc-company">
             {% if company.name %}<strong>{{ company.name }}</strong><br>{% endif %}
             {% if company.address %}{{ company.address }}<br>{% endif %}

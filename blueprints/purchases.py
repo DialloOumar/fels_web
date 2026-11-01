@@ -13,17 +13,24 @@ Extra costs (customs duty, port fees, transit, transport) are recorded on the
 purchase, each in its own currency and rate, and spread over its vehicles in
 proportion to price to give each its landed cost.
 """
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+import io
+import os
+
+from flask import (Blueprint, abort, flash, redirect, render_template, request,
+                   send_file, url_for)
 from flask_login import current_user, login_required
 
 from exports import wants_xlsx, xlsx_response
 
+import documents_store
+from analytics import model_stats
 from app import (ListPage, current_rate, form_response, fr, get_t,
                  is_modal_request, log_action, modal_ok, money_text, paginate,
                  parse_date, parse_money, parse_rate, rate_field_value)
-from models import (COST_KINDS, CURRENCIES, PURCHASE_STAGES, STAGE_DATE_FIELD,
-                    Port, Product, Purchase, PurchaseCost, PurchaseLine,
-                    Supplier, Unit, db)
+from models import (COST_KINDS, CURRENCIES, DOCUMENT_KINDS, PURCHASE_STAGES,
+                    STAGE_DATE_FIELD, Port, Product, Purchase, PurchaseCost,
+                    PurchaseDocument, PurchaseLine, Supplier, Unit,
+                    assign_unit_refs, db)
 
 purchases_bp = Blueprint("purchases", __name__, url_prefix="/achats")
 
@@ -182,7 +189,8 @@ def _sync_units(line):
     if sold and any(u.product_id != line.product_id for u in sold):
         raise FormError(t["purchase.error.sold_model"])
     for u in units:
-        u.product = line.product
+        if u.product_id != line.product_id:
+            u.product, u.ref, u.seq = line.product, None, None    # renumbered under its new model
     missing = line.quantity - len(units)
     if missing > 0:
         for _ in range(missing):
@@ -259,7 +267,7 @@ def _save(purchase):
             purchase.lines.remove(line)
     for line in purchase.lines:
         _sync_units(line)
-    db.session.flush()
+    assign_unit_refs()
     log_action("CREATE" if is_new else "UPDATE", "purchase", purchase.id,
                "%s · %s · %s" % (purchase.invoice_number, supplier.name, money_text(purchase.goods_total, purchase.currency)))
     db.session.commit()
@@ -274,7 +282,21 @@ def _form_context(purchase):
         Product.id.in_([l.product_id for l in purchase.lines] or [0]))).order_by(Product.category, Product.name).all()
     ports = Port.query.filter(db.or_(Port.is_active.is_(True), Port.id == (purchase.port_id or 0))
                               ).order_by(Port.sort_order, Port.name).all()
-    return {"suppliers": suppliers, "products": products, "ports": ports}
+    stats = model_stats([p.id for p in products], exclude_purchase=purchase.id)
+    model_figures = {p.id: {k: stats[p.id][k] for k in ("orders", "incoming", "in_stock", "reserved", "free")}
+                     for p in products}
+    return {"suppliers": suppliers, "products": products, "ports": ports, "model_figures": model_figures}
+
+
+def _already_on_the_way(purchase):
+    """The models of a new purchase that other purchases are already
+    bringing, as "Shacman 430 HP (3)": what to look at twice before ordering
+    more."""
+    ids = {l.product_id for l in purchase.lines}
+    stats = model_stats(ids, exclude_purchase=purchase.id)
+    return ["%s (%d)" % (l.product.name, stats[l.product_id]["incoming"])
+            for l in sorted({l.product_id: l for l in purchase.lines}.values(), key=lambda l: l.product.name)
+            if stats[l.product_id]["incoming"]]
 
 
 @purchases_bp.route("/new", methods=["GET", "POST"])
@@ -284,7 +306,11 @@ def new():
     if request.method == "POST":
         try:
             _save(purchase)
-            flash("success|" + get_t()["purchase.saved"])
+            t = get_t()
+            flash("success|" + t["purchase.saved"])
+            on_the_way = _already_on_the_way(purchase)
+            if on_the_way:
+                flash("warning|" + t["purchase.warn.on_the_way"] % {"models": ", ".join(on_the_way)})
             return redirect(url_for("purchases.detail", pid=purchase.id))
         except FormError as e:
             db.session.rollback()
@@ -339,8 +365,11 @@ def delete(pid):
         flash("error|" + t["purchase.error.delete"])
         return redirect(url_for("purchases.detail", pid=pid))
     log_action("DELETE", "purchase", purchase.id, "%s · %s" % (purchase.invoice_number, purchase.supplier.name))
+    files = [d.storage_key for d in purchase.documents]
     db.session.delete(purchase)
     db.session.commit()
+    for key in files:
+        documents_store.remove(key)
     flash("success|" + t["delete.done"])
     return redirect(url_for("purchases.index"))
 
@@ -471,3 +500,103 @@ def cost_delete(cid):
         db.session.commit()
         flash("success|" + t["delete.done"])
     return redirect(url_for("purchases.detail", pid=pid))
+
+
+# ── Documents ────────────────────────────────────────────────────────────────
+
+
+def _save_document(purchase):
+    """Check the upload form, keep the file, then record it. Returns an error
+    message, or None."""
+    t = get_t()
+    f = request.form
+    kind = f.get("kind") or ""
+    title = (f.get("title") or "").strip()[:120] or None
+    number = (f.get("number") or "").strip()[:60] or None
+    raw_date = (f.get("doc_date") or "").strip()
+    doc_date = parse_date(raw_date) if raw_date else None
+    upload = request.files.get("file")
+    if kind not in DOCUMENT_KINDS:
+        return t["doc.error.kind"]
+    if kind == "other" and not title:
+        return t["doc.error.title"]
+    if raw_date and doc_date is None:
+        return t["form.error.date"]
+    if not upload or not upload.filename:
+        return t["doc.error.file"]
+    name = os.path.basename(upload.filename.replace("\\", "/"))[:200]
+    ext = os.path.splitext(name)[1].lower()
+    if ext not in documents_store.ALLOWED:
+        return t["doc.error.type"]
+    data = upload.read(documents_store.MAX_BYTES + 1)
+    if not data:
+        return t["doc.error.file"]
+    if len(data) > documents_store.MAX_BYTES:
+        return t["doc.error.size"] % {"mb": documents_store.MAX_BYTES // (1024 * 1024)}
+    content_type = documents_store.ALLOWED[ext]
+    key = documents_store.new_key(purchase.id, ext)
+    if not documents_store.save(key, data, content_type):
+        return t["doc.error.storage"]
+    doc = PurchaseDocument(purchase=purchase, kind=kind, title=title, number=number, doc_date=doc_date,
+                           filename=name, content_type=content_type, size=len(data), storage_key=key,
+                           uploaded_by=current_user.id)
+    db.session.add(doc)
+    try:
+        db.session.flush()
+        log_action("CREATE", "document", doc.id, "%s · %s · %s" % (
+            purchase.invoice_number, title or fr("doc.kind." + kind), name))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        documents_store.remove(key)          # no row, no file
+        raise
+    return None
+
+
+@purchases_bp.route("/<int:pid>/documents/new", methods=["GET", "POST"])
+@login_required
+def document_new(pid):
+    from datetime import date
+    purchase, error = _get_or_404(pid), None
+    if request.method == "POST":
+        error = _save_document(purchase)
+        if error is None:
+            flash("success|" + get_t()["doc.saved"])
+            return modal_ok() if is_modal_request() else redirect(url_for("purchases.detail", pid=pid))
+    return form_response("document_form.html", "_document_form.html", purchase=purchase, error=error,
+                         kinds=DOCUMENT_KINDS, today=date.today().isoformat(),
+                         accept=",".join(documents_store.ALLOWED),
+                         max_mb=documents_store.MAX_BYTES // (1024 * 1024))
+
+
+@purchases_bp.route("/documents/<int:did>")
+@login_required
+def document_file(did):
+    """The file itself: a PDF or a photo opens in the browser, anything else
+    downloads (and ?download=1 downloads anything)."""
+    doc = db.session.get(PurchaseDocument, did) or abort(404)
+    data = documents_store.load(doc.storage_key)
+    if data is None:
+        flash("error|" + get_t()["doc.error.missing"])
+        return redirect(url_for("purchases.detail", pid=doc.purchase_id))
+    inline = doc.content_type in documents_store.SHOWN_INLINE and not request.args.get("download")
+    resp = send_file(io.BytesIO(data), mimetype=doc.content_type, as_attachment=not inline,
+                     download_name=doc.filename, max_age=0)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["Cache-Control"] = "private, no-store"
+    return resp
+
+
+@purchases_bp.route("/documents/<int:did>/delete", methods=["POST"])
+@login_required
+def document_delete(did):
+    doc = db.session.get(PurchaseDocument, did) or abort(404)
+    pid, key = doc.purchase_id, doc.storage_key
+    log_action("DELETE", "document", doc.id, "%s · %s · %s" % (
+        doc.purchase.invoice_number, doc.title or fr("doc.kind." + doc.kind), doc.filename))
+    db.session.delete(doc)
+    db.session.commit()
+    documents_store.remove(key)
+    flash("success|" + get_t()["delete.done"])
+    return redirect(url_for("purchases.detail", pid=pid))
+
