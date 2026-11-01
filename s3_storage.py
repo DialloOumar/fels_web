@@ -22,7 +22,11 @@ ERR_UNKNOWN        = "unknown"
 
 log = logging.getLogger(__name__)
 
-S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL", "")
+S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL", "").strip()
+# boto3 wants a full URL; "fr-par-1.linodeobjects.com", as Linode's console
+# shows it, is taken to mean https.
+if S3_ENDPOINT_URL and "://" not in S3_ENDPOINT_URL:
+    S3_ENDPOINT_URL = "https://" + S3_ENDPOINT_URL
 S3_REGION       = os.environ.get("S3_REGION", "")
 S3_BUCKET       = os.environ.get("S3_BUCKET", "")
 S3_ACCESS_KEY   = os.environ.get("S3_ACCESS_KEY", "")
@@ -42,13 +46,19 @@ def _client():
         return None
     if not all([S3_ENDPOINT_URL, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY]):
         return None
-    return boto3.client(
-        "s3",
-        endpoint_url=S3_ENDPOINT_URL,
-        region_name=S3_REGION or None,
-        aws_access_key_id=S3_ACCESS_KEY,
-        aws_secret_access_key=S3_SECRET_KEY,
-    )
+    try:
+        return boto3.client(
+            "s3",
+            endpoint_url=S3_ENDPOINT_URL,
+            region_name=S3_REGION or None,
+            aws_access_key_id=S3_ACCESS_KEY,
+            aws_secret_access_key=S3_SECRET_KEY,
+        )
+    except (ValueError, BotoCoreError):
+        # A malformed setting reads as "not configured", logged, rather than
+        # an error page on every screen that touches storage.
+        log.exception("S3 settings rejected (S3_ENDPOINT_URL=%r)", S3_ENDPOINT_URL)
+        return None
 
 
 def is_configured() -> bool:
