@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import money_pair, detail, pay_badge, sale_badge, stage_badge with context %}
+{% from "_macros.html" import money_pair, detail, pay_badge, sale_badge, stage_badge, detail_tabs, tab_hidden with context %}
 
 {% block title %}{{ row.number }}{% endblock %}
 {% block page_title %}{{ t['sale.title_short'] }} {{ row.number }}{% endblock %}
@@ -81,8 +81,21 @@
 </div>
 {% endif %}
 
-<section class="card">
-    <div class="card-header"><h2>{{ t['sale.vehicles'] }}</h2></div>
+{# ── The rest, one tab each ── #}
+{% set tabs = [
+    ('vehicles', 'local_shipping', t['sale.vehicles'], row.lines|length),
+    ('receipts', 'receipt_long', t['sale.receipts'], live_receipts|length),
+    ('invoice', 'request_quote', t['invoice.section'], row.invoices|rejectattr('is_cancelled')|list|length),
+] %}
+{% set tab = request.args.get('tab') if request.args.get('tab') in tabs|map(attribute=0)|list else 'vehicles' %}
+{% if invoice_outdated %}<div class="alert alert--warning" style="margin-bottom:12px;">{{ t['invoice.warn.outdated'] }}
+    <a href="?tab=invoice">{{ t['invoice.section'] }}</a></div>{% endif %}
+<section class="card card--tabs" data-tab-scope>
+    {{ detail_tabs(tabs, tab, t['sale.title_short'] ~ ' ' ~ row.number) }}
+
+{# ── The vehicles, with each one's margin ── #}
+<div class="tab-panel" data-tab-panel="vehicles" role="tabpanel" {{ tab_hidden('vehicles', tab) }}>
+    <div class="tab-bar"><p class="muted small tab-bar__filters">{{ t['sale.margin_hint'] }}</p></div>
     <div class="table-wrap"><table class="data-table">
         <thead><tr>
             <th>{{ t['purchase.line_product'] }}</th>
@@ -113,60 +126,17 @@
         {% endfor %}
         </tbody>
     </table></div>
-    <p class="muted small" style="margin-top:8px;">{{ t['sale.margin_hint'] }}</p>
-</section>
+</div>
 
-{# ── The invoice: issued once, cancelled and reissued to correct it ── #}
-<section class="card" id="invoice">
-    <div class="card-header">
-        <h2>{{ t['invoice.section'] }}</h2>
-        {% if row.status != 'cancelled' and not row.invoice and can('sales', 'manage') %}
-        <a href="{{ url_for('sales.invoice_new', sid=row.id) }}" class="fab"
-           data-modal-url="{{ url_for('sales.invoice_new', sid=row.id) }}" data-modal-title="{{ t['invoice.issue'] }} · {{ row.number }}">
-            <span class="material-symbols-outlined">request_quote</span> {{ t['invoice.issue'] }}</a>
-        {% endif %}
-    </div>
-    {% if invoice_outdated %}<div class="alert alert--warning" style="margin-bottom:10px;">{{ t['invoice.warn.outdated'] }}</div>{% endif %}
-    {% if row.invoices %}
-    <div class="table-wrap"><table class="data-table">
-        <thead><tr>
-            <th>{{ t['invoice.number'] }}</th>
-            <th>{{ t['invoice.issued_on'] }}</th>
-            <th class="num">{{ t['invoice.total'] }}</th>
-            <th></th>
-        </tr></thead>
-        <tbody>
-        {% for i in row.invoices|reverse %}
-        <tr class="{% if i.is_cancelled %}row-voided{% endif %}">
-            <td><strong>{{ i.number }}</strong>
-                {% if i.is_cancelled %}<div class="small voided-note">{{ t['invoice.status.cancelled'] }} · {{ i.cancel_reason }}</div>
-                {% elif i.vat_rate is not none %}<div class="muted small">{{ t['invoice.vat'] }} {{ i.vat_rate|num }} % : {{ i.vat_amount|money(i.currency) }}</div>{% endif %}</td>
-            <td>{{ i.issued_on|fdate }}{% if i.due_on %}<div class="muted small">{{ t['invoice.due_on'] }} {{ i.due_on|fdate }}</div>{% endif %}</td>
-            <td class="num">{{ i.total|money(i.currency) }}</td>
-            <td class="row-actions">
-                <a href="{{ url_for('sales.invoice_print', iid=i.id) }}" class="btn btn--sm btn--tonal btn--icon" target="_blank" rel="noopener"
-                   title="{{ t['invoice.print'] }}" aria-label="{{ t['invoice.print'] }}"><span class="material-symbols-outlined">print</span></a>
-                {% if not i.is_cancelled and can('sales', 'manage') %}<a href="{{ url_for('sales.invoice_cancel', iid=i.id) }}" class="btn btn--sm btn--tonal btn--icon"
-                   data-modal-url="{{ url_for('sales.invoice_cancel', iid=i.id) }}" data-modal-title="{{ t['invoice.cancel'] }}"
-                   title="{{ t['invoice.cancel'] }}" aria-label="{{ t['invoice.cancel'] }}"><span class="material-symbols-outlined">block</span></a>{% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table></div>
-    {% else %}
-    <div class="empty-state empty-state--plain"><p>{{ t['invoice.none'] }}</p></div>
-    {% endif %}
-</section>
-
-<section class="card">
-    <div class="card-header">
-        <h2>{{ t['sale.receipts'] }}</h2>
-        {% if row.status != 'cancelled' %}
+{# ── Money in: one receipt per payment, voided rather than deleted ── #}
+<div class="tab-panel" data-tab-panel="receipts" role="tabpanel" {{ tab_hidden('receipts', tab) }}>
+    <div class="tab-bar">
+        <p class="muted small tab-bar__filters"></p>
+        {% if row.status != 'cancelled' %}<div class="tab-bar__actions">
         {% if can('sales', 'manage') %}<a href="{{ url_for('sales.receipt_new', sid=row.id) }}" class="fab"
            data-modal-url="{{ url_for('sales.receipt_new', sid=row.id) }}" data-modal-title="{{ t['receipt.new'] }} · {{ row.number }}">
             <span class="material-symbols-outlined">add</span> {{ t['receipt.new'] }}</a>{% endif %}
-        {% endif %}
+        </div>{% endif %}
     </div>
     {% if row.payments %}
     <div class="table-wrap"><table class="data-table">
@@ -202,5 +172,48 @@
     {% else %}
     <div class="empty-state empty-state--plain"><p>{{ t['receipt.empty'] }}</p></div>
     {% endif %}
+</div>
+
+{# ── The invoice: issued once, cancelled and reissued to correct it ── #}
+<div class="tab-panel" data-tab-panel="invoice" role="tabpanel" {{ tab_hidden('invoice', tab) }}>
+    <div class="tab-bar">
+        <p class="muted small tab-bar__filters"></p>
+        {% if row.status != 'cancelled' and not row.invoice and can('sales', 'manage') %}<div class="tab-bar__actions">
+        <a href="{{ url_for('sales.invoice_new', sid=row.id) }}" class="fab"
+           data-modal-url="{{ url_for('sales.invoice_new', sid=row.id) }}" data-modal-title="{{ t['invoice.issue'] }} · {{ row.number }}">
+            <span class="material-symbols-outlined">request_quote</span> {{ t['invoice.issue'] }}</a>
+        </div>{% endif %}
+    </div>
+    {% if row.invoices %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['invoice.number'] }}</th>
+            <th>{{ t['invoice.issued_on'] }}</th>
+            <th class="num">{{ t['invoice.total'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for i in row.invoices|reverse %}
+        <tr class="{% if i.is_cancelled %}row-voided{% endif %}">
+            <td><strong>{{ i.number }}</strong>
+                {% if i.is_cancelled %}<div class="small voided-note">{{ t['invoice.status.cancelled'] }} · {{ i.cancel_reason }}</div>
+                {% elif i.vat_rate is not none %}<div class="muted small">{{ t['invoice.vat'] }} {{ i.vat_rate|num }} % : {{ i.vat_amount|money(i.currency) }}</div>{% endif %}</td>
+            <td>{{ i.issued_on|fdate }}{% if i.due_on %}<div class="muted small">{{ t['invoice.due_on'] }} {{ i.due_on|fdate }}</div>{% endif %}</td>
+            <td class="num">{{ i.total|money(i.currency) }}</td>
+            <td class="row-actions">
+                <a href="{{ url_for('sales.invoice_print', iid=i.id) }}" class="btn btn--sm btn--tonal btn--icon" target="_blank" rel="noopener"
+                   title="{{ t['invoice.print'] }}" aria-label="{{ t['invoice.print'] }}"><span class="material-symbols-outlined">print</span></a>
+                {% if not i.is_cancelled and can('sales', 'manage') %}<a href="{{ url_for('sales.invoice_cancel', iid=i.id) }}" class="btn btn--sm btn--tonal btn--icon"
+                   data-modal-url="{{ url_for('sales.invoice_cancel', iid=i.id) }}" data-modal-title="{{ t['invoice.cancel'] }}"
+                   title="{{ t['invoice.cancel'] }}" aria-label="{{ t['invoice.cancel'] }}"><span class="material-symbols-outlined">block</span></a>{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['invoice.none'] }}</p></div>
+    {% endif %}
+</div>
 </section>
 {% endblock %}

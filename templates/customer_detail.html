@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail, money_pair, pay_badge, sale_badge with context %}
+{% from "_macros.html" import detail, money_pair, pay_badge, sale_badge, detail_tabs, tab_hidden with context %}
 
 {% block title %}{{ row.name }}{% endblock %}
 {% block page_title %}{{ row.name }}{% endblock %}
@@ -49,11 +49,25 @@
 </div>
 {% endif %}
 
-<section class="card">
-    <div class="card-header">
-        <h2>{{ t['customer.sales'] }} · {{ row.sales|length }}</h2>
-        {% if can('sales', 'manage') %}<a href="{{ url_for('sales.new', customer=row.id) }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['sale.new'] }}</a>{% endif %}
-    </div>
+{# ── What this customer bought and paid, one tab each ── #}
+{% set receipts = [] %}{% set vehicles = [] %}
+{% for s in row.sales %}
+    {% for p in s.payments %}{% set _ = receipts.append(p) %}{% endfor %}
+    {% if s.status != 'cancelled' %}{% for l in s.lines %}{% if l.unit %}{% set _ = vehicles.append(l) %}{% endif %}{% endfor %}{% endif %}
+{% endfor %}
+{% set tabs = [
+    ('sales', 'point_of_sale', t['customer.sales'], row.sales|length),
+    ('receipts', 'receipt_long', t['sale.receipts'], receipts|rejectattr('is_voided')|list|length),
+    ('vehicles', 'local_shipping', t['sale.vehicles'], vehicles|length),
+] %}
+{% set tab = request.args.get('tab') if request.args.get('tab') in tabs|map(attribute=0)|list else 'sales' %}
+<section class="card card--tabs" data-tab-scope>
+    {{ detail_tabs(tabs, tab, row.name) }}
+
+<div class="tab-panel" data-tab-panel="sales" role="tabpanel" {{ tab_hidden('sales', tab) }}>
+    {% if can('sales', 'manage') %}<div class="tab-bar"><p class="tab-bar__filters"></p><div class="tab-bar__actions">
+        <a href="{{ url_for('sales.new', customer=row.id) }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['sale.new'] }}</a>
+    </div></div>{% endif %}
     {% if row.sales %}
     <div class="table-wrap"><table class="data-table">
         <thead><tr>
@@ -80,5 +94,66 @@
     {% else %}
     <div class="empty-state empty-state--plain"><p>{{ t['customer.no_sales'] }}</p></div>
     {% endif %}
+</div>
+
+<div class="tab-panel" data-tab-panel="receipts" role="tabpanel" {{ tab_hidden('receipts', tab) }}>
+    {% if receipts %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['receipt.number'] }}</th>
+            <th>{{ t['payment.paid_on'] }}</th>
+            <th>{{ t['sale.number'] }}</th>
+            <th class="col-secondary">{{ t['payment.method'] }}</th>
+            <th class="num">{{ t['payment.amount'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for p in receipts|sort(attribute='paid_on', reverse=True) %}
+        <tr class="{% if p.is_voided %}row-voided{% endif %}">
+            <td><strong>{{ p.receipt_number }}</strong>
+                {% if p.is_voided %}<div class="small voided-note">{{ t['payment.voided_on'] }} {{ p.voided_at|fdate }} · {{ p.void_reason }}</div>{% endif %}</td>
+            <td>{{ p.paid_on|fdate }}</td>
+            <td><a href="{{ url_for('sales.detail', sid=p.sale_id) }}">{{ p.sale.number }}</a></td>
+            <td class="col-secondary">{{ t['method.' + p.method] }}</td>
+            <td class="num">{{ money_pair(p.amount, p.currency, p.rate) }}</td>
+            <td class="row-actions">
+                <a href="{{ url_for('sales.receipt_print', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon" target="_blank" rel="noopener"
+                   title="{{ t['receipt.print'] }}" aria-label="{{ t['receipt.print'] }}"><span class="material-symbols-outlined">print</span></a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['receipt.empty'] }}</p></div>
+    {% endif %}
+</div>
+
+<div class="tab-panel" data-tab-panel="vehicles" role="tabpanel" {{ tab_hidden('vehicles', tab) }}>
+    {% if vehicles %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['unit.ref'] }}</th>
+            <th>{{ t['purchase.line_product'] }}</th>
+            <th>{{ t['unit.chassis'] }}</th>
+            <th>{{ t['sale.number'] }}</th>
+            <th>{{ t['sale.status'] }}</th>
+        </tr></thead>
+        <tbody>
+        {% for l in vehicles %}
+        <tr>
+            <td class="nowrap"><code class="unit-ref">{{ l.unit.ref }}</code></td>
+            <td>{{ l.product.name }}</td>
+            <td>{% if l.unit.chassis_number %}<code>{{ l.unit.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}</td>
+            <td><a href="{{ url_for('sales.detail', sid=l.sale_id) }}">{{ l.sale.number }}</a></td>
+            <td>{{ sale_badge(l.sale.status) }}{% if l.sale.delivered_on %}<div class="muted small">{{ l.sale.delivered_on|fdate }}</div>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['customer.no_vehicles'] }}</p></div>
+    {% endif %}
+</div>
 </section>
 {% endblock %}

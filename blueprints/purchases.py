@@ -463,7 +463,7 @@ def _cost_form(purchase, cost):
         try:
             _save_cost(cost, purchase)
             flash("success|" + t["cost.saved"])
-            return modal_ok() if is_modal_request() else redirect(url_for("purchases.detail", pid=purchase.id))
+            return modal_ok() if is_modal_request() else redirect(url_for("purchases.detail", pid=purchase.id, tab="costs"))
         except FormError as e:
             db.session.rollback()
             error = str(e)
@@ -499,7 +499,7 @@ def cost_delete(cid):
         db.session.delete(cost)
         db.session.commit()
         flash("success|" + t["delete.done"])
-    return redirect(url_for("purchases.detail", pid=pid))
+    return redirect(url_for("purchases.detail", pid=pid, tab="costs"))
 
 
 # ── Documents ────────────────────────────────────────────────────────────────
@@ -562,7 +562,7 @@ def document_new(pid):
         error = _save_document(purchase)
         if error is None:
             flash("success|" + get_t()["doc.saved"])
-            return modal_ok() if is_modal_request() else redirect(url_for("purchases.detail", pid=pid))
+            return modal_ok() if is_modal_request() else redirect(url_for("purchases.detail", pid=pid, tab="documents"))
     return form_response("document_form.html", "_document_form.html", purchase=purchase, error=error,
                          kinds=DOCUMENT_KINDS, today=date.today().isoformat(),
                          accept=",".join(documents_store.ALLOWED),
@@ -578,7 +578,7 @@ def document_file(did):
     data = documents_store.load(doc.storage_key)
     if data is None:
         flash("error|" + get_t()["doc.error.missing"])
-        return redirect(url_for("purchases.detail", pid=doc.purchase_id))
+        return redirect(url_for("purchases.detail", pid=doc.purchase_id, tab="documents"))
     inline = doc.content_type in documents_store.SHOWN_INLINE and not request.args.get("download")
     resp = send_file(io.BytesIO(data), mimetype=doc.content_type, as_attachment=not inline,
                      download_name=doc.filename, max_age=0)
@@ -598,5 +598,5 @@ def document_delete(did):
     db.session.commit()
     documents_store.remove(key)
     flash("success|" + get_t()["delete.done"])
-    return redirect(url_for("purchases.detail", pid=pid))
+    return redirect(url_for("purchases.detail", pid=pid, tab="documents"))
 

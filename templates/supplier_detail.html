@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail, money_pair, stage_badge, pay_badge with context %}
+{% from "_macros.html" import detail, money_pair, stage_badge, pay_badge, detail_tabs, tab_hidden with context %}
 
 {% block title %}{{ row.name }}{% endblock %}
 {% block page_title %}{{ row.name }}{% endblock %}
@@ -48,11 +48,25 @@
 </div>
 {% endif %}
 
-<section class="card">
-    <div class="card-header">
-        <h2>{{ t['supplier.purchases'] }} · {{ row.purchases|length }}</h2>
-        {% if can('purchases', 'manage') %}<a href="{{ url_for('purchases.new', supplier=row.id) }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['purchase.new'] }}</a>{% endif %}
-    </div>
+{# ── What was bought from this supplier, paid to them, and the papers ── #}
+{% set pays = [] %}{% set docs = [] %}
+{% for p in row.purchases %}
+    {% for x in p.payments %}{% set _ = pays.append(x) %}{% endfor %}
+    {% for d in p.documents %}{% set _ = docs.append(d) %}{% endfor %}
+{% endfor %}
+{% set tabs = [
+    ('purchases', 'request_quote', t['supplier.purchases'], row.purchases|length),
+    ('payments', 'payments', t['purchase.payments'], pays|rejectattr('is_voided')|list|length),
+    ('documents', 'description', t['doc.title_section'], docs|length),
+] %}
+{% set tab = request.args.get('tab') if request.args.get('tab') in tabs|map(attribute=0)|list else 'purchases' %}
+<section class="card card--tabs" data-tab-scope>
+    {{ detail_tabs(tabs, tab, row.name) }}
+
+<div class="tab-panel" data-tab-panel="purchases" role="tabpanel" {{ tab_hidden('purchases', tab) }}>
+    {% if can('purchases', 'manage') %}<div class="tab-bar"><p class="tab-bar__filters"></p><div class="tab-bar__actions">
+        <a href="{{ url_for('purchases.new', supplier=row.id) }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['purchase.new'] }}</a>
+    </div></div>{% endif %}
     {% if row.purchases %}
     <div class="table-wrap"><table class="data-table">
         <thead><tr>
@@ -77,5 +91,61 @@
     {% else %}
     <div class="empty-state empty-state--plain"><p>{{ t['supplier.no_purchases'] }}</p></div>
     {% endif %}
+</div>
+
+<div class="tab-panel" data-tab-panel="payments" role="tabpanel" {{ tab_hidden('payments', tab) }}>
+    {% if pays %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['payment.paid_on'] }}</th>
+            <th>{{ t['purchase.invoice_number'] }}</th>
+            <th class="col-secondary">{{ t['payment.method'] }}</th>
+            <th class="num">{{ t['payment.amount'] }}</th>
+        </tr></thead>
+        <tbody>
+        {% for x in pays|sort(attribute='paid_on', reverse=True) %}
+        <tr class="{% if x.is_voided %}row-voided{% endif %}">
+            <td>{{ x.paid_on|fdate }}
+                {% if x.is_voided %}<div class="small voided-note">{{ t['payment.voided_on'] }} {{ x.voided_at|fdate }} · {{ x.void_reason }}</div>
+                {% elif x.reference %}<div class="muted small">{{ t['field.reference'] }} {{ x.reference }}</div>{% endif %}</td>
+            <td><a href="{{ url_for('purchases.detail', pid=x.purchase_id, tab='payments') }}">{{ x.purchase.invoice_number }}</a></td>
+            <td class="col-secondary">{{ t['method.' + x.method] }}</td>
+            <td class="num">{{ money_pair(x.amount, x.currency, x.rate) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['payment.empty'] }}</p></div>
+    {% endif %}
+</div>
+
+<div class="tab-panel" data-tab-panel="documents" role="tabpanel" {{ tab_hidden('documents', tab) }}>
+    {% if docs %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['doc.kind'] }}</th>
+            <th>{{ t['purchase.invoice_number'] }}</th>
+            <th class="col-secondary">{{ t['doc.date'] }}</th>
+            <th>{{ t['doc.file'] }}</th>
+        </tr></thead>
+        <tbody>
+        {% for d in docs|sort(attribute='created_at', reverse=True) %}
+        <tr>
+            <td><strong>{{ d.title if d.kind == 'other' else t['doc.kind.' + d.kind] }}</strong>{% if d.number %}<div class="muted small">{{ d.number }}</div>{% endif %}</td>
+            <td><a href="{{ url_for('purchases.detail', pid=d.purchase_id, tab='documents') }}">{{ d.purchase.invoice_number }}</a></td>
+            <td class="col-secondary">{{ d.doc_date|fdate if d.doc_date else '—' }}</td>
+            <td><a href="{{ url_for('purchases.document_file', did=d.id) }}" target="_blank" rel="noopener" class="doc-file">
+                    <span class="material-symbols-outlined">{{ 'picture_as_pdf' if d.content_type == 'application/pdf' else ('photo_camera' if d.content_type.startswith('image/') else 'description') }}</span>
+                    {{ d.filename }}</a>
+                <div class="muted small">{{ d.size|filesize }}</div></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['doc.empty'] }}</p></div>
+    {% endif %}
+</div>
 </section>
 {% endblock %}

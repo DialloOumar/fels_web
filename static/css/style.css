@@ -2486,3 +2486,22 @@ a.list-card--link:hover { border-color: var(--md-primary); }
     .fsec__head { padding: 14px 14px 0; }
     .fsec__body { padding: 14px; }
 }
+
+/* ── Tabs on a detail page ──
+   The header, the progress and the figures stay on top; what follows is one
+   card whose sections are tabs, the count on each saying which is worth
+   opening. The bar under the tabs holds the open tab's hint and its button. */
+.card--tabs { padding-top: 6px; }
+.tabs--detail { margin: 0 -14px 14px; padding: 0 8px; gap: 4px; }
+.tabs--detail .tab { padding: 12px 14px; font-size: 0.88rem; font-weight: 600; border-bottom-width: 3px; }
+.tabs--detail .tab .material-symbols-outlined { font-size: 19px; }
+.tabs--detail .tab--on .tab__count { background: var(--md-primary-container); color: var(--md-on-primary-container); }
+.tabs--detail .tab:focus-visible { outline: 2px solid var(--md-primary); outline-offset: -2px; }
+.tab-panel[hidden] { display: none; }
+.tab-panel > .tab-bar { min-height: 0; }
+.tab-panel > .tab-bar:has(> .tab-bar__filters:empty):not(:has(.tab-bar__actions)) { display: none; }
+.tab-panel > .tab-bar .tab-bar__filters { margin: 0; line-height: 1.45; }
+@media (max-width: 768px) {
+    .tabs--detail { margin: 0 -14px 12px; padding: 0 4px; }
+    .tabs--detail .tab { padding: 11px 10px; }
+}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge with context %}
+{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge, detail_tabs, tab_hidden with context %}
 
 {% block title %}{{ row.invoice_number }}{% endblock %}
 {% block page_title %}{{ t['purchase.title_short'] }} {{ row.invoice_number }}{% endblock %}
@@ -87,9 +87,22 @@
     </div>
 </div>
 
+{# ── The rest, one tab each: the counts say which are worth opening ── #}
+{% set live_payments = payments|rejectattr('is_voided')|list %}
+{% set tabs = [
+    ('lines', 'inventory_2', t['purchase.lines'], row.lines|length),
+    ('vehicles', 'local_shipping', t['purchase.vehicles'], units|length),
+    ('costs', 'assured_workload', t['purchase.costs'], row.costs|length),
+    ('payments', 'payments', t['purchase.payments'], live_payments|length),
+    ('documents', 'description', t['doc.title_section'], row.documents|length),
+] %}
+{% set tab = request.args.get('tab') if request.args.get('tab') in tabs|map(attribute=0)|list else 'lines' %}
+<section class="card card--tabs" data-tab-scope>
+    {{ detail_tabs(tabs, tab, t['purchase.title_short'] ~ ' ' ~ row.invoice_number) }}
+
 {# ── Lines, with each unit's share of the extra costs and its landed cost ── #}
-<section class="card">
-    <div class="card-header"><h2>{{ t['purchase.lines'] }}</h2></div>
+<div class="tab-panel" data-tab-panel="lines" role="tabpanel" {{ tab_hidden('lines', tab) }}>
+    <div class="tab-bar"><p class="muted small tab-bar__filters">{{ t['purchase.split_hint'] }}</p></div>
     <div class="table-wrap"><table class="data-table">
         <thead><tr>
             <th>{{ t['purchase.line_product'] }}</th>
@@ -113,16 +126,51 @@
         {% endfor %}
         </tbody>
     </table></div>
-    <p class="muted small" style="margin-top:8px;">{{ t['purchase.split_hint'] }}</p>
-</section>
+</div>
+
+{# ── The vehicles this purchase brings in ── #}
+<div class="tab-panel" data-tab-panel="vehicles" role="tabpanel" {{ tab_hidden('vehicles', tab) }}>
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['unit.ref'] }}</th>
+            <th>{{ t['purchase.line_product'] }}</th>
+            <th>{{ t['unit.chassis'] }}</th>
+            <th>{{ t['unit.status'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for u in units %}
+        <tr>
+            <td class="nowrap"><code class="unit-ref">{{ u.ref }}</code></td>
+            <td>{{ u.product.name }}</td>
+            <td>{% if u.chassis_number %}<code>{{ u.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}
+                {% if u.note %}<div class="muted small">{{ u.note }}</div>{% endif %}</td>
+            <td>{{ unit_badge(u.status) }}
+                {% set sl = u.active_sale_line %}
+                {% if sl %}<div class="small"><a href="{{ url_for('sales.detail', sid=sl.sale_id) }}">{{ sl.sale.number }}</a> · {{ sl.sale.customer.name }}</div>{% endif %}</td>
+            <td class="row-actions">
+                {% if u.status == 'available' %}
+                {% if can('sales', 'manage') %}<a href="{{ url_for('sales.new', unit=u.id) }}" class="btn btn--sm btn--tonal btn--icon" title="{{ t['unit.sell'] }}" aria-label="{{ t['unit.sell'] }}"><span class="material-symbols-outlined">sell</span></a>{% endif %}
+                {% endif %}
+                {% if can('stock', 'manage') %}<a href="{{ url_for('stock.edit', uid=u.id, back=request.path ~ '?tab=vehicles') }}" class="btn btn--sm btn--tonal btn--icon"
+                   data-modal-url="{{ url_for('stock.edit', uid=u.id, back=request.path ~ '?tab=vehicles') }}" data-modal-title="{{ t['unit.edit'] }}"
+                   title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+</div>
 
 {# ── Extra costs: customs, port, transit, transport ── #}
-<section class="card">
-    <div class="card-header">
-        <h2>{{ t['purchase.costs'] }}</h2>
-        {% if can('purchases', 'manage') %}<a href="{{ url_for('purchases.cost_new', pid=row.id) }}" class="fab"
-           data-modal-url="{{ url_for('purchases.cost_new', pid=row.id) }}" data-modal-title="{{ t['cost.new'] }}">
-            <span class="material-symbols-outlined">add</span> {{ t['cost.new'] }}</a>{% endif %}
+<div class="tab-panel" data-tab-panel="costs" role="tabpanel" {{ tab_hidden('costs', tab) }}>
+    <div class="tab-bar">
+        <p class="muted small tab-bar__filters"></p>
+        <div class="tab-bar__actions">
+            {% if can('purchases', 'manage') %}<a href="{{ url_for('purchases.cost_new', pid=row.id) }}" class="fab"
+               data-modal-url="{{ url_for('purchases.cost_new', pid=row.id) }}" data-modal-title="{{ t['cost.new'] }}">
+                <span class="material-symbols-outlined">add</span> {{ t['cost.new'] }}</a>{% endif %}
+        </div>
     </div>
     {% if row.costs %}
     <div class="table-wrap"><table class="data-table">
@@ -167,15 +215,63 @@
     {% else %}
     <div class="empty-state empty-state--plain"><p>{{ t['cost.empty'] }}</p></div>
     {% endif %}
-</section>
+</div>
+
+{# ── Payments out: to the supplier and against the costs ── #}
+<div class="tab-panel" data-tab-panel="payments" role="tabpanel" {{ tab_hidden('payments', tab) }}>
+    <div class="tab-bar">
+        <p class="muted small tab-bar__filters"></p>
+        <div class="tab-bar__actions">
+            {% if row.balance > 0 %}
+            {% if can('supplier_pay', 'yes') %}<a href="{{ url_for('payments.purchase_payment', pid=row.id) }}" class="fab"
+               data-modal-url="{{ url_for('payments.purchase_payment', pid=row.id) }}" data-modal-title="{{ t['payment.new_supplier'] }}">
+                <span class="material-symbols-outlined">add</span> {{ t['payment.new_supplier'] }}</a>{% endif %}
+            {% endif %}
+        </div>
+    </div>
+    {% if payments %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['payment.paid_on'] }}</th>
+            <th>{{ t['payment.for'] }}</th>
+            <th class="col-secondary">{{ t['payment.method'] }}</th>
+            <th class="num">{{ t['payment.amount'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for p in payments %}
+        <tr class="{% if p.is_voided %}row-voided{% endif %}">
+            <td>{{ p.paid_on|fdate }}</td>
+            <td>{% if p.purchase_cost %}{{ t['cost.kind.' + p.purchase_cost.kind] }}{% if p.purchase_cost.payee %} · {{ p.purchase_cost.payee }}{% endif %}{% else %}{{ row.supplier.name }}{% endif %}
+                {% if p.reference %}<div class="muted small">{{ t['field.reference'] }} {{ p.reference }}</div>{% endif %}
+                {% if p.is_voided %}<div class="small voided-note">{{ t['payment.voided_on'] }} {{ p.voided_at|fdate }} · {{ p.void_reason }}</div>{% elif p.note %}<div class="muted small">{{ p.note }}</div>{% endif %}</td>
+            <td class="col-secondary">{{ t['method.' + p.method] }}</td>
+            <td class="num">{{ money_pair(p.amount, p.currency, p.rate) }}</td>
+            <td class="row-actions">
+                {% if not p.is_voided %}
+                {% if can('void', 'yes') %}<a href="{{ url_for('payments.void', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon"
+                   data-modal-url="{{ url_for('payments.void', pay_id=p.id) }}" data-modal-title="{{ t['payment.void'] }}"
+                   title="{{ t['payment.void'] }}" aria-label="{{ t['payment.void'] }}"><span class="material-symbols-outlined">block</span></a>{% endif %}
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['payment.empty'] }}</p></div>
+    {% endif %}
+</div>
 
 {# ── The papers: invoice, bill of lading, customs receipt… ── #}
-<section class="card" id="documents">
-    <div class="card-header">
-        <h2>{{ t['doc.title_section'] }}{% if row.documents %} · {{ row.documents|length }}{% endif %}</h2>
-        {% if can('purchases', 'manage') %}<a href="{{ url_for('purchases.document_new', pid=row.id) }}" class="fab"
-           data-modal-url="{{ url_for('purchases.document_new', pid=row.id) }}" data-modal-title="{{ t['doc.new'] }} · {{ row.invoice_number }}">
-            <span class="material-symbols-outlined">add</span> {{ t['doc.new'] }}</a>{% endif %}
+<div class="tab-panel" data-tab-panel="documents" role="tabpanel" {{ tab_hidden('documents', tab) }}>
+    <div class="tab-bar">
+        <p class="muted small tab-bar__filters"></p>
+        <div class="tab-bar__actions">
+            {% if can('purchases', 'manage') %}<a href="{{ url_for('purchases.document_new', pid=row.id) }}" class="fab"
+               data-modal-url="{{ url_for('purchases.document_new', pid=row.id) }}" data-modal-title="{{ t['doc.new'] }} · {{ row.invoice_number }}">
+                <span class="material-symbols-outlined">add</span> {{ t['doc.new'] }}</a>{% endif %}
+        </div>
     </div>
     {% if row.documents %}
     <div class="table-wrap"><table class="data-table">
@@ -213,84 +309,6 @@
     {% else %}
     <div class="empty-state empty-state--plain"><p>{{ t['doc.empty'] }}</p></div>
     {% endif %}
-</section>
-
-{# ── Payments out: to the supplier and against the costs ── #}
-<section class="card">
-    <div class="card-header">
-        <h2>{{ t['purchase.payments'] }}</h2>
-        {% if row.balance > 0 %}
-        {% if can('supplier_pay', 'yes') %}<a href="{{ url_for('payments.purchase_payment', pid=row.id) }}" class="fab"
-           data-modal-url="{{ url_for('payments.purchase_payment', pid=row.id) }}" data-modal-title="{{ t['payment.new_supplier'] }}">
-            <span class="material-symbols-outlined">add</span> {{ t['payment.new_supplier'] }}</a>{% endif %}
-        {% endif %}
-    </div>
-    {% if payments %}
-    <div class="table-wrap"><table class="data-table">
-        <thead><tr>
-            <th>{{ t['payment.paid_on'] }}</th>
-            <th>{{ t['payment.for'] }}</th>
-            <th class="col-secondary">{{ t['payment.method'] }}</th>
-            <th class="num">{{ t['payment.amount'] }}</th>
-            <th></th>
-        </tr></thead>
-        <tbody>
-        {% for p in payments %}
-        <tr class="{% if p.is_voided %}row-voided{% endif %}">
-            <td>{{ p.paid_on|fdate }}</td>
-            <td>{% if p.purchase_cost %}{{ t['cost.kind.' + p.purchase_cost.kind] }}{% if p.purchase_cost.payee %} · {{ p.purchase_cost.payee }}{% endif %}{% else %}{{ row.supplier.name }}{% endif %}
-                {% if p.reference %}<div class="muted small">{{ t['field.reference'] }} {{ p.reference }}</div>{% endif %}
-                {% if p.is_voided %}<div class="small voided-note">{{ t['payment.voided_on'] }} {{ p.voided_at|fdate }} · {{ p.void_reason }}</div>{% elif p.note %}<div class="muted small">{{ p.note }}</div>{% endif %}</td>
-            <td class="col-secondary">{{ t['method.' + p.method] }}</td>
-            <td class="num">{{ money_pair(p.amount, p.currency, p.rate) }}</td>
-            <td class="row-actions">
-                {% if not p.is_voided %}
-                {% if can('void', 'yes') %}<a href="{{ url_for('payments.void', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon"
-                   data-modal-url="{{ url_for('payments.void', pay_id=p.id) }}" data-modal-title="{{ t['payment.void'] }}"
-                   title="{{ t['payment.void'] }}" aria-label="{{ t['payment.void'] }}"><span class="material-symbols-outlined">block</span></a>{% endif %}
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table></div>
-    {% else %}
-    <div class="empty-state empty-state--plain"><p>{{ t['payment.empty'] }}</p></div>
-    {% endif %}
-</section>
-
-{# ── The vehicles this purchase brings in ── #}
-<section class="card">
-    <div class="card-header"><h2>{{ t['purchase.vehicles'] }} · {{ units|length }}</h2></div>
-    <div class="table-wrap"><table class="data-table">
-        <thead><tr>
-            <th>{{ t['unit.ref'] }}</th>
-            <th>{{ t['purchase.line_product'] }}</th>
-            <th>{{ t['unit.chassis'] }}</th>
-            <th>{{ t['unit.status'] }}</th>
-            <th></th>
-        </tr></thead>
-        <tbody>
-        {% for u in units %}
-        <tr>
-            <td class="nowrap"><code class="unit-ref">{{ u.ref }}</code></td>
-            <td>{{ u.product.name }}</td>
-            <td>{% if u.chassis_number %}<code>{{ u.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}
-                {% if u.note %}<div class="muted small">{{ u.note }}</div>{% endif %}</td>
-            <td>{{ unit_badge(u.status) }}
-                {% set sl = u.active_sale_line %}
-                {% if sl %}<div class="small"><a href="{{ url_for('sales.detail', sid=sl.sale_id) }}">{{ sl.sale.number }}</a> · {{ sl.sale.customer.name }}</div>{% endif %}</td>
-            <td class="row-actions">
-                {% if u.status == 'available' %}
-                {% if can('sales', 'manage') %}<a href="{{ url_for('sales.new', unit=u.id) }}" class="btn btn--sm btn--tonal btn--icon" title="{{ t['unit.sell'] }}" aria-label="{{ t['unit.sell'] }}"><span class="material-symbols-outlined">sell</span></a>{% endif %}
-                {% endif %}
-                {% if can('stock', 'manage') %}<a href="{{ url_for('stock.edit', uid=u.id, back=request.path) }}" class="btn btn--sm btn--tonal btn--icon"
-                   data-modal-url="{{ url_for('stock.edit', uid=u.id, back=request.path) }}" data-modal-title="{{ t['unit.edit'] }}"
-                   title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>{% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table></div>
+</div>
 </section>
 {% endblock %}

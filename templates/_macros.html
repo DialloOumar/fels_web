@@ -69,6 +69,23 @@
 </header>
 {%- endmacro %}
 
+{# The tabs of a detail page. `tabs` is a list of (key, icon, label, count),
+   `current` the open one. Each tab is a real link (?tab=key), so it works
+   without script and a reload keeps it; main.js switches the panels in place.
+   The panels: <div class="tab-panel" data-tab-panel="key" {{ hidden }}>. #}
+{% macro detail_tabs(tabs, current, label='') -%}
+<nav class="tabs tabs--detail" data-tabs role="tablist"{% if label %} aria-label="{{ label }}"{% endif %}>
+    {% for key, icon, text, count in tabs %}
+    <a href="?tab={{ key }}" class="tab {% if key == current %}tab--on{% endif %}" data-tab="{{ key }}" role="tab"
+       aria-selected="{{ 'true' if key == current else 'false' }}">
+        <span class="material-symbols-outlined">{{ icon }}</span> {{ text }}{% if count is not none %} <span class="tab__count">{{ count }}</span>{% endif %}</a>
+    {% endfor %}
+</nav>
+{%- endmacro %}
+
+{# The open tab: the one asked for, else the first. #}
+{% macro tab_hidden(key, current) -%}{% if key != current %}hidden{% endif %}{%- endmacro %}
+
 {# A labelled detail, for the definition grid of a detail page. #}
 {% macro detail(label, value) -%}
 <div><dt>{{ label }}</dt><dd>{{ value if value else '—' }}</dd></div>

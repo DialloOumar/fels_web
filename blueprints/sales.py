@@ -391,7 +391,7 @@ def receipt_new(sid):
             db.session.refresh(sale)
             if in_sale is not None and sale.paid_amount > sale.total + Decimal("0.01"):
                 flash("warning|" + t["receipt.warn.over_total"])
-            return modal_ok() if is_modal_request() else redirect(url_for("sales.detail", sid=sid))
+            return modal_ok() if is_modal_request() else redirect(url_for("sales.detail", sid=sid, tab="receipts"))
     return form_response("payment_form.html", "_payment_form.html", error=error,
                          target_currency=sale.currency, balance=sale.balance,
                          default_rate=rate_field_value(current_rate()),
@@ -483,7 +483,7 @@ def invoice_new(sid):
                 inv.number, sale.number, money_text(inv.total, inv.currency)))
             db.session.commit()
             flash("success|" + t["invoice.saved"] % {"number": inv.number})
-            return modal_ok() if is_modal_request() else redirect(url_for("sales.detail", sid=sid))
+            return modal_ok() if is_modal_request() else redirect(url_for("sales.detail", sid=sid, tab="invoice"))
     return form_response("invoice_form.html", "_invoice_form.html", sale=sale, error=error, vat_rate=rate,
                          vat_amount=vat_part(sale.total, rate), today=date.today().isoformat())
 

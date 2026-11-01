@@ -723,3 +723,60 @@ window.formChecks.rows = function (sec) { return !!sec.querySelector("[data-row]
         input.focus({ preventScroll: true });
     });
 })();
+
+
+// ── Tabs on a detail page (the detail_tabs macro) ──
+// Each tab is a link to ?tab=key, so the page works without script and the
+// server opens the right one. Here a click switches the panel in place and
+// writes the tab into the address, so a reload (a modal saving) keeps it.
+// The last tab of each page is also remembered for the session: an action
+// that comes back to the page without ?tab= (a delete) lands where it was.
+(function () {
+    document.querySelectorAll("[data-tab-scope]").forEach(function (scope) {
+        var nav = scope.querySelector("[data-tabs]");
+        if (!nav) return;
+        var store = "tab:" + location.pathname;
+        function open(key, remember) {
+            var panel = scope.querySelector('[data-tab-panel="' + key + '"]');
+            if (!panel) return false;
+            scope.querySelectorAll("[data-tab-panel]").forEach(function (p) { p.hidden = p !== panel; });
+            nav.querySelectorAll("[data-tab]").forEach(function (a) {
+                var on = a.dataset.tab === key;
+                a.classList.toggle("tab--on", on);
+                a.setAttribute("aria-selected", on ? "true" : "false");
+            });
+            if (remember) {
+                var url = new URL(location.href);
+                url.searchParams.set("tab", key);
+                history.replaceState(history.state, "", url);
+                try { sessionStorage.setItem(store, key); } catch (e) { /* private mode */ }
+            }
+            return true;
+        }
+        nav.addEventListener("click", function (e) {
+            var a = e.target.closest("[data-tab]");
+            if (!a || e.ctrlKey || e.metaKey || e.shiftKey) return;   // a new browser tab: let the link do it
+            e.preventDefault();
+            open(a.dataset.tab, true);
+        });
+        // Arrow keys move along the tabs, as in any tab list.
+        nav.addEventListener("keydown", function (e) {
+            if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+            var tabs = Array.prototype.slice.call(nav.querySelectorAll("[data-tab]"));
+            var i = tabs.indexOf(document.activeElement);
+            if (i < 0) return;
+            var next = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+            next.focus();
+            open(next.dataset.tab, true);
+            e.preventDefault();
+        });
+        var asked = new URL(location.href).searchParams.get("tab");
+        if (asked) {
+            try { sessionStorage.setItem(store, asked); } catch (e) { /* private mode */ }
+        } else {
+            var last = null;
+            try { last = sessionStorage.getItem(store); } catch (e) { /* private mode */ }
+            if (last) open(last, false);
+        }
+    });
+})();
