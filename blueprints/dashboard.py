@@ -122,6 +122,12 @@ def compute(today=None):
     for p in purchases:
         if p.stage == "in_stock":
             continue
+        if p.stage == "eta":
+            # On the sea, waiting is normal until the estimated arrival.
+            late = -p.eta_days(today) if p.eta_date else None
+            if late and late > 0:
+                stuck.append((p, late))
+            continue
         d = p.stage_date(p.stage)
         if d and (today - d).days > STUCK_DAYS:
             stuck.append((p, (today - d).days))

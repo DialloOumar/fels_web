@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import detail, money_pair, pay_badge, sale_badge, detail_tabs, tab_hidden with context %}
+{% from "_macros.html" import detail, money_pair, pay_badge, sale_badge, unit_link, detail_tabs, tab_hidden with context %}
 
 {% block title %}{{ row.name }}{% endblock %}
 {% block page_title %}{{ row.name }}{% endblock %}
@@ -142,7 +142,7 @@
         <tbody>
         {% for l in vehicles %}
         <tr>
-            <td class="nowrap"><code class="unit-ref">{{ l.unit.ref }}</code></td>
+            <td class="nowrap">{{ unit_link(l.unit) }}</td>
             <td>{{ l.product.name }}</td>
             <td>{% if l.unit.chassis_number %}<code>{{ l.unit.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}</td>
             <td><a href="{{ url_for('sales.detail', sid=l.sale_id) }}">{{ l.sale.number }}</a></td>

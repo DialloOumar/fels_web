@@ -7,9 +7,9 @@
     <p class="muted small" style="margin:0;"><code class="unit-ref">{{ row.ref }}</code> {{ row.product.name }} · {{ row.purchase_line.purchase.invoice_number }} · {{ row.purchase_line.purchase.supplier.name }}</p>
     <div class="field">
         <input type="text" id="chassis_number" name="chassis_number" autofocus autocapitalize="characters" spellcheck="false"
-               placeholder="{{ t['unit.chassis_ph'] }}" value="{{ request.form.get('chassis_number') if request.method == 'POST' else (row.chassis_number or '') }}">
+               placeholder="{{ t['unit.chassis_ph'] }}" {% if required %}required{% endif %} value="{{ request.form.get('chassis_number') if request.method == 'POST' else (row.chassis_number or '') }}">
         <label for="chassis_number">{{ t['unit.chassis'] }}</label>
-        {{ hint(t['form.optional'], t['unit.chassis_hint']) }}
+        {{ hint('' if required else t['form.optional'], t['unit.chassis_hint']) }}
     </div>
     <div class="field">
         <input type="text" id="note" name="note" placeholder="{{ t['unit.note_ph'] }}" value="{{ request.form.get('note') if request.method == 'POST' else (row.note or '') }}">

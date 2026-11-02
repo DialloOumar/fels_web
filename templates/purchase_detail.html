@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge, detail_tabs, tab_hidden with context %}
+{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge, unit_link, eta_note, detail_tabs, tab_hidden with context %}
 
 {% block title %}{{ row.invoice_number }}{% endblock %}
 {% block page_title %}{{ t['purchase.title_short'] }} {{ row.invoice_number }}{% endblock %}
@@ -33,6 +33,9 @@
         {{ detail(t['purchase.invoice_number'], row.invoice_number) }}
         {{ detail(t['purchase.invoice_date'], row.invoice_date|fdate) }}
         {{ detail(t['purchase.port'], row.port.name if row.port else none) }}
+        {% if row.eta_date %}<div><dt>{{ t['purchase.eta_date'] }}</dt><dd>{{ row.eta_date|fdate }}
+            {% if row.at_port_on %}{% set g = row.eta_gap %}<span class="muted small">· {{ t['purchase.eta_gap_late'] % {'n': g} if g > 0 else (t['purchase.eta_gap_early'] % {'n': -g} if g < 0 else t['purchase.eta_gap_on_time']) }}</span>
+            {% elif row.stage == 'eta' %}· {{ eta_note(row) }}{% endif %}</dd></div>{% endif %}
         {{ detail(t['purchase.currency'], cur) }}
     </dl>
     {% if row.note %}<p class="muted" style="margin-top:14px; white-space:pre-line;">{{ row.note }}</p>{% endif %}
@@ -54,13 +57,14 @@
         </div>
     </div>
     {% set cur_idx = stages.index(row.stage) %}
-    <ol class="timeline">
+    <ol class="timeline" style="--steps: {{ stages|length }}">
         {% for s in stages %}
         {% set d = row.stage_date(s) %}
         <li class="timeline__step {% if loop.index0 < cur_idx %}is-done{% elif loop.index0 == cur_idx %}is-current{% endif %}">
             <span class="timeline__dot">{% if loop.index0 < cur_idx %}<span class="material-symbols-outlined">check</span>{% else %}{{ loop.index }}{% endif %}</span>
             <span class="timeline__label">{{ t['stage.' + s] }}</span>
-            <span class="timeline__date">{{ d|fdate if d else '' }}</span>
+            <span class="timeline__date">{% if s == 'eta' and row.eta_date %}{{ row.eta_date|fdate }}{% else %}{{ d|fdate if d else '' }}{% endif %}</span>
+            {% if s == 'eta' and row.stage == 'eta' %}{{ eta_note(row) }}{% endif %}
         </li>
         {% endfor %}
     </ol>
@@ -130,6 +134,15 @@
 
 {# ── The vehicles this purchase brings in ── #}
 <div class="tab-panel" data-tab-panel="vehicles" role="tabpanel" {{ tab_hidden('vehicles', tab) }}>
+    {% set no_chassis = units|rejectattr('chassis_number')|list|length %}
+    <div class="tab-bar">
+        <p class="muted small tab-bar__filters">{% if no_chassis %}<span class="chassis-missing"><span class="material-symbols-outlined">warning</span> {{ t['unit.chassis_missing'] % {'n': no_chassis} }}</span>{% endif %}</p>
+        {% if units and can('stock', 'manage') %}<div class="tab-bar__actions">
+            <a href="{{ url_for('purchases.chassis', pid=row.id) }}" class="{{ 'fab' if no_chassis else 'btn btn--sm btn--outlined' }}"
+               data-modal-url="{{ url_for('purchases.chassis', pid=row.id) }}" data-modal-title="{{ t['unit.chassis_bulk'] }} · {{ row.invoice_number }}">
+                <span class="material-symbols-outlined">edit</span> {{ t['unit.chassis_bulk'] }}</a>
+        </div>{% endif %}
+    </div>
     <div class="table-wrap"><table class="data-table">
         <thead><tr>
             <th>{{ t['unit.ref'] }}</th>
@@ -141,7 +154,7 @@
         <tbody>
         {% for u in units %}
         <tr>
-            <td class="nowrap"><code class="unit-ref">{{ u.ref }}</code></td>
+            <td class="nowrap">{{ unit_link(u) }}</td>
             <td>{{ u.product.name }}</td>
             <td>{% if u.chassis_number %}<code>{{ u.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}
                 {% if u.note %}<div class="muted small">{{ u.note }}</div>{% endif %}</td>

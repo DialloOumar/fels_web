@@ -1,0 +1,14 @@
+{# One chassis field per vehicle, named chassis_<id>: the stage form shows
+   the missing ones, the bulk form all of a purchase's vehicles. Expects
+   `units` and `required`. #}
+<div class="chassis-list">
+    {% for u in units %}
+    {% set name = 'chassis_%d' % u.id %}
+    <div class="chassis-row">
+        <label for="{{ name }}" class="chassis-row__who"><code class="unit-ref">{{ u.ref }}</code> <span>{{ u.product.name }}</span></label>
+        <input type="text" id="{{ name }}" name="{{ name }}" autocapitalize="characters" spellcheck="false" maxlength="60"
+               placeholder="{{ t['unit.chassis_ph'] }}" {% if required %}required{% endif %}
+               value="{{ request.form.get(name) if request.method == 'POST' else (u.chassis_number or '') }}">
+    </div>
+    {% endfor %}
+</div>

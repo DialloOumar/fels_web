@@ -201,7 +201,8 @@ def supplier_figures(start, end, display, rate):
 def stage_delays(start, end):
     """The average days from each stage to the next, over the steps reached
     in the period; and from order to stock, door to door."""
-    steps = list(zip(PURCHASE_STAGES, PURCHASE_STAGES[1:]))
+    road = [s for s in PURCHASE_STAGES if s != "eta"]      # the estimate is not a step travelled
+    steps = list(zip(road, road[1:]))
     gaps = {step: [] for step in steps}
     whole = []
     for p in Purchase.query.all():

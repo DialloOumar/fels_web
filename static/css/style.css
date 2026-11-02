@@ -1606,6 +1606,7 @@ button.logout-btn { background: none; border: 0; cursor: pointer; font: inherit;
 /* ── Status badges ── */
 .badge--stage-ordered  { background: var(--md-surface-container-high); color: var(--md-on-surface-variant); }
 .badge--stage-shipped  { background: var(--c-blue-bg);   color: var(--c-blue); }
+.badge--stage-eta      { background: var(--c-cyan-bg);   color: var(--c-cyan); }
 .badge--stage-at_port  { background: var(--c-indigo-bg); color: var(--c-indigo); }
 .badge--stage-customs  { background: var(--c-amber-bg);  color: var(--c-amber); }
 .badge--stage-cleared  { background: var(--c-teal-bg);   color: var(--c-teal); }
@@ -1634,7 +1635,7 @@ a.list-card--link:hover { border-color: var(--md-primary); }
 .pipeline-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .pipeline-head p { margin: 0; }
 .pipeline {
-    display: grid; grid-template-columns: repeat(5, minmax(176px, 1fr)); gap: 10px;
+    display: grid; grid-template-columns: repeat(var(--cols, 6), minmax(176px, 1fr)); gap: 10px;
     overflow-x: auto; padding-bottom: 6px; align-items: start;
 }
 .pipeline-col { background: var(--md-surface-container); border-radius: var(--shape-lg); padding: 10px; min-height: 160px; }
@@ -1643,6 +1644,7 @@ a.list-card--link:hover { border-color: var(--md-primary); }
     padding: 2px 4px 10px; border-bottom: 3px solid var(--md-outline-variant); margin-bottom: 10px;
 }
 .pipeline-col--shipped .pipeline-col__head { border-color: var(--c-blue); }
+.pipeline-col--eta .pipeline-col__head { border-color: var(--c-cyan); }
 .pipeline-col--at_port .pipeline-col__head { border-color: var(--c-indigo); }
 .pipeline-col--customs .pipeline-col__head { border-color: var(--c-amber); }
 .pipeline-col--cleared .pipeline-col__head { border-color: var(--c-teal); }
@@ -1668,7 +1670,7 @@ a.list-card--link:hover { border-color: var(--md-primary); }
 .pipe-card__days--late { color: var(--c-red); font-weight: 700; }
 
 /* ── Stage timeline (purchase page) ── */
-.timeline { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); }
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--steps, 7), 1fr); }
 .timeline__step { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 0 4px; }
 .timeline__step::before {
     content: ""; position: absolute; top: 15px; left: -50%; width: 100%; height: 3px;
@@ -2505,3 +2507,39 @@ a.list-card--link:hover { border-color: var(--md-primary); }
     .tabs--detail { margin: 0 -14px 12px; padding: 0 4px; }
     .tabs--detail .tab { padding: 11px 10px; }
 }
+
+/* ── Vehicle page ── */
+.panel-subtitle { margin: 22px 0 10px; font-size: 0.95rem; font-weight: 700; }
+a.unit-ref-link { text-decoration: none; }
+a.unit-ref-link:hover .unit-ref { text-decoration: underline; }
+/* The estimated arrival, on a timeline and a pipeline card. */
+.timeline__eta { font-size: 0.72rem; font-weight: 600; color: var(--c-cyan); }
+.timeline__eta--late { color: var(--c-red); }
+.pipe-card__foot .btn, .pipe-card__eta { white-space: nowrap; }
+.pipe-card__eta { display: inline-flex; align-items: center; gap: 4px; font-size: 0.76rem; font-weight: 600; color: var(--c-cyan); }
+.pipe-card__eta .material-symbols-outlined { font-size: 16px; }
+.pipe-card__eta--late { color: var(--c-red); }
+.eta-days { display: flex; align-items: center; gap: 8px; }
+.eta-days input { max-width: 110px; }
+
+/* ── Chassis numbers ──
+   Entered for several vehicles at once (bulk form, stage form); a warning
+   where some are still missing. */
+.chassis-list { display: grid; gap: 8px; }
+.chassis-row { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 12px; align-items: center; }
+.chassis-row__who { display: flex; flex-direction: column; gap: 2px; font-size: 0.82rem; font-weight: 600; }
+.chassis-row__who span { color: var(--md-on-surface-variant); font-weight: 400; }
+.chassis-row input {
+    height: var(--field-h, 42px); padding: 0 12px; border-radius: var(--shape-sm);
+    border: 1px solid var(--field-border, var(--md-outline-variant)); background: var(--field-bg, var(--md-surface));
+    color: var(--md-on-surface); font: inherit; font-family: ui-monospace, Consolas, monospace; text-transform: uppercase;
+}
+.chassis-row input::placeholder { text-transform: none; font-family: inherit; }
+.chassis-row input:focus { outline: none; border-color: var(--md-primary); box-shadow: 0 0 0 3px var(--field-ring, transparent); }
+.chassis-gate { display: grid; gap: 10px; }
+.chassis-gate[hidden] { display: none; }
+.chassis-missing { display: inline-flex; align-items: center; gap: 4px; color: var(--c-amber); font-weight: 600; }
+.chassis-missing .material-symbols-outlined { font-size: 16px; }
+.chassis-missing--card { font-size: 0.74rem; text-decoration: none; margin-top: -2px; }
+a.chassis-missing--card:hover { text-decoration: underline; }
+@media (max-width: 600px) { .chassis-row { grid-template-columns: 1fr; gap: 4px; } }

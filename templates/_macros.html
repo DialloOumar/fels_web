@@ -101,9 +101,21 @@
 <span class="badge badge--pay-{{ status }}">{{ t['pay.' + status] }}</span>
 {%- endmacro %}
 
+{# How far the estimated arrival is: in 12 days, today, 3 days late. #}
+{% macro eta_note(p, cls='timeline__eta') -%}
+{% set n = p.eta_days(today) %}{% if n is not none -%}
+<span class="{{ cls }}{% if n < 0 %} {{ cls }}--late{% endif %}">{% if n > 0 %}{{ t['purchase.eta_in'] % {'n': n} }}{% elif n == 0 %}{{ t['purchase.eta_today'] }}{% else %}{{ t['purchase.eta_late'] % {'n': -n} }}{% endif %}</span>
+{%- endif %}
+{%- endmacro %}
+
 {# A vehicle: available, reserved or delivered. #}
 {% macro unit_badge(status) -%}
 <span class="badge badge--unit-{{ status }}">{{ t['unit.status.' + status] }}</span>
+{%- endmacro %}
+
+{# A vehicle's reference, opening its page for whoever may see the stock. #}
+{% macro unit_link(u) -%}
+{% if can('stock') %}<a href="{{ url_for('stock.detail', uid=u.id) }}" class="unit-ref-link" title="{{ t['unit.open'] }}"><code class="unit-ref">{{ u.ref }}</code></a>{% else %}<code class="unit-ref">{{ u.ref }}</code>{% endif %}
 {%- endmacro %}
 
 {# A sale's life: pre-order, confirmed, delivered, cancelled. #}

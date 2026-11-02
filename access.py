@@ -79,12 +79,13 @@ RULES = {
     "purchases.cost_delete": ("purchases", M),
     "purchases.document_file": ("purchases", V),
     "purchases.document_new": ("purchases", M), "purchases.document_delete": ("purchases", M),
+    "purchases.chassis": ("stock", M),
     # money
     "payments.purchase_payment": ("supplier_pay", Y), "payments.cost_payment": ("supplier_pay", Y),
     "payments.void": ("void", Y),
     "payments.index": ("payments", V),
     # stock
-    "stock.index": ("stock", V), "stock.edit": ("stock", M),
+    "stock.index": ("stock", V), "stock.detail": ("stock", V), "stock.edit": ("stock", M),
     # sales and receipts
     "sales.index": ("sales", V), "sales.detail": ("sales", V), "sales.receipt_print": ("sales", V),
     "sales.new": ("sales", M), "sales.edit": ("sales", M), "sales.confirm": ("sales", M),

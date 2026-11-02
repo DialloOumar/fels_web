@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_filters.html" import filter_bar, filter_select with context %}
 {% from "_pager.html" import pager with context %}
-{% from "_macros.html" import money_pair, stage_badge, pay_badge, export_button with context %}
+{% from "_macros.html" import money_pair, stage_badge, pay_badge, eta_note, export_button with context %}
 
 {% block title %}{{ t['nav.purchases'] }}{% endblock %}
 {% block page_title %}{{ t['nav.purchases'] }}{% endblock %}
@@ -49,7 +49,7 @@
                 <td>{{ p.supplier.name }}</td>
                 <td class="col-secondary">{{ p.invoice_date|fdate }}</td>
                 <td class="col-secondary">{{ p.port.name if p.port else '—' }}</td>
-                <td>{{ stage_badge(p.stage) }}</td>
+                <td>{{ stage_badge(p.stage) }}{% if p.stage == 'eta' and p.eta_date %}<div class="small">{{ p.eta_date|fdate }} · {{ eta_note(p) }}</div>{% endif %}</td>
                 <td class="num">{{ p.unit_count }}</td>
                 <td class="num">{{ money_pair(p.goods_total, p.currency) }}</td>
                 <td class="num">{{ pay_badge(p.pay_status) }}{% if p.balance > 0 %}<span class="money-alt">{{ p.balance|money(p.currency) }}</span>{% endif %}</td>

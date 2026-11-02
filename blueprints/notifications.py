@@ -7,11 +7,12 @@ can never go stale or need dismissing. (zone_web's bell keeps a table for
 "things that happened to you"; that waits for the day there are several
 users.)
 
-The six alerts, most useful first:
+The seven alerts, most useful first:
 
   fill        a vehicle of a model a customer is waiting for has reached the
               yard, while their sale still has no vehicle on that line
   stuck       a purchase at the same stage (port, customs...) for too long
+  eta         a purchase still not at the port after its estimated arrival
   rate        the USD -> GNF rate is missing or has not been re-entered lately
   cost_rate   a cost in the other currency with no rate: no landed cost
   delivered   a delivered sale with money still to come in
@@ -33,6 +34,7 @@ notifications_bp = Blueprint("notifications", __name__)
 KINDS = OrderedDict([
     ("fill",      {"icon": "sell",              "level": "action"}),
     ("stuck",     {"icon": "schedule",          "level": "warn"}),
+    ("eta",       {"icon": "directions_boat",   "level": "warn"}),
     ("rate",      {"icon": "currency_exchange", "level": "warn"}),
     ("cost_rate", {"icon": "assured_workload",  "level": "warn"}),
     ("delivered", {"icon": "payments",          "level": "info"}),
@@ -82,6 +84,12 @@ def alerts(today=None):
     for p in purchases:
         if p.stage == "in_stock":
             continue
+        if p.stage == "eta":
+            # On the sea the estimate is the measure, not the days in stage.
+            if p.eta_date and p.eta_date < today:
+                add("eta", url_for("purchases.detail", pid=p.id), "eta-%d" % p.id,
+                    number=p.invoice_number, date=p.eta_date.strftime("%d/%m/%Y"), days=(today - p.eta_date).days)
+            continue
         d = p.stage_date(p.stage)
         if d and (today - d).days > stuck_days:
             add("stuck", url_for("purchases.detail", pid=p.id), "stuck-%d" % p.id,
@@ -113,7 +121,8 @@ def alerts(today=None):
                 number=p.invoice_number, supplier=p.supplier.name, amount=(p.balance, p.currency))
     # Each alert to whoever may act on it.
     from access import can
-    allowed = {"fill": can("sales", "manage"), "stuck": can("purchases"), "rate": can("settings", "yes"),
+    allowed = {"fill": can("sales", "manage"), "stuck": can("purchases"), "eta": can("purchases"),
+               "rate": can("settings", "yes"),
                "cost_rate": can("purchases"), "delivered": can("sales"), "cleared": can("purchases")}
     return [a for a in out if allowed.get(a["kind"])]
 

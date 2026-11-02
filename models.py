@@ -271,10 +271,13 @@ class Supplier(db.Model):
 
 # The road a purchase travels, in order. Each stage has the date it was
 # reached, so the time spent at the port or in customs can be read off.
-PURCHASE_STAGES = ("ordered", "shipped", "at_port", "customs", "cleared", "in_stock")
+# "eta" is reached when the supplier gives the estimated arrival at the port,
+# some time after shipping; the estimate itself is Purchase.eta_date.
+PURCHASE_STAGES = ("ordered", "shipped", "eta", "at_port", "customs", "cleared", "in_stock")
 STAGE_DATE_FIELD = {
     "ordered":  "ordered_on",
     "shipped":  "shipped_on",
+    "eta":      "eta_on",
     "at_port":  "at_port_on",
     "customs":  "customs_on",
     "cleared":  "cleared_on",
@@ -302,6 +305,8 @@ class Purchase(db.Model):
     stage          = db.Column(db.String(12), nullable=False, default="ordered", index=True)
     ordered_on     = db.Column(db.Date)
     shipped_on     = db.Column(db.Date)
+    eta_on         = db.Column(db.Date)                       # when the estimate was given
+    eta_date       = db.Column(db.Date)                       # the estimated arrival at the port
     at_port_on     = db.Column(db.Date)
     customs_on     = db.Column(db.Date)
     cleared_on     = db.Column(db.Date)
@@ -382,6 +387,19 @@ class Purchase(db.Model):
 
     def stage_date(self, stage):
         return getattr(self, STAGE_DATE_FIELD[stage])
+
+    def eta_days(self, today):
+        """Days until the estimated arrival (negative once it has passed);
+        None without an estimate."""
+        return (self.eta_date - today).days if self.eta_date else None
+
+    @property
+    def eta_gap(self):
+        """Once at the port: how many days after the estimate it arrived
+        (negative: early). What says whether a supplier's estimates hold."""
+        if self.eta_date and self.at_port_on:
+            return (self.at_port_on - self.eta_date).days
+        return None
 
 
 class PurchaseLine(db.Model):

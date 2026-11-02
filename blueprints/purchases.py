@@ -24,6 +24,7 @@ from exports import wants_xlsx, xlsx_response
 
 import documents_store
 from analytics import model_stats
+from blueprints.stock import CHASSIS_GATE, chassis_required, clean_chassis, save_chassis
 from app import (ListPage, current_rate, form_response, fr, get_t,
                  is_modal_request, log_action, modal_ok, money_text, paginate,
                  parse_date, parse_money, parse_rate, rate_field_value)
@@ -106,11 +107,11 @@ def index():
 def _export(rows):
     t = get_t()
     headers = [t["purchase.invoice_number"], t["purchase.supplier"], t["purchase.invoice_date"], t["purchase.port"],
-               t["purchase.stage"], t["purchase.vehicles"], t["purchase.currency"], t["purchase.goods_total"],
+               t["purchase.stage"], t["purchase.eta_date"], t["purchase.vehicles"], t["purchase.currency"], t["purchase.goods_total"],
                t["purchase.costs_total"], t["purchase.paid_supplier"], t["purchase.balance"], t["purchase.payment"],
                t["field.note"]]
     data = [[p.invoice_number, p.supplier.name, p.invoice_date, p.port.name if p.port else None,
-             t["stage." + p.stage], p.unit_count, p.currency, p.goods_total, p.costs_total(),
+             t["stage." + p.stage], p.eta_date, p.unit_count, p.currency, p.goods_total, p.costs_total(),
              p.paid_amount, p.balance, t["pay." + p.pay_status], p.note] for p in rows]
     return xlsx_response("achats", t["nav.purchases"], headers, data)
 
@@ -130,9 +131,10 @@ def pipeline():
     for p in moving:
         columns[p.stage].append(p)
     in_stock = Purchase.query.filter_by(stage="in_stock").count()
-    return render_template("pipeline.html", columns=columns, in_stock=in_stock,
+    no_chassis = {p.id: sum(1 for u in _units(p) if not u.chassis_number) for p in moving}
+    return render_template("pipeline.html", columns=columns, in_stock=in_stock, no_chassis=no_chassis,
                            today=date.today(), days_in_stage=days_in_stage,
-                           next_stage=next_stage)
+                           next_stage=next_stage, stage_count=len(columns))
 
 
 # ── Create / edit ────────────────────────────────────────────────────────────
@@ -389,17 +391,30 @@ def stage(pid):
     if request.method == "POST":
         target = request.form.get("stage")
         when = parse_date(request.form.get("date"))
+        eta = None
         if target not in PURCHASE_STAGES:
             error = t["purchase.error.stage"]
         elif when is None:
             error = t["form.error.date"]
-        else:
+        elif target == "eta":
+            eta, error = _parse_eta(when, t)
+        missing = _chassis_missing(purchase, target) if error is None else []
+        numbers = {}
+        if missing:
+            numbers, error = clean_chassis([(u, request.form.get("chassis_%d" % u.id)) for u in missing], t, required=True)
+        if error is None:
+            save_chassis(numbers)
             idx = PURCHASE_STAGES.index(target)
             setattr(purchase, STAGE_DATE_FIELD[target], when)
             for later in PURCHASE_STAGES[idx + 1:]:
                 setattr(purchase, STAGE_DATE_FIELD[later], None)
-            log_action("STAGE", "purchase", purchase.id, "%s · %s → %s · %s" % (
-                purchase.invoice_number, fr("stage." + purchase.stage), fr("stage." + target), when.strftime("%d/%m/%Y")))
+            if target == "eta":
+                purchase.eta_date = eta
+            elif idx < PURCHASE_STAGES.index("eta"):
+                purchase.eta_date = None        # back before the estimate: it goes with it
+            log_action("STAGE", "purchase", purchase.id, "%s · %s → %s · %s%s" % (
+                purchase.invoice_number, fr("stage." + purchase.stage), fr("stage." + target), when.strftime("%d/%m/%Y"),
+                " · ETA %s" % eta.strftime("%d/%m/%Y") if eta else ""))
             purchase.stage = target
             db.session.commit()
             flash("success|" + t["purchase.stage_saved"] % {"stage": t["stage." + target]})
@@ -414,7 +429,63 @@ def stage(pid):
     return form_response("stage_form.html", "_stage_form.html", row=purchase, error=error,
                          stages=PURCHASE_STAGES, proposed=proposed,
                          proposed_date=(current_date or date.today()).isoformat(),
+                         eta_date=purchase.eta_date.isoformat() if purchase.eta_date else "",
+                         missing=[u for u in _units(purchase) if not u.chassis_number],
+                         gate_from=max(PURCHASE_STAGES.index(purchase.stage), PURCHASE_STAGES.index(CHASSIS_GATE)),
                          back=request.args.get("back") or "")
+
+
+def _units(purchase):
+    return [u for l in purchase.lines for u in l.units]
+
+
+def _chassis_missing(purchase, target):
+    """The vehicles that need their chassis number before the purchase may
+    move forward to `target`. A correction -- the same stage or an earlier
+    one -- is never held up."""
+    idx = PURCHASE_STAGES.index(target)
+    if idx <= PURCHASE_STAGES.index(purchase.stage) or idx <= PURCHASE_STAGES.index(CHASSIS_GATE):
+        return []
+    return [u for u in _units(purchase) if not u.chassis_number]
+
+
+@purchases_bp.route("/<int:pid>/chassis", methods=["GET", "POST"])
+@login_required
+def chassis(pid):
+    """Every vehicle's chassis number in one form, copied off the bill of
+    lading as soon as it comes."""
+    purchase = _get_or_404(pid)
+    t = get_t()
+    units = _units(purchase)
+    error = None
+    if request.method == "POST":
+        numbers, error = clean_chassis([(u, request.form.get("chassis_%d" % u.id)) for u in units], t,
+                                       required=chassis_required(purchase.stage))
+        if error is None:
+            save_chassis(numbers)
+            db.session.commit()
+            flash("success|" + t["unit.chassis_saved"])
+            return modal_ok() if is_modal_request() else redirect(url_for("purchases.detail", pid=pid, tab="vehicles"))
+    return form_response("chassis_form.html", "_chassis_form.html", row=purchase, units=units, error=error,
+                         required=chassis_required(purchase.stage))
+
+
+def _parse_eta(given_on, t):
+    """The estimated arrival, as a date or as a number of days from the day
+    it was given ("arrives in 40 days"). (date, None) or (None, error)."""
+    from datetime import timedelta
+    f = request.form
+    days = (f.get("eta_in_days") or "").strip()
+    eta = parse_date(f.get("eta_date"))
+    if eta is None and days:
+        if not days.isdigit() or not 0 < int(days) <= 365:
+            return None, t["purchase.error.eta_days"]
+        eta = given_on + timedelta(days=int(days))
+    if eta is None:
+        return None, t["purchase.error.eta"]
+    if eta < given_on:
+        return None, t["purchase.error.eta_before"]
+    return eta, None
 
 
 # ── Extra costs ──────────────────────────────────────────────────────────────

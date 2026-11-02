@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge, sale_badge, eta_note, detail_tabs, tab_hidden with context %}
+
+{% block title %}{{ row.ref }}{% endblock %}
+{% block page_title %}{{ t['unit.title_short'] }} {{ row.ref }}{% endblock %}
+
+{% block content %}
+{% set cur = purchase.currency %}
+{% set back = request.path %}
+
+{# ── Header: which vehicle, where it stands, and the actions ── #}
+<section class="card">
+    <div class="card-header">
+        <div class="header-title">
+            <a href="{{ url_for('stock.index') }}" class="btn btn--sm btn--tonal btn--icon" data-back title="{{ t['btn.back'] }}" aria-label="{{ t['btn.back'] }}">
+                <span class="material-symbols-outlined">arrow_back</span></a>
+            <h2>{{ row.product.name }}</h2>
+            <code class="unit-ref">{{ row.ref }}</code>
+            {{ unit_badge(row.status) }}
+            {% if row.status != 'delivered' %}{{ stage_badge(purchase.stage) }}{% endif %}
+        </div>
+        <div class="header-actions">
+            {% if row.status == 'available' and can('sales', 'manage') %}<a href="{{ url_for('sales.new', unit=row.id) }}" class="btn btn--primary">
+                <span class="material-symbols-outlined">sell</span> {{ t['unit.sell'] }}</a>{% endif %}
+            {% if can('stock', 'manage') %}<a href="{{ url_for('stock.edit', uid=row.id, back=back) }}" class="btn btn--tonal"
+               data-modal-url="{{ url_for('stock.edit', uid=row.id, back=back) }}" data-modal-title="{{ t['unit.edit'] }}">
+                <span class="material-symbols-outlined">edit</span> {{ t['btn.edit'] }}</a>{% endif %}
+        </div>
+    </div>
+    <dl class="detail-grid">
+        <div><dt>{{ t['unit.chassis'] }}</dt><dd>{% if row.chassis_number %}<code>{{ row.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}</dd></div>
+        <div><dt>{{ t['unit.purchase'] }}</dt><dd>{% if can('purchases') %}<a href="{{ url_for('purchases.detail', pid=purchase.id) }}">{{ purchase.invoice_number }}</a>{% else %}{{ purchase.invoice_number }}{% endif %} <span class="muted small">{{ purchase.invoice_date|fdate }}</span></dd></div>
+        <div><dt>{{ t['purchase.supplier'] }}</dt><dd>{% if can('suppliers') %}<a href="{{ url_for('suppliers.detail', sid=purchase.supplier_id) }}">{{ purchase.supplier.name }}</a>{% else %}{{ purchase.supplier.name }}{% endif %}</dd></div>
+        <div><dt>{{ t['sale.customer'] }}</dt><dd>{% if sale %}{% if can('customers') %}<a href="{{ url_for('customers.detail', cid=sale.customer_id) }}">{{ sale.customer.name }}</a>{% else %}{{ sale.customer.name }}{% endif %}{% else %}—{% endif %}</dd></div>
+    </dl>
+    {% if row.note %}<p class="muted" style="margin-top:14px; white-space:pre-line;">{{ row.note }}</p>{% endif %}
+</section>
+
+{# ── The road, from the order to the customer: the purchase's stages, then
+   the sale and the delivery. A step is reached once its date is known. ── #}
+{% set steps = [] %}
+{% set p_idx = stages.index(purchase.stage) %}
+{% for s in stages %}{% set _ = steps.append((t['stage.' + s], purchase.eta_date if s == 'eta' and purchase.eta_date else purchase.stage_date(s), loop.index0 <= p_idx)) %}{% endfor %}
+{% set _ = steps.append((t['unit.step.sold'], sale.sale_date if sale else none, sale is not none)) %}
+{% set _ = steps.append((t['unit.status.delivered'], sale.delivered_on if sale else none, sale is not none and sale.status == 'delivered')) %}
+{% set last = namespace(i=0) %}
+{% for label, d, reached in steps %}{% if reached %}{% set last.i = loop.index0 %}{% endif %}{% endfor %}
+<section class="card">
+    <div class="card-header"><h2>{{ t['purchase.pipeline'] }}</h2></div>
+    <ol class="timeline" style="--steps: {{ steps|length }}">
+        {% for label, d, reached in steps %}
+        {% set done = reached and (loop.index0 < last.i or loop.last) %}
+        <li class="timeline__step {% if done %}is-done{% elif reached %}is-current{% endif %}">
+            <span class="timeline__dot">{% if done %}<span class="material-symbols-outlined">check</span>{% else %}{{ loop.index }}{% endif %}</span>
+            <span class="timeline__label">{{ label }}</span>
+            <span class="timeline__date">{{ d|fdate if d else '' }}</span>
+            {% if loop.index0 == stages.index('eta') and purchase.stage == 'eta' %}{{ eta_note(purchase) }}{% endif %}
+        </li>
+        {% endfor %}
+    </ol>
+</section>
+
+{# ── The figures: what it cost, what it sold for, what is left ── #}
+<div class="stat-grid">
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--blue material-symbols-outlined">request_quote</span>
+        <div><div class="stat-value">{{ line.unit_price|money(cur) }}</div><div class="stat-label">{{ t['unit.buy_price'] }}</div></div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--amber material-symbols-outlined">assured_workload</span>
+        <div><div class="stat-value">{{ landed|money(cur) if landed is not none else '—' }}</div>
+             <div class="stat-label">{{ t['purchase.landed_unit'] }}{% if landed is none %} · {{ t['cost.missing_rate'] }}{% endif %}</div></div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon stat-icon--teal material-symbols-outlined">sell</span>
+        <div><div class="stat-value">{{ active.price|money(sale.currency) if active else '—' }}</div>
+             <div class="stat-label">{{ t['unit.sale_price'] }}</div></div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon {{ 'stat-icon--green' if margin and margin[0] >= 0 else ('stat-icon--red' if margin else 'stat-icon--amber') }} material-symbols-outlined">trending_up</span>
+        <div><div class="stat-value">{{ margin[0]|money(sale.currency) if margin else '—' }}</div>
+             <div class="stat-label">{{ t['sale.margin'] }}{% if active and not margin %} · {{ t['sale.margin_incomplete'] }}{% endif %}</div></div>
+    </div>
+</div>
+
+{# ── The rest, one tab each ── #}
+{% set receipts = sale.payments if sale else [] %}
+{% set tabs = [
+    ('purchase', 'store', t['unit.purchase'], none),
+    ('costs', 'assured_workload', t['purchase.costs'], cost_parts|length),
+    ('sale', 'handshake', t['sale.title_short'], 1 if sale else 0),
+    ('receipts', 'receipt_long', t['sale.receipts'], receipts|rejectattr('is_voided')|list|length),
+    ('documents', 'description', t['doc.title_section'], purchase.documents|length),
+    ('history', 'history', t['unit.history'], none),
+] %}
+{% set tab = request.args.get('tab') if request.args.get('tab') in tabs|map(attribute=0)|list else 'purchase' %}
+<section class="card card--tabs" data-tab-scope>
+    {{ detail_tabs(tabs, tab, t['unit.title_short'] ~ ' ' ~ row.ref) }}
+
+{# ── The purchase it came on, and how its cost is made ── #}
+<div class="tab-panel" data-tab-panel="purchase" role="tabpanel" {{ tab_hidden('purchase', tab) }}>
+    <div class="tab-bar">
+        <p class="muted small tab-bar__filters"></p>
+        {% if can('purchases') %}<div class="tab-bar__actions">
+            <a href="{{ url_for('purchases.detail', pid=purchase.id) }}" class="btn btn--sm btn--outlined">{{ t['unit.open_purchase'] }} <span class="material-symbols-outlined">chevron_right</span></a>
+        </div>{% endif %}
+    </div>
+    <dl class="detail-grid">
+        {{ detail(t['purchase.invoice_number'], purchase.invoice_number) }}
+        {{ detail(t['purchase.invoice_date'], purchase.invoice_date|fdate) }}
+        {{ detail(t['purchase.port'], purchase.port.name if purchase.port else none) }}
+        {{ detail(t['purchase.currency'], cur) }}
+    </dl>
+    {% if line.description %}<p class="muted small" style="margin:12px 0 0;">{{ line.description }}</p>{% endif %}
+    <div class="table-wrap" style="margin-top:14px;"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['purchase.line_product'] }}</th>
+            <th class="num">{{ t['purchase.unit_price'] }}</th>
+            <th class="num">{{ t['purchase.cost_share'] }}</th>
+            <th class="num">{{ t['purchase.landed_unit'] }}</th>
+        </tr></thead>
+        <tbody><tr>
+            <td><strong>{{ row.product.name }}</strong>
+                <div class="muted small">{{ t['unit.line_of'] % {'n': line.quantity} }}</div></td>
+            <td class="num">{{ money_pair(line.unit_price, cur) }}</td>
+            <td class="num">{{ share|money(cur) if share is not none else '—' }}</td>
+            <td class="num"><strong>{{ money_pair(landed, cur) if landed is not none else '—' }}</strong></td>
+        </tr></tbody>
+    </table></div>
+</div>
+
+{# ── The purchase's extra costs, and the part this vehicle carries ── #}
+<div class="tab-panel" data-tab-panel="costs" role="tabpanel" {{ tab_hidden('costs', tab) }}>
+    <div class="tab-bar"><p class="muted small tab-bar__filters">{{ t['purchase.split_hint'] }}</p></div>
+    {% if cost_parts %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['cost.kind'] }}</th>
+            <th class="col-secondary">{{ t['cost.payee'] }}</th>
+            <th class="col-secondary">{{ t['cost.incurred_on'] }}</th>
+            <th class="num">{{ t['cost.amount'] }}</th>
+            <th class="num">{{ t['unit.cost_part'] }}</th>
+        </tr></thead>
+        <tbody>
+        {% for c, part in cost_parts %}
+        <tr>
+            <td><strong>{{ t['cost.kind.' + c.kind] }}</strong>{% if c.description %}<div class="muted small">{{ c.description }}</div>{% endif %}</td>
+            <td class="col-secondary">{{ c.payee or '—' }}</td>
+            <td class="col-secondary">{{ c.incurred_on|fdate }}</td>
+            <td class="num">{{ money_pair(c.amount, c.currency, c.rate) }}</td>
+            <td class="num">{{ part|money(cur) if part is not none else '—' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot><tr>
+            <td colspan="4" class="num"><strong>{{ t['purchase.cost_share'] }}</strong></td>
+            <td class="num"><strong>{{ share|money(cur) if share is not none else '—' }}</strong></td>
+        </tr></tfoot>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['cost.empty'] }}</p></div>
+    {% endif %}
+</div>
+
+{# ── The sale that names it ── #}
+<div class="tab-panel" data-tab-panel="sale" role="tabpanel" {{ tab_hidden('sale', tab) }}>
+    {% if sale %}
+    <div class="tab-bar">
+        <p class="muted small tab-bar__filters"></p>
+        {% if can('sales') %}<div class="tab-bar__actions">
+            <a href="{{ url_for('sales.detail', sid=sale.id) }}" class="btn btn--sm btn--outlined">{{ t['unit.open_sale'] }} <span class="material-symbols-outlined">chevron_right</span></a>
+        </div>{% endif %}
+    </div>
+    <dl class="detail-grid">
+        {{ detail(t['sale.number'], sale.number) }}
+        {{ detail(t['sale.date'], sale.sale_date|fdate) }}
+        <div><dt>{{ t['sale.status'] }}</dt><dd>{{ sale_badge(sale.status) }} {{ pay_badge(sale.pay_status) }}</dd></div>
+        {{ detail(t['sale.delivered_on'], sale.delivered_on|fdate if sale.delivered_on else none) }}
+        {{ detail(t['sale.price'], active.price|money(sale.currency)) }}
+        {{ detail(t['purchase.landed_unit'], margin[1]|money(sale.currency) if margin else none) }}
+        {{ detail(t['sale.margin'], margin[0]|money(sale.currency) if margin else none) }}
+        <div><dt>{{ t['invoice.section'] }}</dt><dd>{% if sale.invoice %}<a href="{{ url_for('sales.invoice_print', iid=sale.invoice.id) }}" target="_blank" rel="noopener">{{ sale.invoice.number }}</a>{% else %}—{% endif %}</dd></div>
+    </dl>
+    {% if sale.lines|length > 1 %}<p class="muted small" style="margin:12px 0 0;">{{ t['unit.sale_has_more'] % {'n': sale.lines|length} }}</p>{% endif %}
+    {% else %}
+    <div class="empty-state empty-state--plain">
+        <p>{{ t['unit.not_sold'] }}</p>
+        {% if can('sales', 'manage') %}<a href="{{ url_for('sales.new', unit=row.id) }}" class="btn btn--primary"><span class="material-symbols-outlined">sell</span> {{ t['unit.sell'] }}</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{# ── Money received on that sale ── #}
+<div class="tab-panel" data-tab-panel="receipts" role="tabpanel" {{ tab_hidden('receipts', tab) }}>
+    {% if receipts %}
+    {% set scur = sale.currency %}
+    <div class="tab-bar"><p class="muted small tab-bar__filters">{% if sale.lines|length > 1 %}{{ t['unit.receipts_whole_sale'] % {'number': sale.number, 'n': sale.lines|length} }}{% endif %}</p></div>
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['receipt.number'] }}</th>
+            <th>{{ t['payment.paid_on'] }}</th>
+            <th class="col-secondary">{{ t['payment.method'] }}</th>
+            <th class="num">{{ t['payment.amount'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for p in receipts %}
+        <tr class="{% if p.is_voided %}row-voided{% endif %}">
+            <td><strong>{{ p.receipt_number }}</strong>
+                {% if p.is_voided %}<div class="small voided-note">{{ t['payment.voided_on'] }} {{ p.voided_at|fdate }} · {{ p.void_reason }}</div>{% elif p.note %}<div class="muted small">{{ p.note }}</div>{% endif %}</td>
+            <td>{{ p.paid_on|fdate }}</td>
+            <td class="col-secondary">{{ t['method.' + p.method] }}</td>
+            <td class="num">{{ money_pair(p.amount, p.currency, p.rate) }}</td>
+            <td class="row-actions">
+                <a href="{{ url_for('sales.receipt_print', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon" target="_blank" rel="noopener"
+                   title="{{ t['receipt.print'] }}" aria-label="{{ t['receipt.print'] }}"><span class="material-symbols-outlined">print</span></a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr><td colspan="3" class="num">{{ t['sale.received'] }}</td><td class="num"><strong>{{ sale.paid_amount|money(scur) }}</strong></td><td></td></tr>
+            <tr><td colspan="3" class="num">{{ t['sale.balance'] }}</td><td class="num"><strong>{{ sale.balance|money(scur) }}</strong></td><td></td></tr>
+        </tfoot>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['receipt.empty'] if sale else t['unit.not_sold'] }}</p></div>
+    {% endif %}
+</div>
+
+{# ── The purchase's papers, which cover this vehicle ── #}
+<div class="tab-panel" data-tab-panel="documents" role="tabpanel" {{ tab_hidden('documents', tab) }}>
+    <div class="tab-bar">
+        <p class="muted small tab-bar__filters">{{ t['unit.docs_hint'] % {'number': purchase.invoice_number} }}</p>
+        {% if can('purchases', 'manage') %}<div class="tab-bar__actions">
+            <a href="{{ url_for('purchases.document_new', pid=purchase.id) }}" class="fab"
+               data-modal-url="{{ url_for('purchases.document_new', pid=purchase.id) }}" data-modal-title="{{ t['doc.new'] }} · {{ purchase.invoice_number }}">
+                <span class="material-symbols-outlined">add</span> {{ t['doc.new'] }}</a>
+        </div>{% endif %}
+    </div>
+    {% if purchase.documents %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['doc.kind'] }}</th>
+            <th>{{ t['doc.number'] }}</th>
+            <th class="col-secondary">{{ t['doc.date'] }}</th>
+            <th>{{ t['doc.file'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for d in purchase.documents %}
+        <tr>
+            <td><strong>{{ d.title if d.kind == 'other' else t['doc.kind.' + d.kind] }}</strong>
+                {% if d.title and d.kind != 'other' %}<div class="muted small">{{ d.title }}</div>{% endif %}</td>
+            <td>{{ d.number or '—' }}</td>
+            <td class="col-secondary">{{ d.doc_date|fdate if d.doc_date else '—' }}</td>
+            <td><a href="{{ url_for('purchases.document_file', did=d.id) }}" target="_blank" rel="noopener" class="doc-file">
+                    <span class="material-symbols-outlined">{{ 'picture_as_pdf' if d.content_type == 'application/pdf' else ('photo_camera' if d.content_type.startswith('image/') else 'description') }}</span>
+                    {{ d.filename }}</a>
+                <div class="muted small">{{ d.size|filesize }} · {{ d.created_at|fdate }}</div></td>
+            <td class="row-actions">
+                <a href="{{ url_for('purchases.document_file', did=d.id, download=1) }}" class="btn btn--sm btn--tonal btn--icon"
+                   title="{{ t['doc.download'] }}" aria-label="{{ t['doc.download'] }}"><span class="material-symbols-outlined">download</span></a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['doc.empty'] }}</p></div>
+    {% endif %}
+</div>
+
+{# ── Every sale it was on, cancelled ones too; and, for the admin, the
+   journal of what touched it ── #}
+<div class="tab-panel" data-tab-panel="history" role="tabpanel" {{ tab_hidden('history', tab) }}>
+    <div class="tab-bar"><p class="muted small tab-bar__filters">{{ t['unit.sales_on'] }}</p></div>
+    {% if sale_lines %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['sale.number'] }}</th>
+            <th>{{ t['sale.customer'] }}</th>
+            <th class="col-secondary">{{ t['sale.date'] }}</th>
+            <th>{{ t['sale.status'] }}</th>
+            <th class="num">{{ t['sale.price'] }}</th>
+        </tr></thead>
+        <tbody>
+        {% for sl in sale_lines %}
+        <tr class="{% if sl.sale.status == 'cancelled' %}row-voided{% endif %}">
+            <td>{% if can('sales') %}<a href="{{ url_for('sales.detail', sid=sl.sale_id) }}">{{ sl.sale.number }}</a>{% else %}{{ sl.sale.number }}{% endif %}</td>
+            <td>{{ sl.sale.customer.name }}</td>
+            <td class="col-secondary">{{ sl.sale.sale_date|fdate }}</td>
+            <td>{{ sale_badge(sl.sale.status) }}</td>
+            <td class="num">{{ money_pair(sl.price, sl.sale.currency) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty-state empty-state--plain"><p>{{ t['unit.not_sold'] }}</p></div>
+    {% endif %}
+
+    {% if history %}
+    <h3 class="panel-subtitle">{{ t['unit.journal'] }}</h3>
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['audit.when'] }}</th>
+            <th>{{ t['audit.user'] }}</th>
+            <th>{{ t['audit.action'] }}</th>
+            <th>{{ t['audit.resource'] }}</th>
+            <th>{{ t['audit.detail'] }}</th>
+        </tr></thead>
+        <tbody>
+        {% for log in history %}
+        <tr>
+            <td class="nowrap muted small">{{ log.timestamp.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td>{{ log.username }}</td>
+            <td><span class="audit-action audit-action--{{ log.action|lower }}">{{ t['audit.action.' + log.action] }}</span></td>
+            <td class="nowrap">{{ t['audit.resource.' + log.resource_type] }}</td>
+            <td class="audit-detail">{{ log.detail or '—' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% endif %}
+</div>
+</section>
+{% endblock %}

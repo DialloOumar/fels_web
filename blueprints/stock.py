@@ -4,12 +4,13 @@ A vehicle is born from a purchase line. Where it is on the road comes from
 its purchase's stage; whether it is free, reserved or delivered comes from
 the sales naming it. Both are read, never stored."""
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
-from flask_login import login_required
+from flask_login import current_user, login_required
 
 from exports import wants_xlsx, xlsx_response
 
-from app import ListPage, form_response, get_t, is_modal_request, log_action, modal_ok
-from models import Port, Product, Purchase, PurchaseLine, Supplier, Unit, db
+from app import ListPage, current_rate, form_response, get_t, is_modal_request, log_action, modal_ok
+from models import (PURCHASE_STAGES, AuditLog, Port, Product, Purchase, PurchaseLine, Supplier, Unit,
+                    CENT, ZERO, convert, db)
 
 stock_bp = Blueprint("stock", __name__, url_prefix="/stock")
 
@@ -82,6 +83,38 @@ def index():
         landed=_landed_costs(pagination.items), tab_counts=tab_counts())
 
 
+def clean_chassis(entries, t, required=False):
+    """Read chassis numbers typed for several vehicles at once.
+
+    `entries` is [(unit, typed)]. Returns ({unit: number or None}, error):
+    upper-cased, never twice in the form, never a number another vehicle
+    already carries. With `required`, none may be left empty."""
+    out, seen = {}, {}
+    for u, typed in entries:
+        number = (typed or "").strip().upper()[:60] or None
+        if number is None and required:
+            return {}, t["unit.error.chassis_required"] % {"ref": u.ref}
+        if number:
+            if number in seen:
+                return {}, t["unit.error.chassis_twice"] % {"number": number}
+            seen[number] = u
+            ids = [x.id for x, _ in entries]
+            clash = Unit.query.filter(db.func.upper(Unit.chassis_number) == number, Unit.id.notin_(ids)).first()
+            if clash:
+                return {}, t["unit.error.chassis_taken"] % {"number": number, "ref": clash.ref}
+        out[u] = number
+    return out, None
+
+
+def save_chassis(numbers):
+    """Write what clean_chassis returned, journalling each change."""
+    for u, number in numbers.items():
+        if (u.chassis_number or None) != number:
+            u.chassis_number = number
+            log_action("UPDATE", "unit", u.id, "%s · %s · %s" % (
+                u.product.name, number or "sans châssis", u.purchase_line.purchase.invoice_number))
+
+
 def _landed_costs(units):
     """{unit_id: (landed cost, currency) or None}, a purchase's cost split
     computed once for all its vehicles on the page."""
@@ -95,6 +128,51 @@ def _landed_costs(units):
     return out
 
 
+@stock_bp.route("/<int:uid>")
+@login_required
+def detail(uid):
+    """One vehicle, all of it: the purchase it came on and what it cost
+    landed, the road it took, the sale that names it and what was received,
+    the papers, and every sale it was ever on."""
+    unit = db.session.get(Unit, uid) or abort(404)
+    line = unit.purchase_line
+    purchase = line.purchase
+    cur = purchase.currency
+    shares = purchase.extra_cost_per_unit()
+    share = shares.get(line.id, ZERO) if shares is not None else None
+    landed = (line.unit_price + share) if share is not None else None
+    # Each extra cost's part carried by this vehicle, spread as in
+    # extra_cost_per_unit: in proportion to the price.
+    goods = purchase.goods_total
+    weight = (line.unit_price / goods) if goods > 0 else ZERO
+    cost_parts = []
+    for c in purchase.costs:
+        v = c.amount_in(cur)
+        cost_parts.append((c, None if v is None else (v * weight).quantize(CENT)))
+    # Every sale that ever named it, the one in force first.
+    sale_lines = sorted(unit.sale_lines, key=lambda sl: (sl.sale.status == "cancelled", sl.sale.sale_date, sl.id))
+    active = unit.active_sale_line
+    sale = active.sale if active else None
+    margin = None
+    if active and landed is not None:
+        landed_in_sale = convert(landed, cur, sale.currency, current_rate())
+        if landed_in_sale is not None:
+            margin = (active.price - landed_in_sale, landed_in_sale)
+    # The journal of what touched it: the vehicle, its purchase, its sales.
+    history = []
+    if current_user.is_super_admin:
+        sale_ids = [sl.sale_id for sl in unit.sale_lines]
+        conds = [db.and_(AuditLog.resource_type == "unit", AuditLog.resource_id == unit.id),
+                 db.and_(AuditLog.resource_type == "purchase", AuditLog.resource_id == purchase.id)]
+        if sale_ids:
+            conds.append(db.and_(AuditLog.resource_type == "sale", AuditLog.resource_id.in_(sale_ids)))
+        history = AuditLog.query.filter(db.or_(*conds)).order_by(AuditLog.timestamp.desc()).limit(100).all()
+    return render_template(
+        "unit_detail.html", row=unit, line=line, purchase=purchase, share=share, landed=landed,
+        cost_parts=cost_parts, sale_lines=sale_lines, active=active, sale=sale, margin=margin,
+        history=history, stages=PURCHASE_STAGES)
+
+
 @stock_bp.route("/<int:uid>/edit", methods=["GET", "POST"])
 @login_required
 def edit(uid):
@@ -103,17 +181,15 @@ def edit(uid):
     t = get_t()
     error = None
     if request.method == "POST":
-        chassis = (request.form.get("chassis_number") or "").strip().upper() or None
         note = (request.form.get("note") or "").strip()[:255] or None
-        if chassis:
-            clash = Unit.query.filter(db.func.upper(Unit.chassis_number) == chassis, Unit.id != unit.id).first()
-            if clash:
-                error = t["unit.error.chassis_exists"]
+        purchase = unit.purchase_line.purchase
+        numbers, error = clean_chassis([(unit, request.form.get("chassis_number"))], t,
+                                       required=chassis_required(purchase.stage))
         if error is None:
-            unit.chassis_number = chassis[:60] if chassis else None
+            unit.chassis_number = numbers[unit]
             unit.note = note
             log_action("UPDATE", "unit", unit.id, "%s · %s · %s" % (
-                unit.product.name, unit.chassis_number or "sans châssis", unit.purchase_line.purchase.invoice_number))
+                unit.product.name, unit.chassis_number or "sans châssis", purchase.invoice_number))
             db.session.commit()
             flash("success|" + t["unit.saved"])
             back = request.form.get("back") or url_for("stock.index")
@@ -121,4 +197,14 @@ def edit(uid):
                 back = url_for("stock.index")
             return modal_ok() if is_modal_request() else redirect(back)
     return form_response("unit_form.html", "_unit_form.html", row=unit, error=error,
+                         required=chassis_required(unit.purchase_line.purchase.stage),
                          back=request.args.get("back") or "")
+
+
+def chassis_required(stage):
+    """Past "shipped" every vehicle has its chassis number: it is on the
+    bill of lading, and customs will not clear a vehicle without it."""
+    return PURCHASE_STAGES.index(stage) > PURCHASE_STAGES.index(CHASSIS_GATE)
+
+
+CHASSIS_GATE = "shipped"

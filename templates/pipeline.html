@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import money_pair with context %}
+{% from "_macros.html" import money_pair, eta_note with context %}
 
 {% block title %}{{ t['nav.pipeline'] }}{% endblock %}
 {% block page_title %}{{ t['nav.pipeline'] }}{% endblock %}
@@ -18,7 +18,7 @@
     </div>
 </div>
 
-<div class="pipeline">
+<div class="pipeline" style="--cols: {{ stage_count }}">
     {% for stage, items in columns.items() %}
     <section class="pipeline-col pipeline-col--{{ stage }}">
         <header class="pipeline-col__head">
@@ -32,14 +32,32 @@
             <article class="pipe-card">
                 <a href="{{ url_for('purchases.detail', pid=p.id) }}" class="pipe-card__title">{{ p.invoice_number }}</a>
                 <div class="pipe-card__meta">{{ p.supplier.name }}{% if p.port %} · {{ p.port.name }}{% endif %}</div>
+                {% if no_chassis[p.id] %}
+                {% if can('stock', 'manage') %}<a href="{{ url_for('purchases.chassis', pid=p.id) }}" class="chassis-missing chassis-missing--card"
+                   data-modal-url="{{ url_for('purchases.chassis', pid=p.id) }}" data-modal-title="{{ t['unit.chassis_bulk'] }} · {{ p.invoice_number }}">{% else %}<span class="chassis-missing chassis-missing--card">{% endif %}
+                    <span class="material-symbols-outlined">warning</span> {{ t['unit.chassis_missing'] % {'n': no_chassis[p.id]} }}
+                {% if can('stock', 'manage') %}</a>{% else %}</span>{% endif %}
+                {% endif %}
                 <div class="pipe-card__lines">
                     {% for l in p.lines %}<span class="chip chip--cat-{{ l.product.category }}">{{ l.quantity }}× {{ l.product.code or l.product.name }}</span>{% endfor %}
                 </div>
+                {% if p.stage == 'eta' and p.eta_date %}
+                <div class="pipe-card__meta">{{ t['stage.eta'] }} {{ p.eta_date|fdate }}
+                    {% if can('purchases', 'manage') %}<a href="{{ url_for('purchases.stage', pid=p.id, to='eta', back=url_for('purchases.pipeline')) }}"
+                       data-modal-url="{{ url_for('purchases.stage', pid=p.id, to='eta', back=url_for('purchases.pipeline')) }}"
+                       data-modal-title="{{ t['purchase.eta_update'] }} · {{ p.invoice_number }}" title="{{ t['purchase.eta_update'] }}" aria-label="{{ t['purchase.eta_update'] }}"><span class="material-symbols-outlined" style="font-size:15px; vertical-align:-3px;">edit</span></a>{% endif %}</div>
+                {% endif %}
                 <div class="pipe-card__foot">
+                    {% if p.stage == 'eta' and p.eta_date %}
+                    <span class="pipe-card__eta {% if p.eta_days(today) < 0 %}pipe-card__eta--late{% endif %}" title="{{ t['purchase.eta_date'] }}">
+                        <span class="material-symbols-outlined">directions_boat</span> {{ eta_note(p, 'pipe-card__eta-text') }}
+                    </span>
+                    {% else %}
                     <span class="pipe-card__days {% if d is not none and d > 30 %}pipe-card__days--late{% endif %}" title="{{ t['pipeline.days_title'] }}">
                         <span class="material-symbols-outlined">schedule</span>
                         {% if d is none %}—{% else %}{{ d }} {{ t['unit.days'] }}{% endif %}
                     </span>
+                    {% endif %}
                     {% if nxt %}
                     {% if can('purchases', 'manage') %}<a href="{{ url_for('purchases.stage', pid=p.id, to=nxt, back=url_for('purchases.pipeline')) }}"
                        class="btn btn--sm btn--tonal" data-modal-url="{{ url_for('purchases.stage', pid=p.id, to=nxt, back=url_for('purchases.pipeline')) }}"

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_filters.html" import filter_select with context %}
+{% from "_macros.html" import unit_link with context %}
 
 {% block title %}{{ t['tabs.stats'] }} · {{ t['nav.dashboard'] }}{% endblock %}
 {% block page_title %}{{ t['nav.dashboard'] }}{% endblock %}
@@ -213,7 +214,7 @@
         <tbody>
         {% for d, u, value in stock.oldest %}
         <tr>
-            <td class="nowrap"><a href="{{ url_for('stock.index', q=u.ref) }}"><code class="unit-ref">{{ u.ref }}</code></a></td>
+            <td class="nowrap">{{ unit_link(u) }}</td>
             <td>{{ u.product.name }}{% if u.chassis_number %}<div class="muted small"><code>{{ u.chassis_number }}</code></div>{% endif %}</td>
             <td class="col-secondary"><a href="{{ url_for('purchases.detail', pid=u.purchase_line.purchase_id) }}">{{ u.purchase_line.purchase.invoice_number }}</a></td>
             <td class="num"><strong class="{{ 'stock-negative' if d >= 90 else '' }}">{{ days(d) }}</strong></td>

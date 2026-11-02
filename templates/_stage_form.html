@@ -19,5 +19,60 @@
             <label for="date">{{ t['purchase.stage_date'] }}</label>
         </div>
     </div>
+    <div class="form-row" data-eta-fields {% if sel != 'eta' %}hidden{% endif %}>
+        <div class="field">
+            <input type="date" id="eta_date" name="eta_date" value="{{ request.form.get('eta_date', eta_date) }}">
+            <label for="eta_date">{{ t['purchase.eta_date'] }}</label>
+            {{ hint('', t['purchase.eta_hint']) }}
+        </div>
+        <div class="field">
+            <div class="eta-days">
+                <input type="number" id="eta_in_days" name="eta_in_days" min="1" max="365" inputmode="numeric"
+                       value="{{ request.form.get('eta_in_days', '') }}">
+                <span class="muted small">{{ t['purchase.eta_days_unit'] }}</span>
+            </div>
+            <label for="eta_in_days">{{ t['purchase.eta_in_days'] }}</label>
+        </div>
+    </div>
+    {% if missing %}
+    {% set need = sel in stages and stages.index(sel) > gate_from %}
+    <section class="chassis-gate" data-chassis-gate data-from="{{ gate_from }}" {% if not need %}hidden{% endif %}>
+        <div class="alert alert--warning">{{ t['purchase.chassis_gate'] % {'n': missing|length} }}</div>
+        {% with units = missing, required = need %}{% include "_chassis_fields.html" %}{% endwith %}
+    </section>
+    {% endif %}
+    <script>
+    (function () {
+        // Past "shipped" the vehicles without a chassis number must get one
+        // here: the fields show, and are required, only for such a move.
+        var f = document.currentScript.closest("form"), s = f.querySelector("#stage"), gate = f.querySelector("[data-chassis-gate]");
+        if (!gate) return;
+        function sync() {
+            var need = s.selectedIndex > parseInt(gate.dataset.from, 10);
+            gate.hidden = !need;
+            gate.querySelectorAll("input").forEach(function (i) { i.required = need; });
+        }
+        s.addEventListener("change", sync);
+        sync();
+    })();
+    (function () {
+        // The estimate shows at the ETA stage only; "in N days" counts from
+        // the stage's date and fills the date, which is what is saved.
+        var form = document.currentScript.closest("form");
+        var stage = form.querySelector("#stage"), box = form.querySelector("[data-eta-fields]");
+        var given = form.querySelector("#date"), eta = form.querySelector("#eta_date"), days = form.querySelector("#eta_in_days");
+        function show() { box.hidden = stage.value !== "eta"; }
+        function fill() {
+            var n = parseInt(days.value, 10), d = new Date(given.value + "T00:00:00");
+            if (!n || isNaN(d)) return;
+            d.setDate(d.getDate() + n);
+            eta.value = d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+        }
+        stage.addEventListener("change", show);
+        days.addEventListener("input", fill);
+        given.addEventListener("change", fill);
+        eta.addEventListener("input", function () { days.value = ""; });
+    })();
+    </script>
     {{ form_actions(url_for('purchases.detail', pid=row.id)) }}
 </form>
