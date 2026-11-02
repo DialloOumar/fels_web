@@ -23,6 +23,8 @@ openpyxl==3.1.5
 
 # Signatures: a photographed signature turned into transparent ink
 Pillow==12.0.0
+# iPhone photos (HEIC) for the signature
+pillow-heif==1.8.1
 
 # Invoices: the amount written in words, in French, English or German
 num2words==0.5.14
