@@ -215,6 +215,9 @@ SETTINGS_SCHEMA = {
     "company_nif":      {"group": "company",  "type": "text",   "default": ""},
     "company_rccm":     {"group": "company",  "type": "text",   "default": ""},
     "receipt_footer":   {"group": "company",  "type": "textarea", "default": ""},
+    # How long after it is entered a payment (receipt or payment out) may
+    # still be corrected or deleted. 0: never -- voiding only.
+    "payment_fix_hours": {"group": "company", "type": "int",    "default": "24", "min": 0, "max": 720},
     # Invoices. Prices are what the customer pays; with VAT on, the invoice
     # shows the net, the VAT inside the price and the total (TTC). Off until
     # the client confirms he charges it.

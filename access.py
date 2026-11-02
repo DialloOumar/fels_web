@@ -42,6 +42,10 @@ OPEN = {
     "change_password", "dashboard",          # the dashboard redirects by itself
     "signature.mine", "signature.stamp_svg",
     "notifications.count", "notifications.panel", "notifications.index",
+    # Correcting or deleting a payment inside its window: the permission
+    # depends on the payment (sales for a receipt, supplier_pay for a payment
+    # out), so the view checks it itself, with payments.can_correct.
+    "payments.edit", "payments.delete",
 }
 
 # Pages only the super admin opens: people and roles, and the journals --

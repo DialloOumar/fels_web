@@ -727,8 +727,9 @@ class Payment(db.Model):
     `out`: paid to a supplier against a purchase, or against one of its extra
     costs (customs, port...). Carries the payee's own reference instead.
 
-    A payment entered by mistake is voided, never deleted: a receipt number
-    may already be on paper in someone's hands.
+    A payment entered by mistake may be corrected or deleted only within the
+    correction window of the settings; past it, it is voided, never deleted:
+    a receipt number may already be on paper in someone's hands.
     """
     __tablename__ = "payments"
     __table_args__ = (

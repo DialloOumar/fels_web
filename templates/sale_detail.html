@@ -160,6 +160,14 @@
                 <a href="{{ url_for('sales.receipt_print', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon" target="_blank" rel="noopener"
                    title="{{ t['receipt.print'] }}" aria-label="{{ t['receipt.print'] }}"><span class="material-symbols-outlined">print</span></a>
                 {% if not p.is_voided %}
+                {% if can_correct(p) %}<a href="{{ url_for('payments.edit', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon"
+                   data-modal-url="{{ url_for('payments.edit', pay_id=p.id) }}" data-modal-title="{{ t['payment.edit'] }}"
+                   title="{{ t['payment.edit'] }}" aria-label="{{ t['payment.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
+                <form method="post" action="{{ url_for('payments.delete', pay_id=p.id) }}" style="display:inline"
+                      data-confirm="{{ t['payment.delete_confirm'] }}" data-confirm-title="{{ t['delete.title'] }}" data-confirm-ok="{{ t['btn.delete'] }}" data-confirm-danger>
+                    {{ csrf_field() }}
+                    <button type="submit" class="btn btn--sm btn--tonal btn--icon" title="{{ t['payment.delete'] }}" aria-label="{{ t['payment.delete'] }}"><span class="material-symbols-outlined">delete</span></button>
+                </form>{% endif %}
                 {% if can('void', 'yes') %}<a href="{{ url_for('payments.void', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon"
                    data-modal-url="{{ url_for('payments.void', pay_id=p.id) }}" data-modal-title="{{ t['payment.void'] }}"
                    title="{{ t['payment.void'] }}" aria-label="{{ t['payment.void'] }}"><span class="material-symbols-outlined">block</span></a>{% endif %}

@@ -9,13 +9,20 @@ Every payment keeps its own currency and the rate of its day, so a USD
 purchase can be settled partly in GNF and its balance still reads right. A
 payment entered by mistake is voided, never deleted: it stays in the history,
 struck through, and stops counting.
+
+A payment just entered with a mistake in it can still be corrected or
+deleted, for a short while: the correction window in the settings (24 hours
+unless changed, 0 turns it off), counted from when it was entered. Past it,
+voiding is the only way. Every correction and deletion is written to the
+activity log with the values it replaced, so nothing goes without a trace.
 """
+from datetime import timedelta
 from decimal import Decimal
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from app import (ListPage, current_rate, form_response, fr, get_t,
+from app import (ListPage, current_rate, form_response, fr, get_setting, get_t,
                  is_modal_request, log_action, modal_ok, money_text, parse_date,
                  parse_money, parse_rate, rate_field_value)
 from exports import wants_xlsx, xlsx_response
@@ -154,6 +161,129 @@ def void(pay_id):
             return modal_ok() if is_modal_request() else redirect(back)
     return form_response("payment_void.html", "_payment_void.html",
                          payment=payment, error=error, back_url=back)
+
+
+# ── Correcting a payment, within the window ─────────────────────────────────
+
+
+def correction_hours():
+    """How long after it is entered a payment may still be corrected or
+    deleted, in hours. 0: never."""
+    try:
+        return max(int(get_setting("payment_fix_hours", "24") or 0), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def correction_deadline(p):
+    """Until when `p` may be corrected, or None when it may not be at all."""
+    hours = correction_hours()
+    if not hours or p.is_voided or p.created_at is None:
+        return None
+    return p.created_at + timedelta(hours=hours)
+
+
+@payments_bp.app_template_global("can_correct")
+def can_correct(p):
+    """Whether the current user may still correct or delete `p`: not voided,
+    inside the window, and allowed to enter that kind of payment -- a receipt
+    with the sales, a payment out with paying suppliers."""
+    from access import can
+    deadline = correction_deadline(p)
+    if deadline is None or utcnow() > deadline:
+        return False
+    return can("sales", "manage") if p.direction == "in" else can("supplier_pay", "yes")
+
+
+def _target(p):
+    """What a payment settles, and in which currency it is counted."""
+    if p.sale_id:
+        return p.sale, p.sale.currency
+    if p.purchase_id:
+        return p.purchase, p.purchase.currency
+    return p.purchase_cost, p.purchase_cost.currency
+
+
+def _tab_back(p):
+    tab = "receipts" if p.sale_id else "payments"
+    return _back_for(p) + "?tab=" + tab
+
+
+_FIELDS = ("paid_on", "amount", "currency", "rate", "method", "reference", "note")
+
+
+def _field_text(name, value):
+    if value is None or value == "":
+        return "—"
+    if name == "amount":
+        return format(Decimal(value).normalize(), "f")
+    if name == "rate":
+        return rate_field_value(value)
+    if name == "paid_on":
+        return value.isoformat()
+    if name == "method":
+        return fr("method." + value)
+    return str(value)
+
+
+@payments_bp.route("/<int:pay_id>/modifier", methods=["GET", "POST"])
+@login_required
+def edit(pay_id):
+    """Correct a payment entered with a mistake. It keeps its receipt
+    number, so a reprint reads the corrected figures under the same number."""
+    payment = db.session.get(Payment, pay_id) or abort(404)
+    t = get_t()
+    back = _tab_back(payment)
+    if not can_correct(payment):
+        flash("error|" + t["payment.error.window_closed"])
+        return modal_ok() if is_modal_request() else redirect(back)
+    target, target_currency = _target(payment)
+    mine = payment.amount_in(target_currency) or Decimal("0")
+    balance = target.balance + mine           # what was due before this payment
+    error = None
+    if request.method == "POST":
+        values, error = _parse_payment(target_currency)
+        if error is None:
+            changes = []
+            for name in _FIELDS:
+                before, after = getattr(payment, name), values[name]
+                if _field_text(name, before) != _field_text(name, after):
+                    changes.append("%s: %s → %s" % (name, _field_text(name, before), _field_text(name, after)))
+                setattr(payment, name, after)
+            if changes:
+                log_action("UPDATE", "receipt" if payment.sale_id else "payment", payment.id,
+                           "%s · %s" % (_payment_label(payment), " · ".join(changes)))
+            db.session.commit()
+            flash("success|" + t["payment.updated"])
+            in_target = convert(values["amount"], values["currency"], target_currency, values["rate"])
+            if in_target is not None and in_target > balance + Decimal("0.01"):
+                flash("warning|" + t["payment.warn.over_balance"])
+            return modal_ok() if is_modal_request() else redirect(back)
+    return form_response("payment_form.html", "_payment_form.html", error=error,
+                         target_currency=target_currency, balance=balance,
+                         default_rate=rate_field_value(payment.rate), payment=payment,
+                         methods=PAYMENT_METHODS, form_action=url_for("payments.edit", pay_id=pay_id),
+                         back_url=back, title=t["payment.edit"], default_method=payment.method)
+
+
+@payments_bp.route("/<int:pay_id>/supprimer", methods=["POST"])
+@login_required
+def delete(pay_id):
+    """Delete a payment entered by mistake, while the window is open. The
+    activity log keeps what it was."""
+    payment = db.session.get(Payment, pay_id) or abort(404)
+    t = get_t()
+    back = _tab_back(payment)
+    if not can_correct(payment):
+        flash("error|" + t["payment.error.window_closed"])
+        return redirect(back)
+    log_action("DELETE", "receipt" if payment.sale_id else "payment", payment.id, "%s · %s · %s · %s%s" % (
+        _payment_label(payment), payment.paid_on.isoformat(), money_text(payment.amount, payment.currency),
+        fr("method." + payment.method), (" · " + payment.reference) if payment.reference else ""))
+    db.session.delete(payment)
+    db.session.commit()
+    flash("success|" + t["payment.deleted"])
+    return redirect(back)
 
 
 # ── The ledger ───────────────────────────────────────────────────────────────

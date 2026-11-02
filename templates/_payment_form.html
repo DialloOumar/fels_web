@@ -3,6 +3,7 @@
 {# Money in or out. Its own currency and the rate of its day: a USD invoice paid in
    GNF still has its balance read in USD, at that payment's rate. #}
 {% set posted = request.method == 'POST' %}
+{% if payment and payment.receipt_number %}<p class="muted small" style="margin:0 0 8px;">{{ payment.receipt_number }} · {{ t['payment.edit_explain'] }}</p>{% elif payment %}<p class="muted small" style="margin:0 0 8px;">{{ t['payment.edit_explain'] }}</p>{% endif %}
 {% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
 <form method="post" class="entry-form" data-modal-form action="{{ form_action }}">
     {{ csrf_field() }}
@@ -18,11 +19,12 @@
         {% endif %}
     </div>
 
-    {% set cur = request.form.get('currency') if posted else target_currency %}
+    {# Correcting a payment: the form opens on what was entered. #}
+    {% set cur = request.form.get('currency') if posted else (payment.currency if payment else target_currency) %}
     <div class="field field--hero">
         <div class="input-group">
             <input type="text" id="amount" name="amount" required data-money="cents" inputmode="decimal" autofocus
-                   value="{{ request.form.get('amount') if posted else (balance|money_field if balance > 0 else '') }}">
+                   value="{{ request.form.get('amount') if posted else (payment.amount|money_field if payment else (balance|money_field if balance > 0 else '')) }}">
             <select id="currency" name="currency" aria-label="{{ t['purchase.currency'] }}">
                 {% for c in currencies %}<option value="{{ c }}" {% if c == cur %}selected{% endif %}>{{ c }}</option>{% endfor %}
             </select>
@@ -32,7 +34,7 @@
 
     <div class="form-row">
         <div class="field">
-            <input type="date" id="paid_on" name="paid_on" required value="{{ request.form.get('paid_on') if posted else today.isoformat() }}">
+            <input type="date" id="paid_on" name="paid_on" required value="{{ request.form.get('paid_on') if posted else (payment.paid_on if payment else today).isoformat() }}">
             <label for="paid_on">{{ t['payment.paid_on'] }}</label>
         </div>
         <div class="field">
@@ -57,11 +59,11 @@
 
     <div class="form-row">
         <div class="field">
-            <input type="text" id="reference" name="reference" placeholder="{{ t['payment.reference_ph'] }}" value="{{ request.form.get('reference', '') }}">
+            <input type="text" id="reference" name="reference" placeholder="{{ t['payment.reference_ph'] }}" value="{{ request.form.get('reference', '') if posted else ((payment.reference or '') if payment else '') }}">
             <label for="reference">{{ t['field.reference'] }}</label>
         </div>
         <div class="field">
-            <input type="text" id="note" name="note" placeholder=" " value="{{ request.form.get('note', '') }}">
+            <input type="text" id="note" name="note" placeholder=" " value="{{ request.form.get('note', '') if posted else ((payment.note or '') if payment else '') }}">
             <label for="note">{{ t['field.note'] }}</label>
         </div>
     </div>
