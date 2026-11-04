@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge, unit_link, eta_note, proof_button, detail_tabs, tab_hidden with context %}
+{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge, unit_link, eta_note, proof_button, cart_button, detail_tabs, tab_hidden with context %}
 
 {% block title %}{{ row.invoice_number }}{% endblock %}
 {% block page_title %}{{ t['purchase.title_short'] }} {{ row.invoice_number }}{% endblock %}
@@ -167,9 +167,7 @@
             <td class="num">{{ us|money(cur) if us is not none else '—' }}</td>
             <td class="num"><strong>{{ (u.purchase_line.unit_price + us)|money(cur) if us is not none else '—' }}</strong></td>
             <td class="row-actions">
-                {% if u.status == 'available' %}
-                {% if can('sales', 'manage') %}<a href="{{ url_for('sales.new', unit=u.id) }}" class="btn btn--sm btn--tonal btn--icon" title="{{ t['unit.sell'] }}" aria-label="{{ t['unit.sell'] }}"><span class="material-symbols-outlined">sell</span></a>{% endif %}
-                {% endif %}
+                {{ cart_button(u) }}
                 {% if can('stock', 'manage') %}<a href="{{ url_for('stock.edit', uid=u.id, back=request.path ~ '?tab=vehicles') }}" class="btn btn--sm btn--tonal btn--icon"
                    data-modal-url="{{ url_for('stock.edit', uid=u.id, back=request.path ~ '?tab=vehicles') }}" data-modal-title="{{ t['unit.edit'] }}"
                    title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>{% endif %}

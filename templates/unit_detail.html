@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge, sale_badge, eta_note, proof_button, detail_tabs, tab_hidden with context %}
+{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge, sale_badge, eta_note, proof_button, cart_button, product_thumb, detail_tabs, tab_hidden with context %}
 
 {% block title %}{{ row.ref }}{% endblock %}
 {% block page_title %}{{ t['unit.title_short'] }} {{ row.ref }}{% endblock %}
@@ -14,14 +14,14 @@
         <div class="header-title">
             <a href="{{ url_for('stock.index') }}" class="btn btn--sm btn--tonal btn--icon" data-back title="{{ t['btn.back'] }}" aria-label="{{ t['btn.back'] }}">
                 <span class="material-symbols-outlined">arrow_back</span></a>
+            {{ product_thumb(row.product, 'lg', link=true) }}
             <h2>{{ row.product.name }}</h2>
             <code class="unit-ref">{{ row.ref }}</code>
             {{ unit_badge(row.status) }}
             {% if row.status != 'delivered' %}{{ stage_badge(purchase.stage) }}{% endif %}
         </div>
         <div class="header-actions">
-            {% if row.status == 'available' and can('sales', 'manage') %}<a href="{{ url_for('sales.new', unit=row.id) }}" class="btn btn--primary">
-                <span class="material-symbols-outlined">sell</span> {{ t['unit.sell'] }}</a>{% endif %}
+            {{ cart_button(row, big=true) }}
             {% if can('stock', 'manage') %}<a href="{{ url_for('stock.edit', uid=row.id, back=back) }}" class="btn btn--tonal"
                data-modal-url="{{ url_for('stock.edit', uid=row.id, back=back) }}" data-modal-title="{{ t['unit.edit'] }}">
                 <span class="material-symbols-outlined">edit</span> {{ t['btn.edit'] }}</a>{% endif %}
@@ -202,7 +202,7 @@
     {% else %}
     <div class="empty-state empty-state--plain">
         <p>{{ t['unit.not_sold'] }}</p>
-        {% if can('sales', 'manage') %}<a href="{{ url_for('sales.new', unit=row.id) }}" class="btn btn--primary"><span class="material-symbols-outlined">sell</span> {{ t['unit.sell'] }}</a>{% endif %}
+        {{ cart_button(row, big=true) }}
     </div>
     {% endif %}
 </div>

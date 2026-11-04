@@ -780,3 +780,57 @@ window.formChecks.rows = function (sec) { return !!sec.querySelector("[data-row]
         }
     });
 })();
+
+
+// ── The cart: "+ Cart" without leaving the page ──
+// The button posts in the background; the page then says the vehicle is in
+// the cart, the count in the top bar follows, and a note offers the cart.
+// Without script the form posts as it is and comes back to the same page.
+(function () {
+    var toast = null, timer = null;
+    function say(message, url, ok) {
+        if (toast) toast.remove();
+        toast = document.createElement("div");
+        toast.className = "cart-toast" + (ok ? "" : " cart-toast--error");
+        toast.setAttribute("role", "status");
+        var text = document.createElement("span");
+        text.textContent = message;
+        toast.appendChild(text);
+        if (ok && url) {
+            var a = document.createElement("a");
+            a.href = url;
+            a.textContent = document.documentElement.lang === "en" ? "View cart" : document.documentElement.lang === "de" ? "Zum Warenkorb" : "Voir le panier";
+            toast.appendChild(a);
+        }
+        document.body.appendChild(toast);
+        clearTimeout(timer);
+        timer = setTimeout(function () { if (toast) { toast.remove(); toast = null; } }, 4500);
+    }
+    document.addEventListener("submit", function (e) {
+        var form = e.target.closest("form[data-cart-add]");
+        if (!form) return;
+        e.preventDefault();
+        var btn = form.querySelector("button");
+        if (btn) btn.disabled = true;
+        fetch(form.action, { method: "POST", body: new FormData(form), headers: { "X-Requested-With": "fetch" } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.ok) {
+                    // Every copy of this vehicle's button on the page (table and phone card).
+                    document.querySelectorAll('form[data-cart-add][action="' + form.getAttribute("action") + '"]').forEach(function (f) {
+                        var a = document.createElement("a");
+                        a.href = d.url;
+                        a.className = "in-cart";
+                        a.innerHTML = '<span class="material-symbols-outlined">check_circle</span> ';
+                        a.appendChild(document.createTextNode(form.dataset.inCart || ""));
+                        f.replaceWith(a);
+                    });
+                    document.querySelectorAll("[data-cart-count]").forEach(function (n) { n.textContent = d.count; n.hidden = !d.count; });
+                } else if (btn) {
+                    btn.disabled = false;
+                }
+                say(d.message, d.url, d.ok);
+            })
+            .catch(function () { form.submit(); });
+    });
+})();

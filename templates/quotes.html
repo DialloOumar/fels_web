@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_pager.html" import pager with context %}
+
+{% block title %}{{ t['quote.tab'] }} · {{ t['nav.sales'] }}{% endblock %}
+{% block page_title %}{{ t['nav.sales'] }}{% endblock %}
+
+{% block content %}
+{# Every proforma issued, the latest first. One the customer said yes to
+   goes back in the cart, at its prices, for whatever of it is still free. #}
+<section class="card">
+    {% with active = 'quotes' %}{% include "_sales_tabs.html" %}{% endwith %}
+    <p class="muted small" style="margin:0 0 12px;">{{ t['quote.intro'] }}</p>
+    {% if rows %}
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr>
+            <th>{{ t['quote.number'] }}</th>
+            <th>{{ t['sale.customer'] }}</th>
+            <th class="col-secondary">{{ t['sale.date'] }}</th>
+            <th>{{ t['quote.valid_until'] }}</th>
+            <th class="num">{{ t['sale.vehicles'] }}</th>
+            <th class="num">{{ t['sale.total'] }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for q in rows %}
+        <tr>
+            <td><strong>{{ q.number }}</strong>{% if q.creator %}<div class="muted small">{{ q.creator.full_name }}</div>{% endif %}</td>
+            <td>{% if can('customers') %}<a href="{{ url_for('customers.detail', cid=q.customer_id) }}">{{ q.customer_name }}</a>{% else %}{{ q.customer_name }}{% endif %}</td>
+            <td class="col-secondary">{{ q.issued_on|fdate }}</td>
+            <td>{% if q.valid_until %}{{ q.valid_until|fdate }}{% if q.valid_until < today %} <span class="badge badge--pay-cancelled">{{ t['quote.expired'] }}</span>{% endif %}{% else %}—{% endif %}</td>
+            <td class="num">{{ q.lines|length }}</td>
+            <td class="num">{{ q.total|money(q.currency) }}</td>
+            <td class="row-actions">
+                <a href="{{ url_for('cart.quote_print', qid=q.id) }}" class="btn btn--sm btn--tonal btn--icon" title="{{ t['print.print'] }}" aria-label="{{ t['print.print'] }}"><span class="material-symbols-outlined">print</span></a>
+                {% if can('sales', 'manage') %}<form method="post" action="{{ url_for('cart.quote_reload', qid=q.id) }}" style="display:inline">
+                    {{ csrf_field() }}
+                    <button type="submit" class="btn btn--sm btn--tonal" title="{{ t['quote.reload_title'] }}"><span class="material-symbols-outlined">add</span> {{ t['quote.reload'] }}</button>
+                </form>
+                <form method="post" action="{{ url_for('cart.quote_delete', qid=q.id) }}" style="display:inline"
+                      data-confirm="{{ t['quote.delete_confirm'] % {'number': q.number} }}" data-confirm-title="{{ t['delete.title'] }}"
+                      data-confirm-ok="{{ t['btn.delete'] }}" data-confirm-danger>
+                    {{ csrf_field() }}
+                    <button type="submit" class="btn btn--sm btn--tonal btn--icon" title="{{ t['btn.delete'] }}" aria-label="{{ t['btn.delete'] }}"><span class="material-symbols-outlined">delete</span></button>
+                </form>{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {{ pager(pagination, 'cart.quotes') }}
+    {% else %}
+    <div class="empty-state">
+        <span class="material-symbols-outlined">description</span>
+        <p>{{ t['quote.empty'] }}</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

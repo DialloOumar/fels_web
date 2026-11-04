@@ -122,7 +122,9 @@ def index():
 
 def _tab_counts():
     """The numbers on the Sales page's tabs."""
-    return {"sales": Sale.query.count(), "invoices": Invoice.query.filter(Invoice.status != "cancelled").count()}
+    from models import Quote
+    return {"sales": Sale.query.count(), "invoices": Invoice.query.filter(Invoice.status != "cancelled").count(),
+            "quotes": Quote.query.count()}
 
 
 # ── Create / edit ────────────────────────────────────────────────────────────
@@ -166,7 +168,9 @@ def _parse_lines(sale):
     return rows
 
 
-def _save(sale):
+def _save(sale, status=None):
+    """Save the sale form into `sale`. `status`, when given, is the one the
+    page's button chose (the cart's "pre-order" or "sale")."""
     t = get_t()
     f = request.form
     customer = db.session.get(Customer, f.get("customer_id", type=int) or 0)
@@ -178,7 +182,7 @@ def _save(sale):
     currency = f.get("currency")
     if currency not in CURRENCIES:
         raise FormError(t["form.error.currency"])
-    status = f.get("status") or "preorder"
+    status = status or f.get("status") or "preorder"
     if status not in EDITABLE:
         raise FormError(t["sale.error.status"])
     if sale.id and sale.status not in EDITABLE:
@@ -275,14 +279,20 @@ def new():
             db.session.rollback()
             error = str(e)
         sale = Sale()
-    # Vehicles chosen before coming here -- one from its page, several ticked
-    # on the Vehicles list -- arrive already picked; any no longer free is left out.
-    preset = {"customer": request.args.get("customer", type=int)}
-    ctx = _form_context(sale)
-    preset_units = [ctx["units_by_id"][uid] for uid in dict.fromkeys(request.args.getlist("unit", type=int))
-                    if uid in ctx["units_by_id"]]
-    return render_template("sale_form.html", row=None, error=error, preset=preset,
-                           preset_units=preset_units, **ctx)
+        return render_template("sale_form.html", row=None, error=error, preset={}, preset_units=[],
+                               **_form_context(sale))
+    # A new sale starts in the cart: one place where vehicles are gathered,
+    # whichever page the seller came from. Vehicles named in the address go
+    # in it first (any no longer free is left out), the customer is kept.
+    from models import CartItem
+    from blueprints.cart import cart_ids
+    mine = cart_ids()
+    for uid in dict.fromkeys(request.args.getlist("unit", type=int)):
+        unit = db.session.get(Unit, uid)
+        if unit is not None and unit.status == "available" and uid not in mine:
+            db.session.add(CartItem(user_id=current_user.id, unit_id=uid))
+    db.session.commit()
+    return redirect(url_for("cart.index", customer=request.args.get("customer", type=int)))
 
 
 @sales_bp.route("/<int:sid>/edit", methods=["GET", "POST"])

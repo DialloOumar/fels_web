@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% from "_hint.html" import hint with context %}
-{% from "_macros.html" import group_head, unit_badge with context %}
+{% from "_macros.html" import group_head, unit_badge, product_thumb with context %}
 
 {% set is_edit = row is not none %}
+{% set cart_mode = cart_mode|default(false) %}
 {% set posted = request.method == 'POST' %}
-{% block title %}{{ (t['sale.edit'] ~ ' ' ~ row.number) if is_edit else t['sale.new'] }}{% endblock %}
-{% block page_title %}{{ (t['sale.edit'] ~ ' ' ~ row.number) if is_edit else t['sale.new'] }}{% endblock %}
+{% block title %}{{ t['cart.title'] if cart_mode else ((t['sale.edit'] ~ ' ' ~ row.number) if is_edit else t['sale.new']) }}{% endblock %}
+{% block page_title %}{{ t['cart.title'] if cart_mode else ((t['sale.edit'] ~ ' ' ~ row.number) if is_edit else t['sale.new']) }}{% endblock %}
 
 {# The lines as they stand: posted back after an error, the sale's own when
    editing, the vehicles chosen before coming here, or none yet. #}
@@ -17,6 +18,8 @@
                                  'price': request.form.getlist('line_price')[i],
                                  'description': request.form.getlist('line_desc')[i]}) %}
     {% endfor %}
+{% elif cart_mode %}
+    {% set lines = cart_lines %}
 {% elif is_edit %}
     {% set lines = [] %}
     {% for l in row.lines %}
@@ -47,7 +50,7 @@
     <td>
         <input type="hidden" name="line_product" value="{{ u.product_id }}">
         <input type="hidden" name="line_unit" value="{{ u.id }}">
-        <div class="line-veh"><code class="unit-ref">{{ u.ref }}</code> <strong>{{ u.product.name }}</strong></div>
+        <div class="line-veh">{{ product_thumb(u.product, 'md') }}<span><code class="unit-ref">{{ u.ref }}</code> <strong>{{ u.product.name }}</strong></span></div>
         <div class="muted small">{% if u.chassis_number %}<code>{{ u.chassis_number }}</code>{% else %}{{ t['unit.no_chassis'] }}{% endif %} · {{ e.where }}{% if u.note %} · {{ u.note }}{% endif %}</div>
         <input type="text" name="line_desc" value="{{ desc }}" placeholder="{{ t['purchase.line_desc_ph'] }}" class="line-desc" aria-label="{{ t['field.description'] }}">
     </td>
@@ -96,7 +99,9 @@
 {% endif %}
 
 <form method="post" class="entry-form form-layout" id="sale-form"
-      data-rate="{{ rate if rate is not none else '' }}">
+      {% if cart_mode %}action="{{ url_for('cart.index') }}" data-cart-add-url="{{ url_for('cart.add', uid=0) }}"
+      data-cart-price-url="{{ url_for('cart.price', uid=0) }}"
+      data-cart-remove-url="{{ url_for('cart.remove', uid=0) }}" {% endif %}data-rate="{{ rate if rate is not none else '' }}">
     {{ csrf_field() }}
     <div class="form-layout__main">
         {% set sel_customer = (request.form.get('customer_id') if posted else ((row.customer_id if is_edit else preset.customer) or ''))|string %}
@@ -116,7 +121,7 @@
                                value="{{ request.form.get('sale_date') if posted else (row.sale_date.isoformat() if is_edit else today.isoformat()) }}">
                         <label for="sale_date">{{ t['sale.date'] }}</label>
                     </div>
-                    {% set sel_cur = request.form.get('currency') if posted else (row.currency if is_edit else 'USD') %}
+                    {% set sel_cur = request.form.get('currency') if posted else (row.currency if is_edit else (preset.get('currency') or 'USD')) %}
                     <div class="field">
                         <select id="currency" name="currency">
                             {% for c in currencies %}<option value="{{ c }}" {% if sel_cur == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
@@ -126,6 +131,8 @@
                     </div>
                 </div>
 
+                {# The cart chooses with its buttons: pre-order, or sale. #}
+                {% if not cart_mode %}
                 {% set sel_status = request.form.get('status') if posted else (row.status if is_edit else 'preorder') %}
                 <div class="choice-cards" role="radiogroup">
                     {% for st, icon in [('preorder', 'schedule'), ('confirmed', 'task_alt')] %}
@@ -136,6 +143,7 @@
                     </label>
                     {% endfor %}
                 </div>
+                {% endif %}
             </div>
         </section>
 
@@ -162,7 +170,7 @@
                     </tbody>
                 </table>
                 </div>
-                <p class="muted small lines-empty" id="lines-empty" {% if lines %}hidden{% endif %}>{{ t['sale.lines_empty'] }}</p>
+                <p class="muted small lines-empty" id="lines-empty" {% if lines %}hidden{% endif %}>{{ t['cart.empty'] if cart_mode else t['sale.lines_empty'] }}</p>
             </div>
             <div class="lines-actions">
                 <button type="button" class="btn btn--tonal" id="pick-open"><span class="material-symbols-outlined">add</span> {{ t['sale.pick_add'] }}</button>
@@ -193,10 +201,22 @@
                 <span>{{ t['sale.total'] }}</span>
                 <strong id="lines-total">—</strong>
             </div>
+            {% if cart_mode %}
+            {# The cart's ways out. Nothing to save: it stays as it is left. #}
+            <div class="form-summary__actions cart-actions">
+                <button type="submit" name="action" value="quote" class="btn btn--outlined" formtarget="_self"><span class="material-symbols-outlined">print</span> {{ t['cart.quote'] }}</button>
+                <button type="submit" name="action" value="preorder" class="btn btn--tonal"><span class="material-symbols-outlined">schedule</span> {{ t['cart.save_preorder'] }}</button>
+                <button type="submit" name="action" value="confirmed" class="btn btn--primary"><span class="material-symbols-outlined">sell</span> {{ t['cart.save_sale'] }}</button>
+                <button type="submit" name="action" value="clear" class="btn btn--text cart-actions__clear" formnovalidate
+                        data-confirm-click="{{ t['cart.clear_confirm'] }}"><span class="material-symbols-outlined">delete</span> {{ t['cart.clear'] }}</button>
+            </div>
+            <p class="muted small" style="margin:10px 0 0;">{{ t['cart.save_hint'] }}</p>
+            {% else %}
             <div class="form-summary__actions">
                 <button type="submit" class="btn btn--primary"><span class="material-symbols-outlined">save</span> {{ t['btn.save'] }}</button>
                 <a href="{{ url_for('sales.detail', sid=row.id) if is_edit else url_for('sales.index') }}" class="btn btn--outlined" data-back>{{ t['btn.cancel'] }}</a>
             </div>
+            {% endif %}
         </div>
     </aside>
 </form>
@@ -252,7 +272,7 @@
             <tbody data-pick-group="{{ p.id }}">
                 {% set n = free.get(p.id, [0, 0]) %}
                 {% set lp = last_price.get(p.id) %}
-                <tr class="picker__group"><td colspan="7"><strong>{{ p.name }}</strong>
+                <tr class="picker__group"><td colspan="7"><span class="picker__group-name">{{ product_thumb(p) }}<strong>{{ p.name }}</strong></span>
                     <span class="muted small">· {{ t['sale.pick_free'] % {'yard': n[0], 'road': n[1]} }}{% if lp %} · {{ t['sale.last_price'] % {'price': lp.price|money(lp.sale.currency), 'date': lp.sale.sale_date|fdate} }}{% endif %}</span></td></tr>
                 {% for e in rows %}
                 {% set u = e.unit %}
@@ -404,14 +424,30 @@
         win.classList.remove("open");
         win.hidden = true;
     }
+    // On the cart page every vehicle added or taken out is the cart's at
+    // once: kept on the server, and the count in the top bar follows.
+    function cartSync(kind, uid) {
+        var tmpl = form.dataset[kind === "add" ? "cartAddUrl" : "cartRemoveUrl"];
+        if (!tmpl) return;
+        var data = new FormData();
+        data.append("csrf_token", form.querySelector('[name="csrf_token"]').value);
+        fetch(tmpl.replace(/\/0$/, "/" + uid), { method: "POST", body: data, headers: { "X-Requested-With": "fetch" } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                document.querySelectorAll("[data-cart-count]").forEach(function (n) { n.textContent = d.count; n.hidden = !d.count; });
+            })
+            .catch(function () { /* kept on the next save of the cart */ });
+    }
     function done() {
         boxes().forEach(function (b) {
             var line = lineOf(b.value);
             if (b.checked && !line) {
                 var tpl = document.querySelector('template[data-line-for="' + b.value + '"]');
                 if (tpl) body.appendChild(tpl.content.cloneNode(true));
+                cartSync("add", b.value);
             } else if (!b.checked && line) {
                 line.remove();
+                cartSync("remove", b.value);
             }
         });
         close();
@@ -442,6 +478,10 @@
         filter();
     });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !win.hidden) close(); });
+    form.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-confirm-click]");
+        if (b && !window.confirm(b.dataset.confirmClick)) e.preventDefault();
+    });
 
     // ── a model sold without a vehicle yet ──
     document.getElementById("line-open").addEventListener("click", function () {
@@ -452,7 +492,9 @@
     body.addEventListener("click", function (e) {
         var btn = e.target.closest("[data-line-remove]");
         if (!btn) return;
-        btn.closest(".line-row").remove();
+        var row = btn.closest(".line-row");
+        if (row.dataset.unit) cartSync("remove", row.dataset.unit);
+        row.remove();
         refresh();
     });
     body.addEventListener("change", function (e) {
@@ -464,6 +506,23 @@
         refresh();
     });
     body.addEventListener("input", refresh);
+    // On the cart page a price is remembered with its vehicle once typed;
+    // and Enter in a field does not send the form: the buttons decide.
+    if (form.dataset.cartPriceUrl) {
+        body.addEventListener("change", function (e) {
+            if (e.target.name !== "line_price") return;
+            var row = e.target.closest(".line-row");
+            if (!row || !row.dataset.unit) return;
+            var data = new FormData();
+            data.append("csrf_token", form.querySelector('[name="csrf_token"]').value);
+            data.append("price", e.target.value);
+            fetch(form.dataset.cartPriceUrl.replace(/\/0$/, "/" + row.dataset.unit),
+                  { method: "POST", body: data, headers: { "X-Requested-With": "fetch" } }).catch(function () {});
+        });
+        form.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" && e.target.tagName === "INPUT") e.preventDefault();
+        });
+    }
     cur.addEventListener("change", refresh);
     document.getElementById("customer_id").addEventListener("change", refresh);
     refresh();

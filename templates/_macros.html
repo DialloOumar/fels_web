@@ -136,6 +136,27 @@
 {%- endif %}
 {%- endmacro %}
 
+{# A free vehicle's way into the cart -- or the word that it is there.
+   `big`: the main button of a page. #}
+{% macro cart_button(u, big=false) -%}
+{% if can('sales', 'manage') and u.status == 'available' %}
+{% if u.id in cart_ids() %}<a href="{{ url_for('cart.index') }}" class="in-cart"><span class="material-symbols-outlined">check_circle</span> {{ t['cart.in'] }}</a>
+{%- else -%}
+<form method="post" action="{{ url_for('cart.add', uid=u.id) }}" class="cart-add" data-cart-add data-in-cart="{{ t['cart.in'] }}">{{ csrf_field() }}<input type="hidden" name="back" value="{{ request.full_path }}">
+    <button type="submit" class="btn {{ 'btn--primary' if big else 'btn--sm btn--tonal' }}" title="{{ t['cart.add'] }}"><span class="material-symbols-outlined">add</span> {{ t['cart.add'] if big else t['cart.add_short'] }}</button></form>
+{%- endif %}
+{% endif %}
+{%- endmacro %}
+
+{# A model's picture: its main photo, or a drawn truck while it has none.
+   `size`: sm (lists), md (lines), lg (a vehicle's page). With `link`, the
+   photo opens large. #}
+{% macro product_thumb(product, size='sm', link=false) -%}
+{% set ph = product.cover if product else none %}
+{% if ph %}{% if link %}<a href="{{ url_for('products.photo_file', phid=ph.id) }}" target="_blank" rel="noopener" class="pthumb pthumb--{{ size }}">{% else %}<span class="pthumb pthumb--{{ size }}">{% endif %}<img src="{{ url_for('products.photo_file', phid=ph.id, size='thumb' if size != 'lg' else none) }}" alt="{{ product.name }}" loading="lazy">{% if link %}</a>{% else %}</span>{% endif %}
+{%- else %}<span class="pthumb pthumb--{{ size }} pthumb--none"><svg viewBox="0 0 64 40" aria-hidden="true"><rect x="2" y="8" width="34" height="20" rx="2" fill="currentColor" opacity=".35"/><path d="M36 14h12l8 8v6H36z" fill="currentColor" opacity=".5"/><circle cx="12" cy="31" r="5" fill="currentColor" opacity=".7"/><circle cx="46" cy="31" r="5" fill="currentColor" opacity=".7"/></svg></span>{% endif %}
+{%- endmacro %}
+
 {# A sale's life: pre-order, confirmed, delivered, cancelled. #}
 {% macro sale_badge(status) -%}
 <span class="badge badge--sale-{{ status }}">{{ t['sale.status.' + status] }}</span>

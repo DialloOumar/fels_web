@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_filters.html" import filter_bar, filter_select with context %}
 {% from "_pager.html" import pager with context %}
-{% from "_macros.html" import money_pair, stage_badge, road_badge, unit_badge, unit_link, export_button with context %}
+{% from "_macros.html" import money_pair, stage_badge, road_badge, unit_badge, unit_link, cart_button, product_thumb, export_button with context %}
 
 {% block title %}{{ t['nav.stock'] }}{% endblock %}
 {% block page_title %}{{ t['nav.stock'] }}{% endblock %}
@@ -10,25 +10,66 @@
 <section class="card">
     {% with active = 'units' %}{% include "_vehicle_tabs.html" %}{% endwith %}
     <div class="card-header card-header--end">
-        <div class="header-actions">{{ export_button() }}</div>
+        <div class="header-actions">
+            {# Table or cards: the same vehicles, the same filters. #}
+            {% set args = page_args() %}{% set _ = args.pop('view', none) %}
+            <div class="view-switch" role="group" aria-label="{{ t['view.label'] }}">
+                <a href="{{ url_for('stock.index', **args) }}" class="view-switch__opt {% if not view %}view-switch__opt--on{% endif %}"
+                   title="{{ t['view.table'] }}" aria-label="{{ t['view.table'] }}" {% if not view %}aria-current="true"{% endif %}><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg> <span>{{ t['view.table'] }}</span></a>
+                <a href="{{ url_for('stock.index', view='cards', **args) }}" class="view-switch__opt {% if view %}view-switch__opt--on{% endif %}"
+                   title="{{ t['view.cards'] }}" aria-label="{{ t['view.cards'] }}" {% if view %}aria-current="true"{% endif %}><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg> <span>{{ t['view.cards'] }}</span></a>
+            </div>
+            {{ export_button() }}
+        </div>
     </div>
-    {% call filter_bar(search, active=(product_id or port_id or status or where)) %}
+    {% call filter_bar(search, active=(product_id or port_id or status or where), keep={'view': view}) %}
         {{ filter_select('product', t['purchase.line_product'], [('', t['list.all'])] + opts.products, product_id) }}
         {{ filter_select('where', t['unit.status_road'], [('', t['list.all'])] + opts.wheres, where) }}
         {{ filter_select('status', t['unit.status_sale'], [('', t['list.all'])] + opts.statuses, status) }}
         {{ filter_select('port', t['purchase.port'], [('', t['list.all'])] + opts.ports, port_id) }}
     {% endcall %}
 
-    {% set selling = can('sales', 'manage') %}
-    {# Ticked vehicles go to a new sale together: the boxes belong to this
-       form, which opens the sale form with them already picked. #}
-    {% if selling %}<form id="sell-form" method="get" action="{{ url_for('sales.new') }}"></form>{% endif %}
-    {% if rows %}
+    {% if rows and view == 'cards' %}
+    {# ── As cards: the model's photo, what the vehicle is, where it is, whose,
+       what it cost; the cart and edit buttons under it. ── #}
+    <div class="vcards">
+        {% for u in rows %}
+        {% set p = u.purchase_line.purchase %}
+        {% set lc = landed.get(u.id) %}
+        {% set ph = u.product.cover %}
+        <article class="vcard">
+            <a href="{{ url_for('stock.detail', uid=u.id) }}" class="vcard__photo {% if not ph %}vcard__photo--none{% endif %}">
+                {% if ph %}<img src="{{ url_for('products.photo_file', phid=ph.id, size='thumb') }}" alt="{{ u.product.name }}" loading="lazy">
+                {% else %}{{ product_thumb(u.product, 'lg') }}{% endif %}
+                <span class="vcard__badges">{% if u.status != 'delivered' %}{{ road_badge(u) }} {% endif %}{{ unit_badge(u.status) }}</span>
+            </a>
+            <div class="vcard__body">
+                <a href="{{ url_for('stock.detail', uid=u.id) }}" class="vcard__name">{{ u.product.name }}</a>
+                <div class="vcard__ids">{{ unit_link(u) }}{% if u.chassis_number %} <code>{{ u.chassis_number }}</code>{% else %} <span class="muted small">{{ t['unit.no_chassis'] }}</span>{% endif %}</div>
+                {% set sl = u.active_sale_line %}
+                {% if sl %}<div class="small"><a href="{{ url_for('sales.detail', sid=sl.sale_id) }}">{{ sl.sale.number }}</a> · {{ sl.sale.customer.name }}</div>
+                {% elif u.note %}<div class="small muted">{{ u.note }}</div>{% endif %}
+                <div class="small muted">{{ p.invoice_number }}{% if p.stage == 'eta' and p.eta_date %} · {{ t['stage.eta'] }} {{ p.eta_date|fdate }}{% endif %}</div>
+                <div class="vcard__cost"><span class="muted small">{{ t['purchase.landed_unit'] }}</span> {{ lc[0]|money(lc[1]) if lc else '—' }}</div>
+            </div>
+            <div class="vcard__foot">
+                <span class="vcard__actions">
+                    {{ cart_button(u) }}
+                    {% if can('stock', 'manage') %}<a href="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" class="btn btn--sm btn--tonal btn--icon"
+                       data-modal-url="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" data-modal-title="{{ t['unit.edit'] }}"
+                       title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>{% endif %}
+                </span>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {{ pager(pagination, 'stock.index') }}
+    {% elif rows %}
     <div class="table-desktop table-wrap">
     <table class="data-table">
         <thead>
             <tr>
-                {% if selling %}<th class="picker__check"><input type="checkbox" data-sell-all aria-label="{{ t['stock.select_all'] }}" title="{{ t['stock.select_all'] }}"></th>{% endif %}
+                <th></th>
                 <th>{{ t['purchase.line_product'] }}</th>
                 <th>{{ t['unit.ref_chassis'] }}</th>
                 <th class="col-secondary">{{ t['unit.purchase'] }}</th>
@@ -43,7 +84,7 @@
             {% set p = u.purchase_line.purchase %}
             {% set lc = landed.get(u.id) %}
             <tr>
-                {% if selling %}<td class="picker__check">{% if u.status == 'available' %}<input type="checkbox" name="unit" value="{{ u.id }}" form="sell-form" class="js-sell" aria-label="{{ u.ref }}">{% endif %}</td>{% endif %}
+                <td><a href="{{ url_for('stock.detail', uid=u.id) }}" class="pthumb-link">{{ product_thumb(u.product) }}</a></td>
                 <td><a href="{{ url_for('stock.detail', uid=u.id) }}"><strong>{{ u.product.name }}</strong></a></td>
                 <td class="nowrap">{{ unit_link(u) }}
                     <div class="small">{% if u.chassis_number %}<code>{{ u.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}</div></td>
@@ -55,9 +96,7 @@
                     {% if sl %}<div class="small"><a href="{{ url_for('sales.detail', sid=sl.sale_id) }}">{{ sl.sale.number }}</a> · {{ sl.sale.customer.name }}</div>{% endif %}</td>
                 <td class="num">{{ money_pair(lc[0], lc[1]) if lc else '—' }}</td>
                 <td class="row-actions">
-                    {% if u.status == 'available' %}
-                    {% if can('sales', 'manage') %}<a href="{{ url_for('sales.new', unit=u.id) }}" class="btn btn--sm btn--tonal btn--icon" title="{{ t['unit.sell'] }}" aria-label="{{ t['unit.sell'] }}"><span class="material-symbols-outlined">sell</span></a>{% endif %}
-                    {% endif %}
+                    {{ cart_button(u) }}
                     {% if can('stock', 'manage') %}<a href="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" class="btn btn--sm btn--tonal btn--icon"
                        data-modal-url="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" data-modal-title="{{ t['unit.edit'] }}"
                        title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>{% endif %}
@@ -72,9 +111,10 @@
         {% for u in rows %}
         {% set p = u.purchase_line.purchase %}
         <div class="list-card">
-            <div class="list-card__top">{% if selling and u.status == 'available' %}<label class="list-card__pick"><input type="checkbox" name="unit" value="{{ u.id }}" form="sell-form" class="js-sell" aria-label="{{ u.ref }}"></label>{% endif %}<a href="{{ url_for('stock.detail', uid=u.id) }}"><strong>{{ u.product.name }}</strong></a>{{ unit_badge(u.status) }}</div>
+            <div class="list-card__top"><a href="{{ url_for('stock.detail', uid=u.id) }}"><strong>{{ u.product.name }}</strong></a>{{ unit_badge(u.status) }}</div>
             <div class="list-card__meta muted">{{ unit_link(u) }} · {% if u.chassis_number %}<code>{{ u.chassis_number }}</code> · {% endif %}{{ p.invoice_number }} · {{ t['unit.status.delivered'] if u.road_status == 'delivered' else t['stage.' + p.stage] }}</div>
             <div class="list-card__actions">
+                {{ cart_button(u) }}
                 {% if can('stock', 'manage') %}<a href="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" class="btn btn--sm btn--tonal btn--icon"
                    data-modal-url="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" data-modal-title="{{ t['unit.edit'] }}"
                    title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>{% endif %}
@@ -89,71 +129,6 @@
         <p>{{ t['list.no_match'] if (search or product_id or port_id or status or where) else t['unit.empty'] }}</p>
     </div>
     {% endif %}
-    {% if selling %}
-    <div class="sell-bar" id="sell-bar" hidden>
-        <span class="sell-bar__count"><span class="material-symbols-outlined">check_circle</span> <span data-sell-count></span></span>
-        <button type="button" class="btn btn--sm btn--outlined" data-sell-clear>{{ t['stock.select_clear'] }}</button>
-        <button type="submit" form="sell-form" class="btn btn--primary"><span class="material-symbols-outlined">sell</span> {{ t['stock.sell_selected'] }}</button>
-    </div>
-    {% endif %}
 </section>
 {% endblock %}
 
-{% block scripts %}
-<script>
-// The vehicles ticked to sell together. A filter or another page reloads
-// the list, so the choice is kept for the browser tab (sessionStorage) and
-// survives it: the bar counts every vehicle ticked, on this page or not,
-// and "Sell" sends them all. The table and the phone cards share the boxes'
-// values: ticking one ticks its twin. The sale form leaves out any vehicle
-// no longer free by then.
-(function () {
-    var bar = document.getElementById("sell-bar");
-    var form = document.getElementById("sell-form");
-    if (!bar || !form) return;
-    var KEY = "fels:sell";
-    var label = {{ t['stock.selected']|tojson }};
-    var picked = [];
-    try { picked = JSON.parse(sessionStorage.getItem(KEY) || "[]"); } catch (e) { picked = []; }
-    function save() { try { sessionStorage.setItem(KEY, JSON.stringify(picked)); } catch (e) { /* private mode */ } }
-    function boxes() { return Array.prototype.slice.call(document.querySelectorAll(".js-sell")); }
-    function set(id, on) {
-        var i = picked.indexOf(id);
-        if (on && i === -1) picked.push(id);
-        if (!on && i !== -1) picked.splice(i, 1);
-    }
-    function sync() {
-        boxes().forEach(function (b) { b.checked = picked.indexOf(b.value) !== -1; });
-        bar.hidden = picked.length === 0;
-        bar.querySelector("[data-sell-count]").textContent = label.replace("%(n)s", picked.length);
-        var all = document.querySelector("[data-sell-all]");
-        if (all) {
-            var here = boxes().map(function (b) { return b.value; });
-            all.checked = here.length > 0 && here.every(function (v) { return picked.indexOf(v) !== -1; });
-        }
-        save();
-    }
-    document.addEventListener("change", function (e) {
-        if (e.target.classList.contains("js-sell")) { set(e.target.value, e.target.checked); sync(); }
-        if (e.target.matches("[data-sell-all]")) {
-            boxes().forEach(function (b) { set(b.value, e.target.checked); });
-            sync();
-        }
-    });
-    bar.querySelector("[data-sell-clear]").addEventListener("click", function () { picked = []; sync(); });
-    // Every vehicle ticked goes, those on other pages too; the boxes of this
-    // page are left out so none is sent twice. Once sent, the choice is done.
-    form.addEventListener("submit", function () {
-        boxes().forEach(function (b) { b.disabled = true; });
-        picked.forEach(function (id) {
-            var i = document.createElement("input");
-            i.type = "hidden"; i.name = "unit"; i.value = id;
-            form.appendChild(i);
-        });
-        picked = [];
-        save();
-    });
-    sync();
-})();
-</script>
-{% endblock %}

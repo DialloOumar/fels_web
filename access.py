@@ -49,6 +49,8 @@ OPEN = {
     # A payment's proof: seen by whoever sees the payment, attached by whoever
     # may enter that kind of payment -- checked in the view, as above.
     "payments.proof_file", "payments.proof_attach",
+    # A model's picture: shown wherever its vehicles are, to anyone signed in.
+    "products.photo_file",
 }
 
 # Pages only the super admin opens: people and roles, and the journals --
@@ -77,6 +79,8 @@ RULES = {
     "products.new": ("products", M), "products.edit": ("products", M),
     "products.archive": ("products", M), "products.reactivate": ("products", M),
     "products.delete": ("products", M),
+    "products.photos": ("products", M), "products.photo_cover": ("products", M),
+    "products.photo_delete": ("products", M),
     # purchases, the pipeline, costs
     "purchases.index": ("purchases", V), "purchases.pipeline": ("purchases", V),
     "purchases.detail": ("purchases", V),
@@ -100,6 +104,10 @@ RULES = {
     "sales.receipt_new": ("sales", M),
     "sales.invoices": ("sales", V), "sales.invoice_print": ("sales", V),
     "sales.invoice_new": ("sales", M), "sales.invoice_cancel": ("sales", M),
+    # the cart, and the proformas printed from it
+    "cart.index": ("sales", M), "cart.add": ("sales", M), "cart.remove": ("sales", M), "cart.price": ("sales", M),
+    "cart.quote_reload": ("sales", M), "cart.quote_delete": ("sales", M),
+    "cart.quotes": ("sales", V), "cart.quote_print": ("sales", V),
     # the dashboard's Statistics tab: the same figures as the dashboard, over a period
     "stats.index": ("dashboard", V),
     # the Excel import

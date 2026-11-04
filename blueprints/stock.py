@@ -86,9 +86,12 @@ def index():
         "statuses": [(s, "%s (%d)" % (t["unit.status." + s], counts[s])) for s in UNIT_STATUSES],
         "wheres": [(w, t["unit.where." + w]) for w in WHERE],
     }
+    # As a table, or as cards with the models' photos: kept in the address,
+    # so filters and pages stay in the same view.
+    view = "cards" if request.args.get("view") == "cards" else ""
     return render_template(
         "stock.html", rows=pagination.items, pagination=pagination, search=search,
-        product_id=product_id, port_id=port_id, status=status, where=where, opts=opts,
+        product_id=product_id, port_id=port_id, status=status, where=where, opts=opts, view=view,
         landed=_landed_costs(pagination.items), tab_counts=tab_counts())
 
 

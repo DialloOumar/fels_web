@@ -210,12 +210,36 @@ class Product(db.Model):
     is_active   = db.Column(db.Boolean, nullable=False, default=True)
     created_at  = db.Column(db.DateTime, nullable=False, default=utcnow)
 
+    photos = db.relationship("ProductPhoto", back_populates="product", cascade="all, delete-orphan",
+                             order_by=lambda: (ProductPhoto.sort_order, ProductPhoto.id))
+
+    @property
+    def cover(self):
+        """The photo shown in the lists: the first one."""
+        return self.photos[0] if self.photos else None
+
     @property
     def has_history(self):
         """Named on a purchase or a sale: from then on it is archived, never
         deleted, so the old lines keep their meaning."""
         return (db.session.query(PurchaseLine.id).filter_by(product_id=self.id).first() is not None
                 or db.session.query(SaleLine.id).filter_by(product_id=self.id).first() is not None)
+
+
+class ProductPhoto(db.Model):
+    """A photo of a model, in two sizes (product_photos.py). The first in
+    order is the one the lists show."""
+    __tablename__ = "product_photos"
+
+    id          = db.Column(db.Integer, primary_key=True)
+    product_id  = db.Column(db.Integer, db.ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    key         = db.Column(db.String(255), nullable=False, unique=True)
+    thumb_key   = db.Column(db.String(255), nullable=False, unique=True)
+    sort_order  = db.Column(db.Integer, nullable=False, default=0)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    created_at  = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    product = db.relationship("Product", back_populates="photos")
 
 
 def next_product_ref(category):
@@ -748,6 +772,60 @@ class Invoice(db.Model):
     @property
     def net_amount(self):
         return Decimal(self.total) - Decimal(self.vat_amount or 0)
+
+
+class CartItem(db.Model):
+    """A vehicle in a seller's cart: picked from anywhere in the app, kept
+    on the server -- across pages, browsers and devices -- until it becomes
+    a sale or is taken out. The price, once typed on the cart page, is kept
+    with it."""
+    __tablename__ = "cart_items"
+    __table_args__ = (db.UniqueConstraint("user_id", "unit_id", name="uq_cart_item"),)
+
+    id       = db.Column(db.Integer, primary_key=True)
+    user_id  = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    unit_id  = db.Column(db.Integer, db.ForeignKey("units.id", ondelete="CASCADE"), nullable=False, index=True)
+    price    = db.Column(MONEY)
+    added_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    unit = db.relationship("Unit")
+
+
+class Quote(db.Model):
+    """A proforma, numbered by the app (DEV-2026-001): the cart printed for a
+    customer before he pays, with how long it holds and the deposit asked.
+
+    Like an invoice, what it prints is copied when it is issued -- the
+    customer, the lines, the prices, the terms -- so the paper handed over
+    never changes. It reserves nothing: the vehicles stay free until a sale
+    names them."""
+    __tablename__ = "quotes"
+
+    id            = db.Column(db.Integer, primary_key=True)
+    number        = db.Column(db.String(20), nullable=False, unique=True)
+    customer_id   = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=False, index=True)
+    issued_on     = db.Column(db.Date, nullable=False)
+    valid_until   = db.Column(db.Date)
+    currency      = db.Column(db.String(3), nullable=False)
+    total         = db.Column(MONEY, nullable=False)
+    deposit_pct   = db.Column(db.Numeric(5, 2))                # None: no deposit asked
+    customer_name    = db.Column(db.String(120), nullable=False)
+    customer_address = db.Column(db.String(255))
+    customer_phone   = db.Column(db.String(60))
+    lines         = db.Column(db.JSON, nullable=False)         # [{unit_id, product_id, ref, product, description, chassis, where, price}]
+    terms         = db.Column(db.Text)                         # bank details, conditions: from the settings that day
+    note          = db.Column(db.Text)
+    created_by    = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    created_at    = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    customer = db.relationship("Customer")
+    creator  = db.relationship("User")
+
+    @property
+    def deposit(self):
+        if self.deposit_pct is None:
+            return None
+        return (Decimal(self.total) * Decimal(self.deposit_pct) / 100).quantize(CENT, rounding=ROUND_HALF_UP)
 
 
 def vat_part(total, rate):

@@ -66,7 +66,7 @@
 
 <div class="tab-panel" data-tab-panel="sales" role="tabpanel" {{ tab_hidden('sales', tab) }}>
     {% if can('sales', 'manage') %}<div class="tab-bar"><p class="tab-bar__filters"></p><div class="tab-bar__actions">
-        <a href="{{ url_for('sales.new', customer=row.id) }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['sale.new'] }}</a>
+        <a href="{{ url_for('cart.index', customer=row.id) }}" class="fab"><span class="material-symbols-outlined">add</span> {{ t['sale.new'] }}</a>
     </div></div>{% endif %}
     {% if row.sales %}
     <div class="table-wrap"><table class="data-table">

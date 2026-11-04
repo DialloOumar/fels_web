@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}{{ t['photo.title'] }} · {{ row.name }}{% endblock %}
+{% block page_title %}{{ t['photo.title'] }} · {{ row.name }}{% endblock %}
+{% block content %}
+<section class="card" style="max-width: 760px;">
+    {% include "_product_photos.html" %}
+</section>
+{% endblock %}

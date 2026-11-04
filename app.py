@@ -225,6 +225,11 @@ SETTINGS_SCHEMA = {
                          "labels": "settings.vat_enabled."},
     "vat_rate":         {"group": "invoice",  "type": "decimal", "default": "18", "min": 0, "max": 100},
     "invoice_footer":   {"group": "invoice",  "type": "textarea", "default": ""},
+    # Proformas: how long one holds, the deposit it asks for (0: none), and
+    # what it prints under the lines -- the bank details, the conditions.
+    "proforma_valid_days": {"group": "invoice", "type": "int", "default": "15", "min": 1, "max": 180},
+    "proforma_deposit_pct": {"group": "invoice", "type": "decimal", "default": "30", "min": 0, "max": 100},
+    "proforma_terms":   {"group": "invoice",  "type": "textarea", "default": ""},
     # The bell: after how many days a purchase at one stage, and a rate not
     # re-entered, are worth a word.
     "alert_stuck_days": {"group": "alerts",   "type": "int",    "default": "30", "min": 1, "max": 365},
@@ -813,6 +818,7 @@ from blueprints.notifications import notifications_bp  # noqa: E402
 from blueprints.users import users_bp  # noqa: E402
 from blueprints.journal import journal_bp  # noqa: E402
 from blueprints.stats import stats_bp  # noqa: E402
+from blueprints.cart import cart_bp  # noqa: E402
 
 app.register_blueprint(settings_bp)
 app.register_blueprint(suppliers_bp)
@@ -828,6 +834,7 @@ app.register_blueprint(notifications_bp)
 app.register_blueprint(users_bp)
 app.register_blueprint(journal_bp)
 app.register_blueprint(stats_bp)
+app.register_blueprint(cart_bp)
 
 
 if __name__ == "__main__":

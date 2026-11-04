@@ -1,0 +1,36 @@
+{% from "_macros.html" import form_actions with context %}
+{% from "_hint.html" import hint with context %}
+{# A model's photos: the first is the one the lists show. The upload form
+   comes first in the page -- the window sends it -- the small forms after
+   it (main photo, delete) reload the page. #}
+{% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+<form method="post" class="entry-form" data-modal-form enctype="multipart/form-data" action="{{ url_for('products.photos', pid=row.id) }}">
+    {{ csrf_field() }}
+    <p class="muted small" style="margin:0;">{% if row.ref %}<code>{{ row.ref }}</code> {% endif %}<strong>{{ row.name }}</strong></p>
+    <div class="field">
+        <input type="file" id="photos" name="photos" accept="{{ accept }}" multiple required>
+        <label for="photos">{{ t['photo.add'] }}</label>
+        {{ hint(t['photo.hint_short'] % {'mb': max_mb}, t['photo.hint']) }}
+    </div>
+    {{ form_actions(url_for('products.index')) }}
+</form>
+{% if row.photos %}
+<div class="photo-grid">
+    {% for ph in row.photos %}
+    <figure class="photo-grid__item {% if loop.first %}photo-grid__item--cover{% endif %}">
+        <a href="{{ url_for('products.photo_file', phid=ph.id) }}" target="_blank" rel="noopener">
+            <img src="{{ url_for('products.photo_file', phid=ph.id, size='thumb') }}" alt="{{ row.name }}" loading="lazy"></a>
+        <figcaption>
+            {% if loop.first %}<span class="badge badge--unit-available">{{ t['photo.cover'] }}</span>
+            {% else %}<form method="post" action="{{ url_for('products.photo_cover', phid=ph.id) }}">{{ csrf_field() }}
+                <button type="submit" class="btn btn--sm btn--text">{{ t['photo.make_cover'] }}</button></form>{% endif %}
+            <form method="post" action="{{ url_for('products.photo_delete', phid=ph.id) }}"
+                  data-confirm="{{ t['delete.confirm'] }}" data-confirm-title="{{ t['delete.title'] }}" data-confirm-ok="{{ t['btn.delete'] }}" data-confirm-danger>{{ csrf_field() }}
+                <button type="submit" class="btn btn--sm btn--tonal btn--icon" title="{{ t['btn.delete'] }}" aria-label="{{ t['btn.delete'] }}"><span class="material-symbols-outlined">delete</span></button></form>
+        </figcaption>
+    </figure>
+    {% endfor %}
+</div>
+{% else %}
+<p class="muted small">{{ t['photo.none'] }}</p>
+{% endif %}

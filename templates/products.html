@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_filters.html" import filter_bar, filter_select with context %}
 {% from "_pager.html" import pager with context %}
-{% from "_macros.html" import row_actions, archive_toggle with context %}
+{% from "_macros.html" import row_actions, archive_toggle, product_thumb with context %}
 
 {% block title %}{{ t['nav.products'] }} · {{ t['nav.stock'] }}{% endblock %}
 {% block page_title %}{{ t['nav.stock'] }}{% endblock %}
@@ -16,6 +16,13 @@
     {% with active = 'products' %}{% include "_vehicle_tabs.html" %}{% endwith %}
     <div class="card-header card-header--end">
         <div class="header-actions">
+            {% set args = page_args() %}{% set _ = args.pop('view', none) %}
+            <div class="view-switch" role="group" aria-label="{{ t['view.label'] }}">
+                <a href="{{ url_for('products.index', **args) }}" class="view-switch__opt {% if not view %}view-switch__opt--on{% endif %}"
+                   title="{{ t['view.cards'] }}" aria-label="{{ t['view.cards'] }}"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg> <span>{{ t['view.cards'] }}</span></a>
+                <a href="{{ url_for('products.index', view='table', **args) }}" class="view-switch__opt {% if view %}view-switch__opt--on{% endif %}"
+                   title="{{ t['view.table'] }}" aria-label="{{ t['view.table'] }}"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg> <span>{{ t['view.table'] }}</span></a>
+            </div>
             {{ archive_toggle('products.index', show_archived, archived_count) }}
             {% if can('products', 'manage') %}<a href="{{ url_for('products.new') }}" class="fab" data-modal-url="{{ url_for('products.new') }}" data-modal-title="{{ t['product.new'] }}">
                 <span class="material-symbols-outlined">add</span> {{ t['product.new'] }}
@@ -23,25 +30,58 @@
         </div>
     </div>
 
-    {% call filter_bar(search, active=category, keep={'archived': '1' if show_archived else ''}) %}
+    {% call filter_bar(search, active=category, keep={'archived': '1' if show_archived else '', 'view': view}) %}
         {{ filter_select('category', t['product.category'], [('', t['list.all'])] + category_opts, category) }}
     {% endcall %}
 
-    {% if rows %}
+    {% if rows and not view %}
+    {# ── The catalog: a card per model -- its photo, what it is, how many
+       there are and how many are left to sell, what it last sold at. ── #}
+    <div class="mcards">
+        {% for p in rows %}
+        {% set s = stats[p.id] %}
+        {% set lp = last_price.get(p.id) %}
+        {% set ph = p.cover %}
+        <article class="mcard {% if not p.is_active %}mcard--archived{% endif %}">
+            {% if can('products', 'manage') %}<a href="{{ url_for('products.photos', pid=p.id) }}" data-modal-url="{{ url_for('products.photos', pid=p.id) }}"
+               data-modal-title="{{ t['photo.title'] }} · {{ p.name }}" title="{{ t['photo.manage'] }}"
+               class="mcard__photo {% if not ph %}mcard__photo--none{% endif %}">{% else %}<span class="mcard__photo {% if not ph %}mcard__photo--none{% endif %}">{% endif %}
+                {% if ph %}<img src="{{ url_for('products.photo_file', phid=ph.id, size='thumb') }}" alt="{{ p.name }}" loading="lazy">
+                {% else %}{{ product_thumb(p, 'lg') }}{% if can('products', 'manage') %}<span class="mcard__add-photo"><span class="material-symbols-outlined">photo_camera</span> {{ t['photo.add'] }}</span>{% endif %}{% endif %}
+                <span class="chip chip--cat-{{ p.category }} mcard__cat">{{ t['category.' + p.category] }}</span>
+                {% if p.photos|length > 1 %}<span class="mcard__count"><span class="material-symbols-outlined">photo_camera</span> {{ p.photos|length }}</span>{% endif %}
+            {% if can('products', 'manage') %}</a>{% else %}</span>{% endif %}
+            <div class="mcard__body">
+                <div class="mcard__name">{{ p.name }}</div>
+                <div class="mcard__ref"><code>{{ p.ref or '—' }}</code>{% if p.code %} · {{ p.code }}{% endif %}</div>
+                <div class="mcard__stats">
+                    <a href="{{ url_for('stock.index', product=p.id, where='in_stock') }}" class="mcard__stat"><strong>{{ s.in_stock }}</strong><span>{{ t['stats.in_stock'] }}</span></a>
+                    <a href="{{ url_for('stock.index', product=p.id, where='incoming') }}" class="mcard__stat"><strong>{{ s.incoming }}</strong><span>{{ t['stats.incoming'] }}</span></a>
+                    <a href="{{ url_for('stock.index', product=p.id, status='available') }}" class="mcard__stat mcard__stat--free {{ 'mcard__stat--neg' if s.free < 0 else '' }}"><strong>{{ s.free }}</strong><span>{{ t['stats.free'] }}</span></a>
+                </div>
+                {% if s.waiting %}<div class="small stat-waiting">{{ t['stats.waiting'] % {'n': s.waiting} }}</div>{% endif %}
+                <div class="mcard__price">{% if lp %}<span class="muted">{{ t['sale.last_price_short'] }}</span> <strong>{{ lp.price|money(lp.sale.currency) }}</strong>{% else %}<span class="muted">{{ t['sale.never_sold'] }}</span>{% endif %}</div>
+            </div>
+            <div class="mcard__foot">
+                <a href="{{ url_for('stock.index', product=p.id) }}" class="btn btn--sm btn--text">{{ t['product.see_vehicles'] }}</a>
+                <span class="row-actions">{{ row_actions(p, url_for('products.edit', pid=p.id), url_for('products.archive', pid=p.id),
+                               url_for('products.reactivate', pid=p.id), url_for('products.delete', pid=p.id), t['product.edit'], 'products') }}</span>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    <p class="muted small" style="margin-top:8px;">{{ t['stats.hint'] }}</p>
+    {{ pager(pagination, 'products.index') }}
+    {% elif rows %}
     <div class="table-desktop">
     <table class="data-table">
         <thead>
             <tr>
-                <th>{{ t['product.ref'] }}</th>
+                <th></th>
                 <th>{{ t['product.name'] }}</th>
-                <th>{{ t['product.category'] }}</th>
-                <th class="num">{{ t['stats.ordered'] }}</th>
-                <th class="num">{{ t['stats.incoming'] }}</th>
                 <th class="num">{{ t['stats.in_stock'] }}</th>
-                <th class="num stat-col-reserved">{{ t['stats.reserved'] }}</th>
+                <th class="num">{{ t['stats.incoming'] }}</th>
                 <th class="num">{{ t['stats.free'] }}</th>
-                <th class="num col-secondary">{{ t['stats.delivered'] }}</th>
-                <th class="col-secondary">{{ t['stats.last_order'] }}</th>
                 <th></th>
             </tr>
         </thead>
@@ -49,18 +89,19 @@
             {% for p in rows %}
             {% set s = stats[p.id] %}
             <tr>
-                <td class="nowrap"><code>{{ p.ref or '—' }}</code></td>
+                <td>{% if can('products', 'manage') %}<a href="{{ url_for('products.photos', pid=p.id) }}" data-modal-url="{{ url_for('products.photos', pid=p.id) }}"
+                       data-modal-title="{{ t['photo.title'] }} · {{ p.name }}" title="{{ t['photo.manage'] }}" class="pthumb-link">{{ product_thumb(p) }}</a>{% else %}{{ product_thumb(p) }}{% endif %}
+                    {% if p.photos|length > 1 %}<div class="muted small" style="text-align:center">{{ p.photos|length }}</div>{% endif %}</td>
                 <td><strong>{{ p.name }}</strong>
-                    {% if p.code or p.description %}<div class="muted small">{% if p.code %}<code>{{ p.code }}</code> {% endif %}{{ p.description or '' }}</div>{% endif %}</td>
-                <td><span class="chip chip--cat-{{ p.category }}">{{ t['category.' + p.category] }}</span></td>
-                <td class="num nowrap">{% if s.orders %}{{ t['stats.ordered_value'] % {'n': s.orders, 'qty': s.ordered} }}{% else %}<span class="muted">—</span>{% endif %}</td>
-                <td class="num">{{ stat_link(s.incoming, p.id, where='incoming') }}</td>
+                    <div class="model-meta"><code>{{ p.ref or '—' }}</code> <span class="chip chip--cat-{{ p.category }}">{{ t['category.' + p.category] }}</span>{% if p.code %} <code>{{ p.code }}</code>{% endif %}</div></td>
                 <td class="num">{{ stat_link(s.in_stock, p.id, where='in_stock') }}</td>
-                <td class="num">{{ stat_link(s.reserved, p.id, status='held') }}{% if s.waiting %}<div class="small stat-waiting">{{ t['stats.waiting'] % {'n': s.waiting} }}</div>{% endif %}</td>
-                <td class="num"><strong class="{{ 'stock-negative' if s.free < 0 else '' }}">{{ s.free if (s.orders or s.waiting) else '—' }}</strong></td>
-                <td class="num col-secondary">{{ stat_link(s.delivered, p.id, status='delivered') }}</td>
-                <td class="col-secondary nowrap muted">{{ s.last_order|fdate if s.last_order else '—' }}</td>
+                <td class="num">{{ stat_link(s.incoming, p.id, where='incoming') }}</td>
+                <td class="num"><strong class="model-free {{ 'stock-negative' if s.free < 0 else '' }}">{% if s.orders or s.waiting %}<a href="{{ url_for('stock.index', product=p.id, status='available') }}">{{ s.free }}</a>{% else %}—{% endif %}</strong>
+                    {% if s.waiting %}<div class="small stat-waiting">{{ t['stats.waiting'] % {'n': s.waiting} }}</div>{% endif %}</td>
                 <td class="row-actions">
+                    {% if can('products', 'manage') %}<a href="{{ url_for('products.photos', pid=p.id) }}" class="btn btn--sm btn--tonal btn--icon"
+                       data-modal-url="{{ url_for('products.photos', pid=p.id) }}" data-modal-title="{{ t['photo.title'] }} · {{ p.name }}"
+                       title="{{ t['photo.manage'] }}" aria-label="{{ t['photo.manage'] }}"><span class="material-symbols-outlined">photo_camera</span></a>{% endif %}
                     {{ row_actions(p, url_for('products.edit', pid=p.id), url_for('products.archive', pid=p.id),
                                    url_for('products.reactivate', pid=p.id), url_for('products.delete', pid=p.id), t['product.edit'], 'products') }}
                 </td>
@@ -75,11 +116,10 @@
         <div class="list-card">
             {% set s = stats[p.id] %}
             <div class="list-card__top">
-                <strong>{{ p.name }}</strong>
+                <span class="model-card-name">{{ product_thumb(p) }}<strong>{{ p.name }}</strong></span>
                 <span class="chip chip--cat-{{ p.category }}">{{ t['category.' + p.category] }}</span>
             </div>
-            <div class="list-card__meta muted"><code>{{ p.ref or '—' }}</code>{% if p.code %} · <code>{{ p.code }}</code>{% endif %} {{ p.description or '' }}</div>
-            {% if s.orders or s.waiting %}<div class="list-card__meta">{{ t['stats.summary'] % {'incoming': s.incoming, 'in_stock': s.in_stock, 'reserved': s.reserved, 'free': s.free} }}</div>{% endif %}
+            {% if s.orders or s.waiting %}<div class="list-card__meta">{{ t['stats.short'] % {'in_stock': s.in_stock, 'incoming': s.incoming, 'free': s.free} }}</div>{% endif %}
             <div class="list-card__actions">
                 {{ row_actions(p, url_for('products.edit', pid=p.id), url_for('products.archive', pid=p.id),
                                url_for('products.reactivate', pid=p.id), url_for('products.delete', pid=p.id), t['product.edit'], 'products') }}

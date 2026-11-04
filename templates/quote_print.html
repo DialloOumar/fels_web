@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ q.number }} — {{ t['app.title'] }}</title>
+    {% include "_print_style.html" %}
+    <style>.doc-photo { float: left; width: 64px; height: 44px; object-fit: cover; border-radius: 4px; margin: 0 8px 2px 0; }</style>
+</head>
+<body>
+<div class="print-toolbar">
+    <span class="print-toolbar__hint">{{ t['print.hint'] }}</span>
+    {% if can('sales', 'manage') %}<a href="{{ url_for('cart.index') }}">{{ t['quote.back_cart'] }}</a>{% endif %}
+    <a href="{{ url_for('cart.quotes') }}">{{ t['quote.tab'] }}</a>
+    <button type="button" onclick="window.print()">{{ t['print.print'] }}</button>
+</div>
+
+{# The proforma as it was issued: customer, lines, prices and terms were
+   copied that day. It reserves nothing until a sale names the vehicles. #}
+<header class="doc-head">
+    <div>
+        <img src="{{ url_for('static', filename='images/logo.png') }}?v={{ v }}" alt="" class="doc-logo">
+        {% set contact = [company.phone, company.email]|select|join(' · ') %}
+        {% set ids = [(t['invoice.nif'] ~ ' ' ~ company.nif) if company.nif else '', (t['invoice.rccm'] ~ ' ' ~ company.rccm) if company.rccm else '']|select|join(' · ') %}
+        <div class="doc-company">
+            {% if company.name %}<strong>{{ company.name }}</strong>{% endif %}
+            {% for line in [company.address, contact, ids]|select %}<br>{{ line }}{% endfor %}
+        </div>
+    </div>
+    <div class="doc-title">
+        <h1>{{ t['quote.title'] }}</h1>
+        <div class="doc-no">{{ q.number }}</div>
+        <div class="doc-date">{{ q.issued_on|fdate }}</div>
+        {% if q.valid_until %}<div class="doc-date">{{ t['quote.valid_until'] }} : {{ q.valid_until|fdate }}</div>{% endif %}
+    </div>
+</header>
+
+<div class="doc-parties">
+    <div class="doc-box">
+        <div class="doc-box__label">{{ t['quote.for'] }}</div>
+        <div class="doc-box__main">{{ q.customer_name }}</div>
+        {% if q.customer_address %}<div class="small muted">{{ q.customer_address }}</div>{% endif %}
+        {% if q.customer_phone %}<div class="small muted">{{ q.customer_phone }}</div>{% endif %}
+    </div>
+    <div class="doc-box">
+        <div class="doc-box__label">{{ t['quote.conditions'] }}</div>
+        <div class="doc-box__main">{% if q.deposit_pct %}{{ t['quote.deposit_terms'] % {'pct': q.deposit_pct|num} }}{% else %}{{ t['quote.no_deposit'] }}{% endif %}</div>
+        <div class="small muted">{{ t['purchase.currency'] }} {{ q.currency }}</div>
+    </div>
+</div>
+
+<table class="doc-table">
+    <thead><tr>
+        <th>{{ t['unit.ref'] }}</th>
+        <th>{{ t['purchase.line_product'] }}</th>
+        <th>{{ t['unit.chassis'] }}</th>
+        <th>{{ t['quote.availability'] }}</th>
+        <th class="r">{{ t['sale.price'] }}</th>
+    </tr></thead>
+    <tbody>
+    {% for l in q.lines %}
+    <tr>
+        <td>{{ l.ref or '—' }}</td>
+        <td>{% set ph = covers.get(l.product_id) %}{% if ph %}<img class="doc-photo" src="{{ url_for('products.photo_file', phid=ph.id, size='thumb') }}" alt="">{% endif %}<strong>{{ l.product }}</strong>{% if l.description %}<div class="small muted">{{ l.description }}</div>{% endif %}</td>
+        <td>{% if l.chassis %}{{ l.chassis }}{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td>{{ l.where }}</td>
+        <td class="r">{{ l.price|money(q.currency) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<div class="doc-sums">
+    <div class="doc-sums__total"><span>{{ t['sale.total'] }}</span><span>{{ q.total|money(q.currency) }}</span></div>
+    {% if q.deposit is not none %}<div><span>{{ t['quote.deposit'] % {'pct': q.deposit_pct|num} }}</span><span>{{ q.deposit|money(q.currency) }}</span></div>{% endif %}
+</div>
+
+<p class="doc-words">{{ t['quote.in_words'] % {'words': q.total|in_words(q.currency)} }}</p>
+{% if q.terms %}<p class="small" style="white-space:pre-line;">{{ q.terms }}</p>{% endif %}
+{% if q.note %}<p class="small" style="white-space:pre-line;">{{ q.note }}</p>{% endif %}
+<p class="small muted">{{ t['quote.not_invoice'] }}</p>
+
+<div class="doc-sign">
+    <div>{{ t['receipt.sign_customer'] }}</div>
+    <div class="doc-sign__stamped">
+        {% if q.creator and user_has_stamp(q.creator) %}<img class="doc-stamp" src="{{ url_for('signature.stamp_svg', user_id=q.creator.id) }}" alt="">{% endif %}
+        <span>{{ t['receipt.sign_company'] }}{% if q.creator %} · {{ q.creator.full_name }}{% endif %}</span>
+    </div>
+</div>
+
+<footer class="doc-foot">
+    <span style="white-space:pre-line;">{{ footer }}</span>
+    <span>{{ q.number }}</span>
+</footer>
+</body>
+</html>

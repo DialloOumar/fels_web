@@ -127,6 +127,12 @@
                 <span class="material-symbols-outlined">menu</span>
             </button>
             <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
+            {# The cart: what the seller has picked to sell, on every page. An
+               inline drawing: the icon font holds no cart. #}
+            {% if can('sales', 'manage') %}{% set n_cart = cart_ids()|length %}
+            <a href="{{ url_for('cart.index') }}" class="topbar-cart {% if request.blueprint == 'cart' %}topbar-cart--on{% endif %}"
+               title="{{ t['cart.title'] }}" aria-label="{{ t['cart.title'] }}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3.5h2.6l2.4 11.2a1.6 1.6 0 0 0 1.6 1.3h8.6a1.6 1.6 0 0 0 1.6-1.2l1.6-6.8H6.1"/></svg>
+                <span class="topbar-cart__n" data-cart-count {% if not n_cart %}hidden{% endif %}>{{ n_cart }}</span></a>{% endif %}
             {# The bell: what needs a hand, worked out from the data each time. #}
             {% set b = notif_bell() %}
             <details class="bell" data-count-url="{{ url_for('notifications.count') }}">

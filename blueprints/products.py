@@ -3,13 +3,18 @@ bought and sold: "Shacman 430 HP",
 "Fence trailer 16 m". Purchase and sale lines point here, so stock and
 margins are counted per model. A model named on a purchase or a sale is
 archived, never deleted."""
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
-from flask_login import login_required
+import io
+
+from flask import Blueprint, abort, flash, redirect, render_template, request, send_file, url_for
+from flask_login import current_user, login_required
+
+import documents_store
+import product_photos
 
 from analytics import model_stats
 from app import form_response, get_t, is_modal_request, log_action, modal_ok, paginate
 from blueprints.stock import tab_counts
-from models import PRODUCT_CATEGORIES, Product, db, next_product_ref
+from models import PRODUCT_CATEGORIES, Product, ProductPhoto, db, next_product_ref
 
 products_bp = Blueprint("products", __name__, url_prefix="/modeles")
 
@@ -39,11 +44,22 @@ def index():
     pagination = paginate(q.order_by(Product.category, Product.ref, Product.name))
     archived_count = 0 if show_archived else Product.query.filter_by(is_active=False).count()
     t = get_t()
+    ids = [p.id for p in pagination.items]
+    # The price each model last sold at: what a seller looks for first.
+    from models import Sale, SaleLine
+    last_price = {}
+    for line in (SaleLine.query.join(Sale).filter(Sale.status.in_(("confirmed", "delivered")),
+                                                  SaleLine.product_id.in_(ids or [0]))
+                 .order_by(Sale.sale_date.desc(), Sale.id.desc())):
+        last_price.setdefault(line.product_id, line)
+    # A catalog of cards by default; the table on request. In the address,
+    # so filters and pages keep the view.
+    view = "table" if request.args.get("view") == "table" else ""
     return render_template("products.html", rows=pagination.items, pagination=pagination,
-                           search=search, show_archived=show_archived, category=category,
+                           search=search, show_archived=show_archived, category=category, view=view,
                            category_opts=[(c, t["category." + c]) for c in PRODUCT_CATEGORIES],
                            archived_count=archived_count, tab_counts=tab_counts(),
-                           stats=model_stats([p.id for p in pagination.items]))
+                           stats=model_stats(ids), last_price=last_price)
 
 
 def _save(row):
@@ -138,7 +154,94 @@ def delete(pid):
         flash("error|" + t["delete.has_history"])
         return redirect(url_for("products.index", archived=1))
     log_action("DELETE", "product", row.id, row.name)
+    photos = list(row.photos)
     db.session.delete(row)
     db.session.commit()
+    for ph in photos:
+        product_photos.remove(ph)
     flash("success|" + t["delete.done"])
     return redirect(url_for("products.index", archived=1))
+
+
+# ── Photos ───────────────────────────────────────────────────────────────────
+
+
+@products_bp.route("/<int:pid>/photos", methods=["GET", "POST"])
+@login_required
+def photos(pid):
+    """A model's photos: add several at once, choose the one the lists show,
+    take one out. Each upload is made fit for the screen (product_photos)."""
+    row = _get_or_404(pid)
+    t = get_t()
+    error = None
+    if request.method == "POST":
+        files = [f for f in request.files.getlist("photos") if f and f.filename]
+        if not files:
+            error = t["photo.error.none"]
+        added, refused = 0, []
+        for f in files:
+            data = f.read(product_photos.MAX_UPLOAD + 1)
+            if len(data) > product_photos.MAX_UPLOAD:
+                refused.append(f.filename)
+                continue
+            prepared = product_photos.prepare(data)
+            keys = product_photos.store(row.id, prepared) if prepared else None
+            if keys is None:
+                refused.append(f.filename)
+                continue
+            last = max((ph.sort_order for ph in row.photos), default=-1)
+            row.photos.append(ProductPhoto(key=keys[0], thumb_key=keys[1], sort_order=last + 1,
+                                           uploaded_by=current_user.id))
+            added += 1
+        if added:
+            log_action("UPDATE", "product", row.id, "%s · %d photo(s)" % (row.name, added))
+            db.session.commit()
+            flash("success|" + t["photo.added"] % {"n": added})
+        if refused:
+            error = t["photo.error.refused"] % {"files": ", ".join(refused)}
+        if error is None:
+            return modal_ok() if is_modal_request() else redirect(url_for("products.index"))
+    return form_response("product_photos.html", "_product_photos.html", row=row, error=error,
+                         accept=product_photos.ACCEPT, max_mb=product_photos.MAX_UPLOAD // (1024 * 1024))
+
+
+@products_bp.route("/photo/<int:phid>/principale", methods=["POST"])
+@login_required
+def photo_cover(phid):
+    """Make a photo the one the lists show: it goes first."""
+    ph = db.session.get(ProductPhoto, phid) or abort(404)
+    others = [p for p in ph.product.photos if p.id != ph.id]
+    ph.sort_order = 0
+    for i, p in enumerate(others, start=1):
+        p.sort_order = i
+    db.session.commit()
+    return redirect(request.referrer or url_for("products.index"))
+
+
+@products_bp.route("/photo/<int:phid>/supprimer", methods=["POST"])
+@login_required
+def photo_delete(phid):
+    ph = db.session.get(ProductPhoto, phid) or abort(404)
+    product = ph.product
+    log_action("UPDATE", "product", product.id, "%s · photo supprimée" % product.name)
+    db.session.delete(ph)
+    db.session.commit()
+    product_photos.remove(ph)
+    flash("success|" + get_t()["photo.deleted"])
+    return redirect(request.referrer or url_for("products.index"))
+
+
+@products_bp.route("/photo/<int:phid>")
+@login_required
+def photo_file(phid):
+    """The picture, large or (?size=thumb) small. Its key never changes, so
+    the browser may keep it."""
+    ph = db.session.get(ProductPhoto, phid) or abort(404)
+    data = documents_store.load(ph.thumb_key if request.args.get("size") == "thumb" else ph.key)
+    if data is None:
+        abort(404)
+    resp = send_file(io.BytesIO(data), mimetype="image/jpeg", max_age=0)
+    resp.headers["Cache-Control"] = "private, max-age=604800"
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    return resp
+

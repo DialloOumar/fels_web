@@ -7,11 +7,11 @@
 
 {% block content %}
 {% set group_icons = {'currency': 'currency_exchange', 'company': 'store', 'invoice': 'receipt_long', 'alerts': 'notifications'} %}
-{% set units = {'usd_gnf_rate': 'GNF', 'vat_rate': '%', 'alert_stuck_days': t['settings.unit.days'], 'alert_rate_days': t['settings.unit.days'], 'payment_fix_hours': t['settings.unit.hours']} %}
+{% set units = {'usd_gnf_rate': 'GNF', 'vat_rate': '%', 'alert_stuck_days': t['settings.unit.days'], 'alert_rate_days': t['settings.unit.days'], 'payment_fix_hours': t['settings.unit.hours'], 'proforma_valid_days': t['settings.unit.days'], 'proforma_deposit_pct': '%'} %}
 {# The longer explanations wait behind the "?" beside the label. #}
 {% set helps = {'usd_gnf_rate': t['settings.rate_explain'], 'vat_enabled': t['settings.invoice_explain'], 'payment_fix_hours': t['settings.payment_fix_explain']} %}
 {# What may stay empty: a section is ticked once everything else is filled. #}
-{% set optional = ('receipt_footer', 'invoice_footer') %}
+{% set optional = ('receipt_footer', 'invoice_footer', 'proforma_terms') %}
 {% set first_error = (errors.keys()|list)[0] if errors else '' %}
 <form method="post" class="entry-form form-page" data-form-page>
     {{ csrf_field() }}
