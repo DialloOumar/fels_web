@@ -211,8 +211,12 @@ def _save(sale):
 
 
 def _form_context(sale):
-    """Customers, models, and the vehicles that can go on a line: free ones,
-    plus those already on this sale."""
+    """Customers, models, and what the vehicle picker shows: the vehicles
+    that can go on a line -- free ones, plus those already on this sale --
+    each with where it is and what it cost, how many of each model are free,
+    and the price each model last sold at."""
+    from blueprints.stock import _landed_costs, road_label
+    t = get_t()
     customers = Customer.query.filter(db.or_(Customer.is_active.is_(True), Customer.id == (sale.customer_id or 0))
                                       ).order_by(Customer.name).all()
     products = Product.query.filter(db.or_(
@@ -221,7 +225,34 @@ def _form_context(sale):
     own = {l.unit_id for l in sale.lines if l.unit_id}
     units = [u for u in Unit.query.order_by(Unit.product_id, Unit.id).all()
              if u.active_sale_line is None or u.id in own]
-    return {"customers": customers, "products": products, "units": units}
+    landed = _landed_costs(units)
+    today = date.today()
+    picker = []
+    free = {}
+    for u in units:
+        p = u.purchase_line.purchase
+        in_yard = p.stage == "in_stock"
+        if in_yard:
+            since = p.in_stock_on
+            where = t["stage.in_stock"] + (" · %d %s" % ((today - since).days, t["unit.days"]) if since else "")
+        elif p.stage == "eta" and p.eta_date:
+            where = "%s %s" % (t["stage.eta"], p.eta_date.strftime("%d/%m/%Y"))
+        else:
+            where = road_label(t, u)
+        lc = landed.get(u.id)
+        picker.append({"unit": u, "in_yard": in_yard, "where": where, "stage": p.stage,
+                       "landed": lc[0] if lc else None, "landed_cur": lc[1] if lc else None, "purchase": p})
+        if u.id not in own:
+            n = free.setdefault(u.product_id, [0, 0])
+            n[0 if in_yard else 1] += 1
+    # The price each model last sold at, as a guide for the next one.
+    last_price = {}
+    for line in (SaleLine.query.join(Sale).filter(Sale.status.in_(("confirmed", "delivered")))
+                 .order_by(Sale.sale_date.desc(), Sale.id.desc())):
+        last_price.setdefault(line.product_id, line)
+    return {"customers": customers, "products": products, "units": units, "picker": picker,
+            "units_by_id": {u.id: u for u in units}, "free": free, "last_price": last_price,
+            "rate": current_rate()}
 
 
 @sales_bp.route("/new", methods=["GET", "POST"])
@@ -237,10 +268,14 @@ def new():
             db.session.rollback()
             error = str(e)
         sale = Sale()
-    preset = {"customer": request.args.get("customer", type=int), "unit": request.args.get("unit", type=int)}
-    preset_unit = db.session.get(Unit, preset["unit"]) if preset["unit"] else None
+    # Vehicles chosen before coming here -- one from its page, several ticked
+    # on the Vehicles list -- arrive already picked; any no longer free is left out.
+    preset = {"customer": request.args.get("customer", type=int)}
+    ctx = _form_context(sale)
+    preset_units = [ctx["units_by_id"][uid] for uid in dict.fromkeys(request.args.getlist("unit", type=int))
+                    if uid in ctx["units_by_id"]]
     return render_template("sale_form.html", row=None, error=error, preset=preset,
-                           preset_unit=preset_unit, **_form_context(sale))
+                           preset_units=preset_units, **ctx)
 
 
 @sales_bp.route("/<int:sid>/edit", methods=["GET", "POST"])
@@ -259,7 +294,7 @@ def edit(sid):
             db.session.rollback()
             error = str(e)
             sale = _get_or_404(sid)
-    return render_template("sale_form.html", row=sale, error=error, preset={}, preset_unit=None,
+    return render_template("sale_form.html", row=sale, error=error, preset={}, preset_units=[],
                            **_form_context(sale))
 
 

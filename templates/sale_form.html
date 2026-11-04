@@ -7,6 +7,8 @@
 {% block title %}{{ (t['sale.edit'] ~ ' ' ~ row.number) if is_edit else t['sale.new'] }}{% endblock %}
 {% block page_title %}{{ (t['sale.edit'] ~ ' ' ~ row.number) if is_edit else t['sale.new'] }}{% endblock %}
 
+{# The lines as they stand: posted back after an error, the sale's own when
+   editing, the vehicles chosen before coming here, or none yet. #}
 {% if posted %}
     {% set lines = [] %}
     {% for pid in request.form.getlist('line_product') %}
@@ -21,42 +23,71 @@
         {% set _ = lines.append({'product_id': l.product_id, 'unit_id': l.unit_id or '', 'price': l.price|money_field,
                                  'description': l.description or ''}) %}
     {% endfor %}
-{% elif preset_unit %}
-    {% set lines = [{'product_id': preset_unit.product_id, 'unit_id': preset_unit.id, 'price': '', 'description': ''}] %}
 {% else %}
-    {% set lines = [{'product_id': '', 'unit_id': '', 'price': '', 'description': ''}] %}
+    {% set lines = [] %}
+    {% for u in preset_units %}
+        {% set _ = lines.append({'product_id': u.product_id, 'unit_id': u.id, 'price': '', 'description': ''}) %}
+    {% endfor %}
 {% endif %}
+{% set pick = {} %}
+{% for e in picker %}{% set _ = pick.update({e.unit.id: e}) %}{% endfor %}
+{% set chosen = [] %}
+{% for l in lines %}{% if l.unit_id %}{% set _ = chosen.append(l.unit_id|int) %}{% endif %}{% endfor %}
 
-{% macro line_row(l) %}
-<tr class="line-row">
+{# What the model last sold at: a guide for the price, not a rule. #}
+{% macro price_hint(product_id) -%}
+{% set lp = last_price.get(product_id|int) if product_id else none %}
+{% if lp %}{{ t['sale.last_price'] % {'price': lp.price|money(lp.sale.currency), 'date': lp.sale.sale_date|fdate} }}{% endif %}
+{%- endmacro %}
+
+{# A line for one chosen vehicle: what it is, its price, the margin. #}
+{% macro unit_line(e, price, desc) -%}
+{% set u = e.unit %}
+<tr class="line-row" data-unit="{{ u.id }}" data-landed="{{ e.landed if e.landed is not none else '' }}" data-lcur="{{ e.landed_cur or '' }}">
     <td>
-        <select name="line_product" class="js-line-product" aria-label="{{ t['purchase.line_product'] }}">
-            <option value="">{{ t['form.choose'] }}</option>
-            {% for p in products %}
-            <option value="{{ p.id }}" {% if (p.id|string) == (l.product_id|string) %}selected{% endif %}>{{ p.name }}{% if p.code %} ({{ p.code }}){% endif %}</option>
-            {% endfor %}
-        </select>
-        <input type="text" name="line_desc" value="{{ l.description }}" placeholder="{{ t['purchase.line_desc_ph'] }}" class="line-desc" aria-label="{{ t['field.description'] }}">
+        <input type="hidden" name="line_product" value="{{ u.product_id }}">
+        <input type="hidden" name="line_unit" value="{{ u.id }}">
+        <div class="line-veh"><code class="unit-ref">{{ u.ref }}</code> <strong>{{ u.product.name }}</strong></div>
+        <div class="muted small">{% if u.chassis_number %}<code>{{ u.chassis_number }}</code>{% else %}{{ t['unit.no_chassis'] }}{% endif %} · {{ e.where }}{% if u.note %} · {{ u.note }}{% endif %}</div>
+        <input type="text" name="line_desc" value="{{ desc }}" placeholder="{{ t['purchase.line_desc_ph'] }}" class="line-desc" aria-label="{{ t['field.description'] }}">
     </td>
-    <td>
-        {# Every free vehicle is listed; the script keeps only the chosen
-           model's. "To assign later" is how a pre-order is taken. #}
-        <select name="line_unit" class="js-line-unit" aria-label="{{ t['sale.unit'] }}">
-            <option value="">{{ t['sale.unit_tbd'] }}</option>
-            {% for u in units %}
-            {% set p = u.purchase_line.purchase %}
-            <option value="{{ u.id }}" data-product="{{ u.product_id }}" {% if (u.id|string) == (l.unit_id|string) %}selected{% endif %}>
-                {{ u.label }} — {{ t['stage.' + p.stage] }}{% if p.port %} · {{ p.port.name }}{% endif %}</option>
-            {% endfor %}
-        </select>
+    <td class="num">
+        <input type="text" name="line_price" value="{{ price }}" data-money="cents" inputmode="decimal" class="num" aria-label="{{ t['sale.price'] }}" required>
+        <div class="line-hint">{{ price_hint(u.product_id) }}</div>
     </td>
-    <td><input type="text" name="line_price" value="{{ l.price }}" data-money="cents" inputmode="decimal" class="num" aria-label="{{ t['sale.price'] }}"></td>
+    <td class="num line-margin" data-margin>—</td>
     <td class="row-actions">
         <button type="button" class="line-remove" data-line-remove title="{{ t['purchase.line_remove'] }}" aria-label="{{ t['purchase.line_remove'] }}">
             <span class="material-symbols-outlined">delete</span></button>
     </td>
 </tr>
-{% endmacro %}
+{%- endmacro %}
+
+{# A line for a model with no vehicle yet: the pre-order. #}
+{% macro open_line(l) -%}
+<tr class="line-row line-row--open">
+    <td>
+        <select name="line_product" class="js-line-product" aria-label="{{ t['purchase.line_product'] }}" required>
+            <option value="">{{ t['form.choose'] }}</option>
+            {% for p in products %}
+            <option value="{{ p.id }}" data-hint="{{ price_hint(p.id)|trim }}" {% if (p.id|string) == (l.product_id|string) %}selected{% endif %}>{{ p.name }}{% if p.code %} ({{ p.code }}){% endif %}</option>
+            {% endfor %}
+        </select>
+        <input type="hidden" name="line_unit" value="">
+        <div class="small"><span class="badge badge--pay-partial">{{ t['sale.unit_tbd'] }}</span></div>
+        <input type="text" name="line_desc" value="{{ l.description }}" placeholder="{{ t['purchase.line_desc_ph'] }}" class="line-desc" aria-label="{{ t['field.description'] }}">
+    </td>
+    <td class="num">
+        <input type="text" name="line_price" value="{{ l.price }}" data-money="cents" inputmode="decimal" class="num" aria-label="{{ t['sale.price'] }}" required>
+        <div class="line-hint">{{ price_hint(l.product_id) }}</div>
+    </td>
+    <td class="num line-margin muted">—</td>
+    <td class="row-actions">
+        <button type="button" class="line-remove" data-line-remove title="{{ t['purchase.line_remove'] }}" aria-label="{{ t['purchase.line_remove'] }}">
+            <span class="material-symbols-outlined">delete</span></button>
+    </td>
+</tr>
+{%- endmacro %}
 
 {% block content %}
 {% if error %}<div class="alert alert--error" style="margin-bottom:14px;">{{ error }}</div>{% endif %}
@@ -64,7 +95,8 @@
 <div class="alert alert--warning" style="margin-bottom:14px;">{{ t['sale.no_customers'] }} <a href="{{ url_for('customers.index') }}">{{ t['nav.customers'] }}</a></div>
 {% endif %}
 
-<form method="post" class="entry-form form-layout" id="sale-form">
+<form method="post" class="entry-form form-layout" id="sale-form"
+      data-rate="{{ rate if rate is not none else '' }}">
     {{ csrf_field() }}
     <div class="form-layout__main">
         {% set sel_customer = (request.form.get('customer_id') if posted else ((row.customer_id if is_edit else preset.customer) or ''))|string %}
@@ -107,28 +139,81 @@
             </div>
         </section>
 
+        {# ── The vehicles: picked from a table of what is free, as on the
+           Vehicles page, then priced one by one below. ── #}
         <section class="card form-card">
             {{ group_head('local_shipping', t['sale.vehicles'], t['sale.group.vehicles_desc']) }}
+            <div class="picker" id="picker">
+                <div class="picker__bar">
+                    <select id="pick-model" aria-label="{{ t['purchase.line_product'] }}">
+                        <option value="">{{ t['sale.pick_all_models'] }}</option>
+                        {% for p in products %}
+                        {% set n = free.get(p.id, [0, 0]) %}
+                        <option value="{{ p.id }}">{{ p.name }} — {{ t['sale.pick_free'] % {'yard': n[0], 'road': n[1]} }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="seg-choice picker__where" role="group" aria-label="{{ t['unit.status_road'] }}">
+                        {% for w in ('all', 'yard', 'road') %}
+                        <button type="button" class="seg-choice__opt" data-pick-where="{{ w }}" aria-pressed="{{ 'true' if w == 'all' else 'false' }}"><span>{{ t['sale.pick_where.' + w] }}</span></button>
+                        {% endfor %}
+                    </div>
+                    <input type="search" id="pick-q" placeholder="{{ t['sale.pick_search_ph'] }}" aria-label="{{ t['sale.pick_search_ph'] }}">
+                </div>
+                <div class="table-wrap picker__table">
+                <table class="data-table">
+                    <thead><tr>
+                        <th class="picker__check"></th>
+                        <th>{{ t['unit.title_short'] }}</th>
+                        <th>{{ t['unit.chassis'] }}</th>
+                        <th>{{ t['unit.status_road'] }}</th>
+                        <th class="num">{{ t['purchase.landed_unit'] }}</th>
+                        <th class="col-secondary">{{ t['unit.purchase'] }}</th>
+                    </tr></thead>
+                    <tbody>
+                    {% for e in picker %}
+                    {% set u = e.unit %}
+                    <tr data-pick="{{ u.id }}" data-product="{{ u.product_id }}" data-yard="{{ 1 if e.in_yard else 0 }}"
+                        data-q="{{ (u.ref ~ ' ' ~ (u.chassis_number or '') ~ ' ' ~ (u.note or '') ~ ' ' ~ u.product.name ~ ' ' ~ e.purchase.invoice_number)|lower }}">
+                        <td class="picker__check"><input type="checkbox" class="js-pick" value="{{ u.id }}" aria-label="{{ u.ref }}" {% if u.id in chosen %}checked{% endif %}></td>
+                        <td class="nowrap"><code class="unit-ref">{{ u.ref }}</code><div class="small"><strong>{{ u.product.name }}</strong></div></td>
+                        <td class="nowrap">{% if u.chassis_number %}<code>{{ u.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}
+                            {% if u.note %}<div class="muted small">{{ u.note }}</div>{% endif %}</td>
+                        <td><span class="picker__where-tag {{ 'picker__where-tag--yard' if e.in_yard else '' }}">{{ e.where }}</span></td>
+                        <td class="num">{{ e.landed|money(e.landed_cur) if e.landed is not none else '—' }}</td>
+                        <td class="col-secondary small nowrap">{{ e.purchase.invoice_number }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <p class="muted small picker__none" id="pick-none" {% if picker %}hidden{% endif %}>{{ t['sale.pick_none'] }}</p>
+                </div>
+                <button type="button" class="lines-add" id="line-open">
+                    <span class="material-symbols-outlined">add</span> {{ t['sale.pick_open'] }}</button>
+            </div>
+
+            <h3 class="picker__lines-title">{{ t['sale.lines_title'] }} <span class="tab__count" id="lines-count">{{ lines|length }}</span></h3>
             <div class="lines-box">
                 <div class="table-wrap">
-                <table class="data-table lines-editor">
+                <table class="data-table lines-editor lines-editor--sale">
                     <thead>
                         <tr>
-                            <th>{{ t['purchase.line_product'] }}</th>
-                            <th class="lines-col-unit">{{ t['sale.unit'] }}</th>
+                            <th>{{ t['unit.title_short'] }}</th>
                             <th class="num lines-col-price">{{ t['sale.price'] }}</th>
+                            <th class="num lines-col-margin">{{ t['sale.margin'] }}</th>
                             <th class="lines-col-x"></th>
                         </tr>
                     </thead>
                     <tbody id="lines-body">
-                        {% for l in lines %}{{ line_row(l) }}{% endfor %}
+                        {% for l in lines %}
+                        {% if l.unit_id and (l.unit_id|int) in pick %}{{ unit_line(pick[l.unit_id|int], l.price, l.description) }}
+                        {% else %}{{ open_line(l) }}{% endif %}
+                        {% endfor %}
                     </tbody>
                 </table>
                 </div>
-                <button type="button" class="lines-add" id="line-add">
-                    <span class="material-symbols-outlined">add</span> {{ t['sale.line_add'] }}</button>
+                <p class="muted small lines-empty" id="lines-empty" {% if lines %}hidden{% endif %}>{{ t['sale.lines_empty'] }}</p>
             </div>
-            <p class="muted small form-card__foot">{{ t['sale.unit_hint'] }}</p>
+            <p class="muted small form-card__foot">{{ t['sale.margin_hint'] }}</p>
         </section>
 
         <section class="card form-card">
@@ -147,6 +232,7 @@
             <dl class="form-summary__list">
                 <div><dt>{{ t['sale.customer'] }}</dt><dd id="sum-customer">—</dd></div>
                 <div><dt>{{ t['sale.vehicles'] }}</dt><dd id="sum-count">—</dd></div>
+                <div><dt>{{ t['sale.margin'] }}</dt><dd id="sum-margin">—</dd></div>
             </dl>
             <div class="form-summary__total">
                 <span>{{ t['sale.total'] }}</span>
@@ -160,68 +246,148 @@
     </aside>
 </form>
 
-<template id="line-template">{{ line_row({'product_id': '', 'unit_id': '', 'price': '', 'description': ''}) }}</template>
+{# Each pickable vehicle's line, ready to drop in when it is ticked. #}
+{% for e in picker %}<template data-line-for="{{ e.unit.id }}">{{ unit_line(e, '', '') }}</template>{% endfor %}
+<template id="tpl-open-line">{{ open_line({'product_id': '', 'price': '', 'description': ''}) }}</template>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Each line's vehicle list keeps only the chosen model's vehicles, and a
-// vehicle chosen on one line disappears from the others. The total follows
-// the prices as they are typed; the server checks all of it again on save.
+// The picker: ticking a vehicle adds its line, unticking (or removing the
+// line) takes it out; the model, where and search filters narrow the table.
+// Each line shows its margin as the price is typed -- price less landed cost,
+// at today's rate when the currencies differ, an estimate like the sale page's.
+// The server checks everything again on save.
 (function () {
+    var form = document.getElementById("sale-form");
     var body = document.getElementById("lines-body");
-    var tpl = document.getElementById("line-template");
+    var picker = document.getElementById("picker");
     var cur = document.getElementById("currency");
-    if (!body || !tpl) return;
+    if (!form || !body || !picker) return;
+    var rate = parseFloat(form.dataset.rate) || null;
+    var where = "all";
+    var L = {margin: {{ t['sale.margin']|tojson }}, cost: {{ t['sale.cost_short']|tojson }}};
 
     function num(v) {
-        v = (v || "").replace(/[\s  ']/g, "");
+        v = String(v || "").replace(/[\s  ']/g, "");
         var m = v.match(/^(.*?)[.,](\d{1,2})$/);
         var n = parseFloat((m ? m[1] : v).replace(/[.,]/g, "") + (m ? "." + m[2] : ""));
         return isNaN(n) ? 0 : n;
     }
-    function fmt(n) {
+    function fmt(n, c) {
+        var neg = n < 0; n = Math.abs(n);
         var cents = Math.round(n * 100) % 100;
-        return Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") +
-               (cents ? "," + ("0" + cents).slice(-2) : "") + " " + cur.value;
+        return (neg ? "-" : "") + Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") +
+               (cents ? "," + ("0" + cents).slice(-2) : "") + " " + (c || cur.value);
+    }
+    function convert(amount, from, to) {
+        if (from === to) return amount;
+        if (!rate) return null;
+        if (from === "USD" && to === "GNF") return amount * rate;
+        if (from === "GNF" && to === "USD") return amount / rate;
+        return null;
+    }
+    function lineOf(uid) { return body.querySelector('.line-row[data-unit="' + uid + '"]'); }
+    function boxOf(uid) { return picker.querySelector('.js-pick[value="' + uid + '"]'); }
+
+    function addUnit(uid) {
+        if (lineOf(uid)) return;
+        var tpl = document.querySelector('template[data-line-for="' + uid + '"]');
+        if (tpl) body.appendChild(tpl.content.cloneNode(true));
+    }
+    function filter() {
+        var model = document.getElementById("pick-model").value;
+        var q = document.getElementById("pick-q").value.trim().toLowerCase();
+        var shown = 0;
+        picker.querySelectorAll("tr[data-pick]").forEach(function (tr) {
+            var ok = (!model || tr.dataset.product === model) &&
+                     (where === "all" || (where === "yard") === (tr.dataset.yard === "1")) &&
+                     (!q || tr.dataset.q.indexOf(q) !== -1);
+            tr.hidden = !ok;
+            if (ok) shown++;
+        });
+        document.getElementById("pick-none").hidden = shown > 0;
     }
     function refresh() {
-        var taken = {};
-        body.querySelectorAll(".js-line-unit").forEach(function (s) { if (s.value) taken[s.value] = s; });
-        var total = 0;
+        var total = 0, margin = 0, marginKnown = true, n = 0;
         body.querySelectorAll(".line-row").forEach(function (tr) {
-            var product = tr.querySelector(".js-line-product").value;
-            var unit = tr.querySelector(".js-line-unit");
-            Array.prototype.forEach.call(unit.options, function (o) {
-                if (!o.value) return;
-                var ok = o.dataset.product === product && (!taken[o.value] || taken[o.value] === unit);
-                o.hidden = !ok; o.disabled = !ok;
-            });
-            if (unit.value && unit.options[unit.selectedIndex].disabled) unit.value = "";
-            total += num(tr.querySelector('[name="line_price"]').value);
+            n++;
+            var price = num(tr.querySelector('[name="line_price"]').value);
+            total += price;
+            var cell = tr.querySelector("[data-margin]");
+            if (!cell) { marginKnown = false; return; }
+            var landed = tr.dataset.landed === "" ? null : convert(parseFloat(tr.dataset.landed), tr.dataset.lcur, cur.value);
+            if (landed === null || !price) {
+                cell.innerHTML = landed === null ? "—" : '<span class="muted small">' + L.cost.replace("%s", fmt(landed)) + "</span>";
+                marginKnown = false;
+                return;
+            }
+            var m = price - landed;
+            margin += m;
+            cell.innerHTML = '<strong class="' + (m >= 0 ? "cash-in" : "stock-negative") + '">' + fmt(m) + "</strong>" +
+                             '<div class="muted small">' + L.cost.replace("%s", fmt(landed)) + "</div>";
         });
         document.getElementById("lines-total").textContent = total ? fmt(total) : "—";
-        var n = 0;
-        body.querySelectorAll(".js-line-product").forEach(function (s) { if (s.value) n++; });
         document.getElementById("sum-count").textContent = n || "—";
+        document.getElementById("lines-count").textContent = n;
+        document.getElementById("sum-margin").textContent = n && marginKnown ? fmt(margin) : "—";
+        document.getElementById("lines-empty").hidden = n > 0;
         var c = document.getElementById("customer_id");
         document.getElementById("sum-customer").textContent = c.value ? c.options[c.selectedIndex].text.split(" · ")[0] : "—";
     }
-    document.getElementById("customer_id").addEventListener("change", refresh);
-    document.getElementById("line-add").addEventListener("click", function () {
-        body.appendChild(tpl.content.cloneNode(true));
+
+    picker.addEventListener("change", function (e) {
+        if (e.target.classList.contains("js-pick")) {
+            if (e.target.checked) addUnit(e.target.value);
+            else { var tr = lineOf(e.target.value); if (tr) tr.remove(); }
+            refresh();
+        }
+        if (e.target.id === "pick-model") filter();
+    });
+    picker.addEventListener("input", function (e) { if (e.target.id === "pick-q") filter(); });
+    picker.addEventListener("click", function (e) {
+        // A click anywhere on a vehicle's row ticks it, not only on the box.
+        var row = e.target.closest("tr[data-pick]");
+        if (row && !e.target.closest("input, a")) {
+            var box = row.querySelector(".js-pick");
+            box.checked = !box.checked;
+            box.dispatchEvent(new Event("change", {bubbles: true}));
+            return;
+        }
+        var b = e.target.closest("[data-pick-where]");
+        if (!b) return;
+        where = b.dataset.pickWhere;
+        picker.querySelectorAll("[data-pick-where]").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        filter();
+    });
+    document.getElementById("line-open").addEventListener("click", function () {
+        body.appendChild(document.getElementById("tpl-open-line").content.cloneNode(true));
+        var model = document.getElementById("pick-model").value;
+        var sel = body.lastElementChild.querySelector(".js-line-product");
+        if (model) { sel.value = model; sel.dispatchEvent(new Event("change", {bubbles: true})); }
+        sel.focus();
         refresh();
     });
     body.addEventListener("click", function (e) {
         var btn = e.target.closest("[data-line-remove]");
         if (!btn) return;
-        if (body.querySelectorAll(".line-row").length > 1) btn.closest(".line-row").remove();
-        else btn.closest(".line-row").querySelectorAll("input, select").forEach(function (el) { el.value = ""; });
+        var tr = btn.closest(".line-row");
+        if (tr.dataset.unit) { var box = boxOf(tr.dataset.unit); if (box) box.checked = false; }
+        tr.remove();
         refresh();
     });
-    body.addEventListener("change", refresh);
+    body.addEventListener("change", function (e) {
+        // A pre-order line's model: its last price as the hint.
+        if (e.target.classList.contains("js-line-product")) {
+            var o = e.target.options[e.target.selectedIndex];
+            e.target.closest(".line-row").querySelector(".line-hint").textContent = o ? (o.dataset.hint || "") : "";
+        }
+        refresh();
+    });
     body.addEventListener("input", refresh);
     cur.addEventListener("change", refresh);
+    document.getElementById("customer_id").addEventListener("change", refresh);
+    filter();
     refresh();
 })();
 </script>

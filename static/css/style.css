@@ -2570,3 +2570,47 @@ a.chassis-missing--card:hover { text-decoration: underline; }
 .split-tools[hidden] { display: none; }
 .split-ok { color: var(--c-green); font-weight: 600; }
 .split-off { color: var(--c-red); font-weight: 600; }
+
+
+/* ── The sale form's vehicle picker ── */
+.picker { display: grid; gap: 10px; margin-bottom: 16px; }
+.picker__bar { display: grid; grid-template-columns: minmax(0, 1.4fr) auto minmax(0, 1fr); gap: 8px; align-items: center; }
+.picker__bar select, .picker__bar input[type="search"] {
+    height: 40px; padding: 0 12px; border-radius: var(--shape-sm); font: inherit; font-size: 0.88rem;
+    border: 1px solid var(--field-border, var(--md-outline-variant)); background: var(--field-bg, var(--md-surface)); color: var(--md-on-surface);
+}
+.picker__bar .seg-choice { flex-wrap: nowrap; }
+.picker__bar .seg-choice__opt { cursor: pointer; }
+.picker__bar .seg-choice__opt[aria-pressed="true"] { background: var(--md-primary-container); color: var(--md-on-primary-container); border-color: var(--md-primary); }
+.picker__table { max-height: 360px; overflow-y: auto; border: 1px solid var(--md-outline-variant); border-radius: var(--shape-sm); }
+.picker__table thead th { position: sticky; top: 0; background: var(--md-surface); z-index: 1; }
+.picker__table tr[data-pick] { cursor: pointer; }
+.picker__table tr[data-pick]:has(.js-pick:checked) td { background: var(--md-primary-container); }
+.picker__check { width: 36px; text-align: center; }
+.picker__check input { width: 18px; height: 18px; accent-color: var(--md-primary); cursor: pointer; }
+.picker__where-tag { font-size: 0.8rem; font-weight: 600; color: var(--c-blue); white-space: nowrap; }
+.picker__where-tag--yard { color: var(--c-green); }
+.picker__none { margin: 10px 12px; }
+.picker__lines-title { display: flex; align-items: center; gap: 8px; margin: 6px 0 8px; font-size: 0.95rem; font-weight: 700; }
+.lines-editor--sale { min-width: 620px; }
+.lines-editor--sale .lines-col-margin { width: 150px; }
+.line-veh { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.line-hint { font-size: 0.72rem; color: var(--md-on-surface-variant); margin-top: 3px; text-align: right; }
+.line-margin { vertical-align: middle !important; }
+.lines-empty { margin: 8px 4px; }
+@media (max-width: 768px) {
+    .picker__bar { grid-template-columns: 1fr; }
+}
+
+/* ── Vehicles list: sell the ticked ones together ── */
+.sell-bar {
+    position: sticky; bottom: 12px; z-index: 5; margin-top: 12px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end;
+    padding: 10px 14px; border-radius: var(--shape-lg, 16px);
+    background: var(--md-inverse-surface, #1f1f1f); color: var(--md-inverse-on-surface, #fff); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+}
+.sell-bar[hidden] { display: none; }
+.sell-bar__count { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; margin-right: auto; }
+.sell-bar .btn--outlined { color: inherit; border-color: currentColor; }
+.list-card__pick { display: inline-flex; margin-right: 6px; }
+.list-card__pick input { width: 18px; height: 18px; accent-color: var(--md-primary); }
