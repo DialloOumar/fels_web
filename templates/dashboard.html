@@ -79,9 +79,10 @@
         <span class="stat-icon stat-icon--blue material-symbols-outlined">directions_boat</span>
         <div><div class="stat-value">{{ d.stock.incoming_free }}</div><div class="stat-label">{{ t['dash.incoming_free'] }}</div></div>
     </a>
-    <a class="stat-card" href="{{ url_for('stock.index', status='reserved') }}">
+    <a class="stat-card" href="{{ url_for('stock.index', status='held') }}">
         <span class="stat-icon stat-icon--amber material-symbols-outlined">pending_actions</span>
-        <div><div class="stat-value">{{ d.stock.reserved }}</div><div class="stat-label">{{ t['dash.reserved'] }}</div></div>
+        <div><div class="stat-value">{{ d.stock.reserved + d.stock.sold }}</div><div class="stat-label">{{ t['dash.reserved'] }}</div>
+             <div class="stat-sub">{{ t['dash.reserved_split'] % {'reserved': d.stock.reserved, 'sold': d.stock.sold} }}</div></div>
     </a>
 {% if can('purchases') %}    <a class="stat-card" href="{{ url_for('purchases.pipeline') }}">
         <span class="stat-icon stat-icon--indigo material-symbols-outlined">local_shipping</span>

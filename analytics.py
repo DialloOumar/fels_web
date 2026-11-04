@@ -26,7 +26,7 @@ def model_stats(product_ids=None, exclude_purchase=None):
     last_order  the latest of those invoice dates
     incoming    its vehicles still on the road, not delivered
     in_stock    its vehicles in the yard, not delivered
-    reserved    of those two, how many a sale already holds
+    reserved    of those two, how many a sale already holds (reserved or sold)
     delivered   handed over to a customer
     waiting     sale lines of the model still without a vehicle: sold ahead
     free        what is left to sell: incoming + in stock - reserved - waiting
@@ -62,7 +62,7 @@ def model_stats(product_ids=None, exclude_purchase=None):
             s["delivered"] += 1
             continue
         s["in_stock" if u.purchase_line.purchase.stage == "in_stock" else "incoming"] += 1
-        if status == "reserved":
+        if status in ("reserved", "sold"):
             s["reserved"] += 1
     for pid, n in waiting:
         out[pid]["waiting"] = n

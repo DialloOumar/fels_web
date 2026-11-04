@@ -108,7 +108,7 @@
 {%- endif %}
 {%- endmacro %}
 
-{# A vehicle: available, reserved or delivered. #}
+{# A vehicle: available, reserved, sold or delivered. #}
 {% macro unit_badge(status) -%}
 <span class="badge badge--unit-{{ status }}">{{ t['unit.status.' + status] }}</span>
 {%- endmacro %}

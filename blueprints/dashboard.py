@@ -109,7 +109,7 @@ def compute(today=None):
     for p in purchases:
         stage_counts[p.stage] += 1
     units = Unit.query.all()
-    stock = {"in_stock_free": 0, "incoming_free": 0, "reserved": 0, "delivered": 0}
+    stock = {"in_stock_free": 0, "incoming_free": 0, "reserved": 0, "sold": 0, "delivered": 0}
     for u in units:
         st = u.status
         if st == "available":

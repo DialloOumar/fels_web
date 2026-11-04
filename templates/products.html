@@ -56,7 +56,7 @@
                 <td class="num nowrap">{% if s.orders %}{{ t['stats.ordered_value'] % {'n': s.orders, 'qty': s.ordered} }}{% else %}<span class="muted">—</span>{% endif %}</td>
                 <td class="num">{{ stat_link(s.incoming, p.id, where='incoming') }}</td>
                 <td class="num">{{ stat_link(s.in_stock, p.id, where='in_stock') }}</td>
-                <td class="num">{{ stat_link(s.reserved, p.id, status='reserved') }}{% if s.waiting %}<div class="small stat-waiting">{{ t['stats.waiting'] % {'n': s.waiting} }}</div>{% endif %}</td>
+                <td class="num">{{ stat_link(s.reserved, p.id, status='held') }}{% if s.waiting %}<div class="small stat-waiting">{{ t['stats.waiting'] % {'n': s.waiting} }}</div>{% endif %}</td>
                 <td class="num"><strong class="{{ 'stock-negative' if s.free < 0 else '' }}">{{ s.free if (s.orders or s.waiting) else '—' }}</strong></td>
                 <td class="num col-secondary">{{ stat_link(s.delivered, p.id, status='delivered') }}</td>
                 <td class="col-secondary nowrap muted">{{ s.last_order|fdate if s.last_order else '—' }}</td>

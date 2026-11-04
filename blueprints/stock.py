@@ -1,7 +1,7 @@
 """Stock — every vehicle, one row each.
 
 A vehicle is born from a purchase line. Where it is on the road comes from
-its purchase's stage; whether it is free, reserved or delivered comes from
+its purchase's stage; whether it is free, reserved, sold or delivered comes from
 the sales naming it. Both are read, never stored."""
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
@@ -14,7 +14,10 @@ from models import (PURCHASE_STAGES, AuditLog, Port, Product, Purchase, Purchase
 
 stock_bp = Blueprint("stock", __name__, url_prefix="/stock")
 
-UNIT_STATUSES = ("available", "reserved", "delivered")
+UNIT_STATUSES = ("available", "reserved", "sold", "delivered")
+# Not in the menu: what a sale holds, reserved or sold -- the dashboard's and
+# the catalogue's "reserved or sold" figures open the list on it.
+HELD = ("reserved", "sold")
 # Where on the road: still travelling, or in the yard.
 WHERE = ("incoming", "in_stock")
 
@@ -54,6 +57,8 @@ def index():
         counts[u.status] += 1
     if status in UNIT_STATUSES:
         rows = [u for u in rows if u.status == status]
+    elif status == "held":
+        rows = [u for u in rows if u.status in HELD]
     else:
         status = ""
     t = get_t()

@@ -1617,6 +1617,7 @@ button.logout-btn { background: none; border: 0; cursor: pointer; font: inherit;
 .badge--pay-cancelled { background: var(--md-surface-container-high); color: var(--md-on-surface-variant); }
 .badge--unit-available { background: var(--c-green-bg); color: var(--c-green); }
 .badge--unit-reserved  { background: var(--c-amber-bg); color: var(--c-amber); }
+.badge--unit-sold      { background: var(--c-blue-bg);  color: var(--c-blue); }
 .badge--unit-delivered { background: var(--md-surface-container-high); color: var(--md-on-surface-variant); }
 .badge { white-space: nowrap; }
 

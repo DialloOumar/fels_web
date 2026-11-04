@@ -41,7 +41,8 @@
 {% set steps = [] %}
 {% set p_idx = stages.index(purchase.stage) %}
 {% for s in stages %}{% set _ = steps.append((t['stage.' + s], purchase.eta_date if s == 'eta' and purchase.eta_date else purchase.stage_date(s), loop.index0 <= p_idx)) %}{% endfor %}
-{% set _ = steps.append((t['unit.step.sold'], sale.sale_date if sale else none, sale is not none)) %}
+{% set sold = sale is not none and sale.status in ('confirmed', 'delivered') %}
+{% set _ = steps.append((t['unit.step.sold'], sale.sale_date if sold else none, sold)) %}
 {% set _ = steps.append((t['unit.status.delivered'], sale.delivered_on if sale else none, sale is not none and sale.status == 'delivered')) %}
 {% set last = namespace(i=0) %}
 {% for label, d, reached in steps %}{% if reached %}{% set last.i = loop.index0 %}{% endif %}{% endfor %}
@@ -55,6 +56,7 @@
             <span class="timeline__label">{{ label }}</span>
             <span class="timeline__date">{{ d|fdate if d else '' }}</span>
             {% if loop.index0 == stages.index('eta') and purchase.stage == 'eta' %}{{ eta_note(purchase) }}{% endif %}
+            {% if loop.index0 == stages|length and sale and sale.status == 'preorder' %}<span class="timeline__eta">{{ t['unit.status.reserved'] }} · {{ sale.sale_date|fdate }}</span>{% endif %}
         </li>
         {% endfor %}
     </ol>

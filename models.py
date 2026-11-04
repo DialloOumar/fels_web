@@ -498,8 +498,8 @@ class Unit(db.Model):
     optional: it may only be known once the vehicle is at the port.
 
     Where it stands commercially is read off the sales naming it, never
-    stored: available, reserved (on a pre-order or a confirmed sale) or
-    delivered."""
+    stored: available, reserved (on a pre-order), sold (on a confirmed
+    sale, shown as "Sold") or delivered."""
     __tablename__ = "units"
 
     id               = db.Column(db.Integer, primary_key=True)
@@ -527,7 +527,7 @@ class Unit(db.Model):
         sl = self.active_sale_line
         if sl is None:
             return "available"
-        return "delivered" if sl.sale.status == "delivered" else "reserved"
+        return {"delivered": "delivered", "confirmed": "sold"}.get(sl.sale.status, "reserved")
 
     @property
     def landed_cost(self):
