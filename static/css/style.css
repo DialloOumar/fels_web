@@ -2544,3 +2544,9 @@ a.unit-ref-link:hover .unit-ref { text-decoration: underline; }
 .chassis-missing--card { font-size: 0.74rem; text-decoration: none; margin-top: -2px; }
 a.chassis-missing--card:hover { text-decoration: underline; }
 @media (max-width: 600px) { .chassis-row { grid-template-columns: 1fr; gap: 4px; } }
+
+/* The vehicle page's two tracks: logistics, then the sale. */
+.track-title { display: flex; align-items: center; gap: 6px; margin: 4px 0 10px; font-size: 0.78rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em; color: var(--md-on-surface-variant); }
+.track-title .material-symbols-outlined { font-size: 17px; }
+.timeline + .track-title { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--md-outline-variant); }
