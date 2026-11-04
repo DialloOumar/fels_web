@@ -136,9 +136,9 @@ def _landed_costs(units):
     for u in units:
         p = u.purchase_line.purchase
         if p.id not in cache:
-            cache[p.id] = p.extra_cost_per_unit()
+            cache[p.id] = p.extra_cost_by_unit()
         shares = cache[p.id]
-        out[u.id] = None if shares is None else (u.purchase_line.unit_price + shares.get(u.purchase_line_id, 0), p.currency)
+        out[u.id] = None if shares is None else (u.purchase_line.unit_price + shares.get(u.id, 0), p.currency)
     return out
 
 
@@ -152,17 +152,15 @@ def detail(uid):
     line = unit.purchase_line
     purchase = line.purchase
     cur = purchase.currency
-    shares = purchase.extra_cost_per_unit()
-    share = shares.get(line.id, ZERO) if shares is not None else None
+    shares = purchase.extra_cost_by_unit()
+    share = shares.get(unit.id, ZERO) if shares is not None else None
     landed = (line.unit_price + share) if share is not None else None
-    # Each extra cost's part carried by this vehicle, spread as in
-    # extra_cost_per_unit: in proportion to the price.
-    goods = purchase.goods_total
-    weight = (line.unit_price / goods) if goods > 0 else ZERO
+    # Each extra cost's part carried by this vehicle, split the cost's way.
+    units = purchase.units
     cost_parts = []
     for c in purchase.costs:
-        v = c.amount_in(cur)
-        cost_parts.append((c, None if v is None else (v * weight).quantize(CENT)))
+        parts = c.shares(cur, units)
+        cost_parts.append((c, None if parts is None else parts.get(unit.id, ZERO).quantize(CENT)))
     # Every sale that ever named it, the one in force first.
     sale_lines = sorted(unit.sale_lines, key=lambda sl: (sl.sale.status == "cancelled", sl.sale.sale_date, sl.id))
     active = unit.active_sale_line

@@ -118,14 +118,14 @@
         </tr></thead>
         <tbody>
         {% for l in row.lines %}
-        {% set share = shares[l.id] if shares is not none else none %}
+        {% set share, varies = shares[l.id] if shares is not none else (none, false) %}
         <tr>
             <td><strong>{{ l.product.name }}</strong>{% if l.description %}<div class="muted small">{{ l.description }}</div>{% endif %}</td>
             <td class="num">{{ l.quantity }}</td>
             <td class="num">{{ money_pair(l.unit_price, cur) }}</td>
             <td class="num">{{ l.total|money(cur) }}</td>
-            <td class="num">{{ share|money(cur) if share is not none else '—' }}</td>
-            <td class="num"><strong>{{ (l.unit_price + share)|money(cur) if share is not none else '—' }}</strong></td>
+            <td class="num">{{ share|money(cur) if share is not none else '—' }}{% if varies %}<span class="money-alt">{{ t['cost.split_average'] }}</span>{% endif %}</td>
+            <td class="num"><strong>{{ (l.unit_price + share)|money(cur) if share is not none else '—' }}</strong>{% if varies %}<span class="money-alt">{{ t['cost.split_average'] }}</span>{% endif %}</td>
         </tr>
         {% endfor %}
         </tbody>
@@ -149,10 +149,13 @@
             <th>{{ t['purchase.line_product'] }}</th>
             <th>{{ t['unit.chassis'] }}</th>
             <th>{{ t['unit.status'] }}</th>
+            <th class="num">{{ t['purchase.cost_share'] }}</th>
+            <th class="num">{{ t['purchase.landed_unit'] }}</th>
             <th></th>
         </tr></thead>
         <tbody>
         {% for u in units %}
+        {% set us = unit_shares[u.id] if unit_shares is not none else none %}
         <tr>
             <td class="nowrap">{{ unit_link(u) }}</td>
             <td>{{ u.product.name }}</td>
@@ -161,6 +164,8 @@
             <td>{{ unit_badge(u.status) }}
                 {% set sl = u.active_sale_line %}
                 {% if sl %}<div class="small"><a href="{{ url_for('sales.detail', sid=sl.sale_id) }}">{{ sl.sale.number }}</a> · {{ sl.sale.customer.name }}</div>{% endif %}</td>
+            <td class="num">{{ us|money(cur) if us is not none else '—' }}</td>
+            <td class="num"><strong>{{ (u.purchase_line.unit_price + us)|money(cur) if us is not none else '—' }}</strong></td>
             <td class="row-actions">
                 {% if u.status == 'available' %}
                 {% if can('sales', 'manage') %}<a href="{{ url_for('sales.new', unit=u.id) }}" class="btn btn--sm btn--tonal btn--icon" title="{{ t['unit.sell'] }}" aria-label="{{ t['unit.sell'] }}"><span class="material-symbols-outlined">sell</span></a>{% endif %}
@@ -199,6 +204,8 @@
         {% for c in row.costs %}
         <tr>
             <td><strong>{{ t['cost.kind.' + c.kind] }}</strong>{% if c.description %}<div class="muted small">{{ c.description }}</div>{% endif %}
+                <div class="small muted">{{ t['cost.split_label'] }} : {{ t['cost.split.' + c.split] }}</div>
+                {% if c.allocation_gap %}<div class="small chassis-missing"><span class="material-symbols-outlined">warning</span> {{ t['cost.split_gap'] % {'gap': c.allocation_gap|abs|money(c.currency)} }}</div>{% endif %}
                 {% if c.reference %}<div class="muted small">{{ t['field.reference'] }} {{ c.reference }}</div>{% endif %}</td>
             <td>{{ c.payee or '—' }}</td>
             <td class="col-secondary">{{ c.incurred_on|fdate }}</td>

@@ -28,7 +28,7 @@ from blueprints.stock import CHASSIS_GATE, chassis_required, clean_chassis, save
 from app import (ListPage, current_rate, form_response, fr, get_t,
                  is_modal_request, log_action, modal_ok, money_text, paginate,
                  parse_date, parse_money, parse_rate, rate_field_value)
-from models import (COST_KINDS, CURRENCIES, DOCUMENT_KINDS, PURCHASE_STAGES,
+from models import (CENT, COST_KINDS, COST_SPLITS, CURRENCIES, ZERO, CostAllocation, DOCUMENT_KINDS, PURCHASE_STAGES,
                     STAGE_DATE_FIELD, Port, Product, Purchase, PurchaseCost,
                     PurchaseDocument, PurchaseLine, Supplier, Unit,
                     assign_unit_refs, db)
@@ -345,11 +345,19 @@ def edit(pid):
 def detail(pid):
     from datetime import date
     purchase = _get_or_404(pid)
-    shares = purchase.extra_cost_per_unit()
+    unit_shares = purchase.extra_cost_by_unit()
+    # Per line, what one of its vehicles carries: the same for each unless a
+    # cost was typed vehicle by vehicle -- then the average, said as such.
+    shares = None
+    if unit_shares is not None:
+        shares = {}
+        for l in purchase.lines:
+            parts = [unit_shares[u.id] for u in l.units]
+            shares[l.id] = ((sum(parts) / len(parts)).quantize(CENT), len(set(parts)) > 1) if parts else (ZERO, False)
     units = [u for l in purchase.lines for u in l.units]
     payments = sorted(list(purchase.payments) + [p for c in purchase.costs for p in c.payments],
                       key=lambda p: (p.paid_on, p.id))
-    return render_template("purchase_detail.html", row=purchase, shares=shares, units=units,
+    return render_template("purchase_detail.html", row=purchase, shares=shares, unit_shares=unit_shares, units=units,
                            payments=payments, stages=PURCHASE_STAGES, next_stage=next_stage(purchase.stage),
                            days=days_in_stage(purchase, date.today()))
 
@@ -512,7 +520,31 @@ def _save_cost(cost, purchase):
         raise FormError(t["cost.error.rate_needed"] % {"cur": purchase.currency})
     if incurred_on is None:
         raise FormError(t["form.error.date"])
+    split = f.get("split") or "value"
+    if split not in COST_SPLITS:
+        raise FormError(t["cost.error.split"])
+    units = purchase.units
+    typed = {}
+    if split == "manual":
+        if not units:
+            raise FormError(t["cost.error.split_no_units"])
+        for u in units:
+            raw = (f.get("alloc_%d" % u.id) or "").strip()
+            v = parse_money(raw) if raw else ZERO
+            if v is None or v < 0:
+                raise FormError(t["cost.error.split_amount"] % {"ref": u.ref})
+            typed[u.id] = v
+        gap = amount - sum(typed.values(), ZERO)
+        if abs(gap) > CENT:
+            raise FormError(t["cost.error.split_total"] % {
+                "split": money_text(sum(typed.values(), ZERO), currency), "amount": money_text(amount, currency),
+                "gap": money_text(abs(gap), currency)})
     cost.kind, cost.amount, cost.currency, cost.rate, cost.incurred_on = kind, amount, currency, rate, incurred_on
+    cost.split = split
+    if cost.id and cost.allocations:
+        cost.allocations = []            # the old ones out first: one row per (cost, vehicle)
+        db.session.flush()
+    cost.allocations = [CostAllocation(unit_id=uid, amount=v) for uid, v in typed.items() if v]
     cost.description = (f.get("description") or "").strip()[:255] or None
     cost.payee = (f.get("payee") or "").strip()[:120] or None
     cost.reference = (f.get("reference") or "").strip()[:60] or None
@@ -540,6 +572,8 @@ def _cost_form(purchase, cost):
             error = str(e)
     return form_response("cost_form.html", "_cost_form.html", purchase=purchase,
                          row=cost if cost.id else None, error=error, kinds=COST_KINDS,
+                         splits=COST_SPLITS, units=purchase.units,
+                         typed={a.unit_id: a.amount for a in cost.allocations} if cost.id else {},
                          default_rate=rate_field_value(current_rate()), today=date.today().isoformat())
 
 

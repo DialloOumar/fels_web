@@ -106,11 +106,11 @@ class _Landed:
         line = unit.purchase_line
         p = line.purchase
         if p.id not in self.shares:
-            self.shares[p.id] = p.extra_cost_per_unit()
+            self.shares[p.id] = p.extra_cost_by_unit()
         s = self.shares[p.id]
         if s is None:
             return None
-        return Decimal(line.unit_price or 0) + s.get(line.id, ZERO), p.currency
+        return Decimal(line.unit_price or 0) + s.get(unit.id, ZERO), p.currency
 
 
 def _row():

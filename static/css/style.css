@@ -2550,3 +2550,23 @@ a.chassis-missing--card:hover { text-decoration: underline; }
     text-transform: uppercase; letter-spacing: 0.04em; color: var(--md-on-surface-variant); }
 .track-title .material-symbols-outlined { font-size: 17px; }
 .timeline + .track-title { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--md-outline-variant); }
+
+
+/* ── A cost's split over the purchase's vehicles (cost form) ── */
+.split-box { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--md-outline-variant);
+    border-radius: var(--shape-md, 12px); background: var(--md-surface-container-low, transparent); }
+.split-box__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.split-box__title { font-weight: 700; font-size: 0.9rem; }
+.split-box__hint { margin: 0; }
+.split-table td, .split-table th { padding-top: 6px; padding-bottom: 6px; }
+.split-table input {
+    width: 100%; max-width: 180px; height: 36px; padding: 0 10px; text-align: right;
+    border: 1px solid var(--field-border, var(--md-outline-variant)); border-radius: var(--shape-sm);
+    background: var(--field-bg, var(--md-surface)); color: var(--md-on-surface); font: inherit;
+}
+.split-table input[readonly] { background: transparent; border-color: transparent; color: var(--md-on-surface-variant); }
+.split-table input:focus { outline: none; border-color: var(--md-primary); box-shadow: 0 0 0 3px var(--field-ring, transparent); }
+.split-tools { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.split-tools[hidden] { display: none; }
+.split-ok { color: var(--c-green); font-weight: 600; }
+.split-off { color: var(--c-red); font-weight: 600; }

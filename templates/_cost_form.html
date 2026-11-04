@@ -42,6 +42,119 @@
             {{ hint(t['cost.rate_short'] % {'cur': purchase.currency}, t['cost.rate_hint']) }}
         </div>
     </div>
+    {# How the cost is split over the purchase's vehicles. With "by vehicle"
+       each amount is typed; the other two fill the same table as a preview. #}
+    {% set split = request.form.get('split') if posted else (row.split if row else 'value') %}
+    <section class="split-box" data-split>
+        <div class="split-box__head">
+            <span class="split-box__title" id="split-label">{{ t['cost.split_label'] }}</span>
+            <div class="seg-choice" role="radiogroup" aria-labelledby="split-label">
+                {% for k in splits %}
+                <label class="seg-choice__opt"><input type="radio" name="split" value="{{ k }}" {% if k == split %}checked{% endif %} {% if k == 'manual' and not units %}disabled{% endif %}><span>{{ t['cost.split.' + k] }}</span></label>
+                {% endfor %}
+            </div>
+        </div>
+        {% if units %}
+        {% for k in splits %}<p class="muted small split-box__hint" data-split-hint="{{ k }}" {% if split != k %}hidden{% endif %}>{{ t['cost.split_hint.' + k] }}</p>{% endfor %}
+        <div class="table-wrap"><table class="data-table split-table">
+            <thead><tr>
+                <th>{{ t['unit.title_short'] }}</th>
+                <th class="num">{{ t['unit.buy_price'] }}</th>
+                <th class="num">{{ t['unit.cost_part'] }} (<span data-split-cur>{{ cur }}</span>)</th>
+            </tr></thead>
+            <tbody>
+            {% for u in units %}
+            {% set name = 'alloc_%d' % u.id %}
+            <tr data-price="{{ u.purchase_line.unit_price }}">
+                <td><code class="unit-ref">{{ u.ref }}</code> <span class="muted small">{{ u.product.name }}</span></td>
+                <td class="num">{{ u.purchase_line.unit_price|money(purchase.currency) }}</td>
+                <td class="num"><input type="text" name="{{ name }}" data-money="cents" inputmode="decimal" aria-label="{{ u.ref }}"
+                    value="{{ request.form.get(name, '') if posted else (typed[u.id]|money_field if u.id in typed else '') }}"></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot><tr>
+                <td colspan="2">
+                    <span class="split-tools" data-split-tools {% if split != 'manual' %}hidden{% endif %}>
+                        <button type="button" class="btn btn--sm btn--outlined" data-split-fill="value">{{ t['cost.split_fill.value'] }}</button>
+                        <button type="button" class="btn btn--sm btn--outlined" data-split-fill="equal">{{ t['cost.split_fill.equal'] }}</button>
+                    </span>
+                </td>
+                <td class="num"><strong data-split-sum></strong><div class="small" data-split-left></div></td>
+            </tr></tfoot>
+        </table></div>
+        {% else %}
+        <p class="muted small">{{ t['cost.split_no_units'] }}</p>
+        {% endif %}
+    </section>
+    <script>
+    (function () {
+        // The split's table: a preview for "by value" and "equal", the amounts
+        // to type for "by vehicle", with what is split and what is left.
+        var box = document.currentScript.previousElementSibling, form = box.closest("form");
+        var amountEl = form.querySelector("#amount"), curEl = form.querySelector("#currency");
+        var rows = Array.prototype.slice.call(box.querySelectorAll("tbody tr"));
+        if (!rows.length) return;
+        var L = {left: {{ t['cost.split_left']|tojson }}, over: {{ t['cost.split_over']|tojson }}, done: {{ t['cost.split_done']|tojson }}};
+        function num(s) {
+            s = String(s || "");
+            var m = s.match(/^(.*?)[,.](\d{0,2})$/);
+            var whole = (m ? m[1] : s).replace(/\D/g, "");
+            return whole ? parseFloat(whole + (m ? "." + (m[2] || "0") : "")) : 0;
+        }
+        function decimals() { return curEl.value === "GNF" ? 0 : 2; }
+        function show(n) { return n.toLocaleString("fr-FR", {minimumFractionDigits: 0, maximumFractionDigits: decimals()}) + " " + curEl.value; }
+        function mode() { var r = box.querySelector('input[name="split"]:checked'); return r ? r.value : "value"; }
+        function inputs() { return rows.map(function (tr) { return tr.querySelector("input"); }); }
+        function parts(how) {
+            // The amount split one way, rounded, the rounding put on the last.
+            var total = num(amountEl.value), f = Math.pow(10, decimals());
+            var prices = rows.map(function (tr) { return parseFloat(tr.dataset.price) || 0; });
+            var goods = prices.reduce(function (a, b) { return a + b; }, 0);
+            var out = prices.map(function (p) {
+                var share = how === "equal" || goods <= 0 ? total / rows.length : total * p / goods;
+                return Math.floor(share * f) / f;
+            });
+            var given = out.reduce(function (a, b) { return a + b; }, 0);
+            out[out.length - 1] = Math.round((out[out.length - 1] + total - given) * f) / f;
+            return out;
+        }
+        function put(values) {
+            inputs().forEach(function (el, i) {
+                el.value = String(values[i]).replace(".", ",");
+                el.dispatchEvent(new Event("input", {bubbles: true}));
+            });
+        }
+        function sum() {
+            var total = num(amountEl.value);
+            var split = inputs().reduce(function (a, el) { return a + num(el.value); }, 0);
+            var gap = Math.round((total - split) * 100) / 100;
+            box.querySelector("[data-split-sum]").textContent = show(split);
+            var left = box.querySelector("[data-split-left]");
+            left.textContent = !total ? "" : gap === 0 ? L.done : (gap > 0 ? L.left : L.over).replace("%s", show(Math.abs(gap)));
+            left.className = "small " + (gap === 0 ? "split-ok" : "split-off");
+        }
+        function sync(fill) {
+            var m = mode(), manual = m === "manual";
+            box.querySelectorAll("[data-split-hint]").forEach(function (p) { p.hidden = p.dataset.splitHint !== m; });
+            box.querySelector("[data-split-tools]").hidden = !manual;
+            inputs().forEach(function (el) { el.readOnly = !manual; });
+            box.querySelectorAll("[data-split-cur]").forEach(function (s) { s.textContent = curEl.value; });
+            if (!manual) put(parts(m));
+            else if (fill && inputs().every(function (el) { return !num(el.value); })) put(parts("value"));
+            sum();
+        }
+        box.addEventListener("change", function (e) { if (e.target.name === "split") sync(true); });
+        box.addEventListener("click", function (e) {
+            var b = e.target.closest("[data-split-fill]");
+            if (b) { put(parts(b.dataset.splitFill)); sum(); }
+        });
+        box.addEventListener("input", function (e) { if (e.target.name && e.target.name.indexOf("alloc_") === 0) sum(); });
+        amountEl.addEventListener("input", function () { sync(false); });
+        curEl.addEventListener("change", function () { sync(false); });
+        sync(false);
+    })();
+    </script>
     <div class="form-row">
         <div class="field">
             <input type="text" id="payee" name="payee" placeholder="{{ t['cost.payee_ph'] }}" value="{{ val('payee') }}">

@@ -364,26 +364,23 @@ class Purchase(db.Model):
             total += v
         return total
 
-    def extra_cost_per_unit(self):
-        """{line_id: share of the extra costs carried by ONE unit of that
-        line}, in the purchase's currency.
+    @property
+    def units(self):
+        return [u for l in self.lines for u in l.units]
 
-        The costs are spread in proportion to price: a line worth twice as
-        much carries twice the share, so a tractor bears more duty than a
-        trailer. Lines with no price share nothing. Returns None when a cost
-        cannot be converted (no rate)."""
-        extra = self.costs_total(self.currency)
-        if extra is None:
-            return None
-        goods = self.goods_total
-        shares = {}
-        for l in self.lines:
-            if not l.quantity or goods <= 0:
-                shares[l.id] = ZERO
-                continue
-            line_share = extra * (l.total / goods)
-            shares[l.id] = (line_share / l.quantity).quantize(CENT, rounding=ROUND_HALF_UP)
-        return shares
+    def extra_cost_by_unit(self):
+        """{unit_id: the extra costs this vehicle carries}, in the purchase's
+        currency: each cost split its own way (see PurchaseCost.split).
+        None when a cost cannot be converted (no rate)."""
+        units = self.units
+        out = {u.id: ZERO for u in units}
+        for c in self.costs:
+            parts = c.shares(self.currency, units)
+            if parts is None:
+                return None
+            for uid, v in parts.items():
+                out[uid] += v
+        return {uid: v.quantize(CENT, rounding=ROUND_HALF_UP) for uid, v in out.items()}
 
     def stage_date(self, stage):
         return getattr(self, STAGE_DATE_FIELD[stage])
@@ -425,6 +422,11 @@ class PurchaseLine(db.Model):
 
 
 COST_KINDS = ("customs_duty", "port_fees", "transit", "transport", "other")
+
+# How a cost is split over the purchase's vehicles: in proportion to their
+# price (duty is charged on value), the same for each (a port fee per
+# vehicle), or an amount typed for each vehicle.
+COST_SPLITS = ("value", "equal", "manual")
 
 
 # The papers a purchase gathers on its way, roughly in the order they come.
@@ -472,13 +474,67 @@ class PurchaseCost(db.Model):
     rate        = db.Column(RATE)                                 # GNF per USD on that day
     incurred_on = db.Column(db.Date, nullable=False)
     reference   = db.Column(db.String(60))                        # declaration no., receipt no.
+    split       = db.Column(db.String(10), nullable=False, default="value", server_default="value")
     created_at  = db.Column(db.DateTime, nullable=False, default=utcnow)
 
     purchase = db.relationship("Purchase", back_populates="costs")
     payments = db.relationship("Payment", back_populates="purchase_cost", order_by="Payment.paid_on")
+    allocations = db.relationship("CostAllocation", back_populates="cost", cascade="all, delete-orphan")
 
     def amount_in(self, currency):
         return convert(self.amount, self.currency, currency, self.rate)
+
+    @property
+    def allocated(self):
+        """With a split typed by hand: how much of the cost the vehicles carry."""
+        return sum((Decimal(a.amount) for a in self.allocations), ZERO)
+
+    @property
+    def allocation_gap(self):
+        """What a split typed by hand leaves over (or takes too much): not zero
+        once the purchase's vehicles have changed since it was typed."""
+        if self.split != "manual":
+            return ZERO
+        return Decimal(self.amount or 0) - self.allocated
+
+    def shares(self, currency, units=None):
+        """{unit_id: part of this cost}, in `currency`, unrounded. None when
+        the cost cannot be converted (no rate).
+
+        value   in proportion to each vehicle's price on the invoice
+        equal   the same for each vehicle
+        manual  the amount typed for each vehicle; what a later change of the
+                vehicles left over is spread in proportion to price, so the
+                whole cost is always carried"""
+        units = self.purchase.units if units is None else units
+        total = self.amount_in(currency)
+        if total is None or not units:
+            return None if total is None else {}
+        goods = sum((Decimal(u.purchase_line.unit_price or 0) for u in units), ZERO)
+
+        def by_value(amount):
+            if goods <= 0:
+                return {u.id: amount / len(units) for u in units}
+            return {u.id: amount * Decimal(u.purchase_line.unit_price or 0) / goods for u in units}
+
+        if self.split == "equal":
+            return {u.id: total / len(units) for u in units}
+        if self.split == "manual":
+            typed = {a.unit_id: a.amount for a in self.allocations}
+            out = {}
+            for u in units:
+                v = convert(typed.get(u.id, ZERO), self.currency, currency, self.rate)
+                if v is None:
+                    return None
+                out[u.id] = v
+            left = total - sum(out.values(), ZERO)
+            if left:
+                for uid, v in by_value(left).items():
+                    out[uid] += v
+            return out
+        return by_value(total)
+
+
 
     @property
     def paid_amount(self):
@@ -488,6 +544,20 @@ class PurchaseCost(db.Model):
     @property
     def balance(self):
         return max(Decimal(self.amount or 0) - self.paid_amount, ZERO)
+
+
+class CostAllocation(db.Model):
+    """The part of a cost typed for one vehicle, in the cost's currency."""
+    __tablename__ = "purchase_cost_allocations"
+    __table_args__ = (db.UniqueConstraint("cost_id", "unit_id", name="uq_cost_allocation"),)
+
+    id      = db.Column(db.Integer, primary_key=True)
+    cost_id = db.Column(db.Integer, db.ForeignKey("purchase_costs.id", ondelete="CASCADE"), nullable=False, index=True)
+    unit_id = db.Column(db.Integer, db.ForeignKey("units.id", ondelete="CASCADE"), nullable=False, index=True)
+    amount  = db.Column(MONEY, nullable=False)
+
+    cost = db.relationship("PurchaseCost", back_populates="allocations")
+    unit = db.relationship("Unit")
 
 
 # ── Stock ────────────────────────────────────────────────────────────────────
@@ -541,10 +611,10 @@ class Unit(db.Model):
         share of its purchase's extra costs, in the purchase's currency.
         None while a cost has no rate to convert it with."""
         line = self.purchase_line
-        shares = line.purchase.extra_cost_per_unit()
+        shares = line.purchase.extra_cost_by_unit()
         if shares is None:
             return None
-        return (Decimal(line.unit_price or 0) + shares.get(line.id, ZERO), line.purchase.currency)
+        return (Decimal(line.unit_price or 0) + shares.get(self.id, ZERO), line.purchase.currency)
 
     @property
     def label(self):
