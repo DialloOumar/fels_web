@@ -530,6 +530,12 @@ class Unit(db.Model):
         return {"delivered": "delivered", "confirmed": "sold"}.get(sl.sale.status, "reserved")
 
     @property
+    def road_status(self):
+        """Where the vehicle is: its purchase's stage, until it is handed
+        over -- then "delivered", out of the yard whatever the purchase says."""
+        return "delivered" if self.status == "delivered" else self.purchase_line.purchase.stage
+
+    @property
     def landed_cost(self):
         """(amount, currency): the line's unit price plus this vehicle's
         share of its purchase's extra costs, in the purchase's currency.

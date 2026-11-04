@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_filters.html" import filter_bar, filter_select with context %}
 {% from "_pager.html" import pager with context %}
-{% from "_macros.html" import money_pair, stage_badge, unit_badge, unit_link, export_button with context %}
+{% from "_macros.html" import money_pair, stage_badge, road_badge, unit_badge, unit_link, export_button with context %}
 
 {% block title %}{{ t['nav.stock'] }}{% endblock %}
 {% block page_title %}{{ t['nav.stock'] }}{% endblock %}
@@ -14,8 +14,8 @@
     </div>
     {% call filter_bar(search, active=(product_id or port_id or status or where)) %}
         {{ filter_select('product', t['purchase.line_product'], [('', t['list.all'])] + opts.products, product_id) }}
-        {{ filter_select('status', t['unit.status'], [('', t['list.all'])] + opts.statuses, status) }}
-        {{ filter_select('where', t['unit.where'], [('', t['list.all'])] + opts.wheres, where) }}
+        {{ filter_select('where', t['unit.status_road'], [('', t['list.all'])] + opts.wheres, where) }}
+        {{ filter_select('status', t['unit.status_sale'], [('', t['list.all'])] + opts.statuses, status) }}
         {{ filter_select('port', t['purchase.port'], [('', t['list.all'])] + opts.ports, port_id) }}
     {% endcall %}
 
@@ -27,8 +27,8 @@
                 <th>{{ t['purchase.line_product'] }}</th>
                 <th>{{ t['unit.ref_chassis'] }}</th>
                 <th class="col-secondary">{{ t['unit.purchase'] }}</th>
-                <th>{{ t['purchase.stage'] }}</th>
-                <th>{{ t['unit.status'] }}</th>
+                <th>{{ t['unit.status_road'] }}</th>
+                <th>{{ t['unit.status_sale'] }}</th>
                 <th class="num">{{ t['purchase.landed_unit'] }}</th>
                 <th></th>
             </tr>
@@ -43,7 +43,7 @@
                     <div class="small">{% if u.chassis_number %}<code>{{ u.chassis_number }}</code>{% else %}<span class="muted">{{ t['unit.no_chassis'] }}</span>{% endif %}</div></td>
                 <td class="col-secondary"><a href="{{ url_for('purchases.detail', pid=p.id) }}">{{ p.invoice_number }}</a>
                     <div class="muted small">{{ p.supplier.name }}{% if p.port %} · {{ p.port.name }}{% endif %}</div></td>
-                <td>{{ stage_badge(p.stage) }}</td>
+                <td>{{ road_badge(u) }}</td>
                 <td>{{ unit_badge(u.status) }}
                     {% set sl = u.active_sale_line %}
                     {% if sl %}<div class="small"><a href="{{ url_for('sales.detail', sid=sl.sale_id) }}">{{ sl.sale.number }}</a> · {{ sl.sale.customer.name }}</div>{% endif %}</td>
@@ -67,7 +67,7 @@
         {% set p = u.purchase_line.purchase %}
         <div class="list-card">
             <div class="list-card__top"><a href="{{ url_for('stock.detail', uid=u.id) }}"><strong>{{ u.product.name }}</strong></a>{{ unit_badge(u.status) }}</div>
-            <div class="list-card__meta muted">{{ unit_link(u) }} · {% if u.chassis_number %}<code>{{ u.chassis_number }}</code> · {% endif %}{{ p.invoice_number }} · {{ t['stage.' + p.stage] }}</div>
+            <div class="list-card__meta muted">{{ unit_link(u) }} · {% if u.chassis_number %}<code>{{ u.chassis_number }}</code> · {% endif %}{{ p.invoice_number }} · {{ t['unit.status.delivered'] if u.road_status == 'delivered' else t['stage.' + p.stage] }}</div>
             <div class="list-card__actions">
                 {% if can('stock', 'manage') %}<a href="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" class="btn btn--sm btn--tonal btn--icon"
                    data-modal-url="{{ url_for('stock.edit', uid=u.id, back=request.full_path) }}" data-modal-title="{{ t['unit.edit'] }}"

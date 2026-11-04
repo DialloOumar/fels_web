@@ -58,6 +58,8 @@
 {% set road = [] %}
 {% for s in stages %}{% set _ = road.append((t['stage.' + s], purchase.eta_date if s == 'eta' and purchase.eta_date else purchase.stage_date(s),
     loop.index0 <= p_idx, eta_note(purchase) if s == 'eta' and purchase.stage == 'eta' else '')) %}{% endfor %}
+{% set handed = row.status == 'delivered' %}
+{% set _ = road.append((t['unit.status.delivered'], sale.delivered_on if handed else none, handed, '')) %}
 {% set flow = ['available', 'reserved', 'sold', 'delivered'] %}
 {% set s_idx = flow.index(row.status) %}
 {% set deal = [] %}
@@ -69,9 +71,9 @@
 {% endfor %}
 <section class="card">
     <div class="card-header"><h2>{{ t['purchase.pipeline'] }}</h2></div>
-    <h3 class="track-title"><span class="material-symbols-outlined">local_shipping</span> {{ t['unit.track_road'] }}</h3>
+    <h3 class="track-title"><span class="material-symbols-outlined">local_shipping</span> {{ t['unit.status_road'] }}</h3>
     {{ track(road) }}
-    <h3 class="track-title"><span class="material-symbols-outlined">sell</span> {{ t['unit.track_sale'] }}</h3>
+    <h3 class="track-title"><span class="material-symbols-outlined">sell</span> {{ t['unit.status_sale'] }}</h3>
     {{ track(deal) }}
 </section>
 

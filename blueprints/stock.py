@@ -18,8 +18,8 @@ UNIT_STATUSES = ("available", "reserved", "sold", "delivered")
 # Not in the menu: what a sale holds, reserved or sold -- the dashboard's and
 # the catalogue's "reserved or sold" figures open the list on it.
 HELD = ("reserved", "sold")
-# Where on the road: still travelling, or in the yard.
-WHERE = ("incoming", "in_stock")
+# Where it is: still travelling, in the yard, or handed over to its customer.
+WHERE = ("incoming", "in_stock", "delivered")
 
 
 def tab_counts():
@@ -45,13 +45,17 @@ def index():
         q = q.filter(Purchase.stage == "in_stock")
     elif where == "incoming":
         q = q.filter(Purchase.stage != "in_stock")
-    else:
+    elif where != "delivered":
         where = ""
     if search:
         like = "%" + search + "%"
         q = q.filter(db.or_(Unit.ref.ilike(like), Unit.chassis_number.ilike(like), Purchase.invoice_number.ilike(like),
                             Product.name.ilike(like), Supplier.name.ilike(like)))
     rows = q.order_by(Purchase.invoice_date.desc(), Unit.ref, Unit.id).all()
+    if where:
+        # Delivered is read off the sale: a vehicle handed over is no longer
+        # in the yard nor on the road.
+        rows = [u for u in rows if (u.status == "delivered") == (where == "delivered")]
     counts = {s: 0 for s in UNIT_STATUSES}
     for u in rows:
         counts[u.status] += 1
@@ -65,13 +69,13 @@ def index():
     if wants_xlsx(request):
         landed = _landed_costs(rows)
         headers = [t["unit.ref"], t["purchase.line_product"], t["unit.chassis"], t["unit.purchase"], t["purchase.supplier"],
-                   t["purchase.port"], t["purchase.stage"], t["unit.status"], t["sale.number"], t["sale.customer"],
+                   t["purchase.port"], t["unit.status_road"], t["unit.status_sale"], t["sale.number"], t["sale.customer"],
                    t["purchase.landed_unit"], t["purchase.currency"], t["field.note"]]
         data = []
         for u in rows:
             p, sl, lc = u.purchase_line.purchase, u.active_sale_line, landed.get(u.id)
             data.append([u.ref, u.product.name, u.chassis_number, p.invoice_number, p.supplier.name,
-                         p.port.name if p.port else None, t["stage." + p.stage], t["unit.status." + u.status],
+                         p.port.name if p.port else None, road_label(t, u), t["unit.status." + u.status],
                          sl.sale.number if sl else None, sl.sale.customer.name if sl else None,
                          lc[0] if lc else None, lc[1] if lc else None, u.note])
         return xlsx_response("vehicules", t["nav.stock"], headers, data)
@@ -118,6 +122,11 @@ def save_chassis(numbers):
             u.chassis_number = number
             log_action("UPDATE", "unit", u.id, "%s · %s · %s" % (
                 u.product.name, number or "sans châssis", u.purchase_line.purchase.invoice_number))
+
+
+def road_label(t, u):
+    """A vehicle's logistics status, in words."""
+    return t["unit.status.delivered"] if u.road_status == "delivered" else t["stage." + u.road_status]
 
 
 def _landed_costs(units):

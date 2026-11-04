@@ -118,6 +118,12 @@
 {% if can('stock') %}<a href="{{ url_for('stock.detail', uid=u.id) }}" class="unit-ref-link" title="{{ t['unit.open'] }}"><code class="unit-ref">{{ u.ref }}</code></a>{% else %}<code class="unit-ref">{{ u.ref }}</code>{% endif %}
 {%- endmacro %}
 
+{# A vehicle's logistics status: its purchase's stage, or delivered once
+   handed over. #}
+{% macro road_badge(u) -%}
+{% if u.road_status == 'delivered' %}<span class="badge badge--unit-delivered">{{ t['unit.status.delivered'] }}</span>{% else %}{{ stage_badge(u.road_status) }}{% endif %}
+{%- endmacro %}
+
 {# A sale's life: pre-order, confirmed, delivered, cancelled. #}
 {% macro sale_badge(status) -%}
 <span class="badge badge--sale-{{ status }}">{{ t['sale.status.' + status] }}</span>
