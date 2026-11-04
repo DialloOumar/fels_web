@@ -2614,3 +2614,20 @@ a.chassis-missing--card:hover { text-decoration: underline; }
 .sell-bar .btn--outlined { color: inherit; border-color: currentColor; }
 .list-card__pick { display: inline-flex; margin-right: 6px; }
 .list-card__pick input { width: 18px; height: 18px; accent-color: var(--md-primary); }
+
+
+/* ── The sale form: choosing vehicles in a window ── */
+.lines-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.picker-window[hidden] { display: none; }
+.modal--picker { width: min(1080px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; }
+.modal--picker .modal__body { flex: 1 1 auto; min-height: 0; padding-bottom: 8px; }
+.picker__filters { margin-bottom: 12px; }
+.picker-window .picker__table { max-height: none; border: 0; }
+
+.picker__group td { background: var(--md-surface-container); padding-top: 9px !important; padding-bottom: 9px !important; }
+.picker__taken td { color: var(--md-on-surface-variant); }
+.picker__taken { cursor: default !important; }
+.picker__taken .unit-ref { opacity: .6; }
+.picker-window__foot { display: flex; align-items: center; gap: 8px; justify-content: flex-end; padding: 12px 22px;
+    border-top: 1px solid var(--md-outline-variant); }
+.picker-window__foot #pick-count { margin-right: auto; }

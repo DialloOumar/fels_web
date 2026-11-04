@@ -211,11 +211,13 @@ def _save(sale):
 
 
 def _form_context(sale):
-    """Customers, models, and what the vehicle picker shows: the vehicles
-    that can go on a line -- free ones, plus those already on this sale --
+    """Customers, models, and what the vehicle window shows: every vehicle
+    not yet delivered -- the free ones to pick, plus those already on this
+    sale; the reserved and sold ones shown too, greyed, with their sale --
     each with where it is and what it cost, how many of each model are free,
     and the price each model last sold at."""
     from blueprints.stock import _landed_costs, road_label
+    from models import PURCHASE_STAGES, Port
     t = get_t()
     customers = Customer.query.filter(db.or_(Customer.is_active.is_(True), Customer.id == (sale.customer_id or 0))
                                       ).order_by(Customer.name).all()
@@ -223,13 +225,12 @@ def _form_context(sale):
         Product.is_active.is_(True), Product.id.in_([l.product_id for l in sale.lines] or [0]))
     ).order_by(Product.category, Product.name).all()
     own = {l.unit_id for l in sale.lines if l.unit_id}
-    units = [u for u in Unit.query.order_by(Unit.product_id, Unit.id).all()
-             if u.active_sale_line is None or u.id in own]
-    landed = _landed_costs(units)
+    shown = [u for u in Unit.query.order_by(Unit.product_id, Unit.id).all() if u.status != "delivered" or u.id in own]
+    units = [u for u in shown if u.active_sale_line is None or u.id in own]
+    landed = _landed_costs(shown)
     today = date.today()
-    picker = []
-    free = {}
-    for u in units:
+    picker, free, ports = [], {}, {}
+    for u in shown:
         p = u.purchase_line.purchase
         in_yard = p.stage == "in_stock"
         if in_yard:
@@ -240,9 +241,14 @@ def _form_context(sale):
         else:
             where = road_label(t, u)
         lc = landed.get(u.id)
-        picker.append({"unit": u, "in_yard": in_yard, "where": where, "stage": p.stage,
-                       "landed": lc[0] if lc else None, "landed_cur": lc[1] if lc else None, "purchase": p})
-        if u.id not in own:
+        pickable = u.active_sale_line is None or u.id in own
+        sl = None if pickable else u.active_sale_line
+        picker.append({"unit": u, "in_yard": in_yard, "where": where, "stage": p.stage, "purchase": p,
+                       "landed": lc[0] if lc else None, "landed_cur": lc[1] if lc else None,
+                       "pickable": pickable, "status": "available" if pickable else u.status, "taken_by": sl})
+        if p.port:
+            ports[p.port.id] = p.port.name
+        if pickable and u.id not in own:
             n = free.setdefault(u.product_id, [0, 0])
             n[0 if in_yard else 1] += 1
     # The price each model last sold at, as a guide for the next one.
@@ -252,7 +258,8 @@ def _form_context(sale):
         last_price.setdefault(line.product_id, line)
     return {"customers": customers, "products": products, "units": units, "picker": picker,
             "units_by_id": {u.id: u for u in units}, "free": free, "last_price": last_price,
-            "rate": current_rate()}
+            "rate": current_rate(), "stages": PURCHASE_STAGES,
+            "ports": sorted(ports.items(), key=lambda kv: kv[1])}
 
 
 @sales_bp.route("/new", methods=["GET", "POST"])
