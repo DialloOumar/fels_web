@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_filters.html" import filter_bar, filter_select with context %}
 {% from "_pager.html" import pager with context %}
-{% from "_macros.html" import money_pair, export_button with context %}
+{% from "_macros.html" import money_pair, export_button, proof_button with context %}
 
 {% block title %}{{ t['nav.payments'] }}{% endblock %}
 {% block page_title %}{{ t['nav.payments'] }}{% endblock %}
@@ -50,6 +50,7 @@
             <th>{{ t['ledger.party'] }}</th>
             <th class="col-secondary">{{ t['payment.method'] }}</th>
             <th class="num">{{ t['payment.amount'] }}</th>
+            <th class="row-actions"></th>
         </tr></thead>
         <tbody>
         {% for p in rows %}
@@ -68,6 +69,7 @@
                 {% if p.is_voided %}<div class="small voided-note">{{ t['payment.voided_on'] }} {{ p.voided_at|fdate }} · {{ p.void_reason }}</div>{% endif %}</td>
             <td class="col-secondary">{{ t['method.' + p.method] }}</td>
             <td class="num {{ 'cash-in' if p.direction == 'in' else '' }}">{{ money_pair(p.amount, p.currency, p.rate) }}</td>
+            <td class="row-actions">{{ proof_button(p) }}</td>
         </tr>
         {% endfor %}
         </tbody>

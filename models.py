@@ -832,6 +832,13 @@ class Payment(db.Model):
     note             = db.Column(db.String(255))
     voided_at        = db.Column(db.DateTime)
     void_reason      = db.Column(db.String(255))
+    # The proof: the photo or PDF of the paper receipt, the transfer slip,
+    # the customs quittance. Required for money out, optional for a receipt
+    # the app prints itself. The bytes live in documents_store.
+    proof_key        = db.Column(db.String(255), unique=True)
+    proof_filename   = db.Column(db.String(200))
+    proof_type       = db.Column(db.String(100))
+    proof_size       = db.Column(db.Integer)
     created_by       = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
     created_at       = db.Column(db.DateTime, nullable=False, default=utcnow)
 

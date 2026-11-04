@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge, unit_link, eta_note, detail_tabs, tab_hidden with context %}
+{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge, unit_link, eta_note, proof_button, detail_tabs, tab_hidden with context %}
 
 {% block title %}{{ row.invoice_number }}{% endblock %}
 {% block page_title %}{{ t['purchase.title_short'] }} {{ row.invoice_number }}{% endblock %}
@@ -266,8 +266,10 @@
                 {% if p.reference %}<div class="muted small">{{ t['field.reference'] }} {{ p.reference }}</div>{% endif %}
                 {% if p.is_voided %}<div class="small voided-note">{{ t['payment.voided_on'] }} {{ p.voided_at|fdate }} · {{ p.void_reason }}</div>{% elif p.note %}<div class="muted small">{{ p.note }}</div>{% endif %}</td>
             <td class="col-secondary">{{ t['method.' + p.method] }}</td>
-            <td class="num">{{ money_pair(p.amount, p.currency, p.rate) }}</td>
+            <td class="num">{{ money_pair(p.amount, p.currency, p.rate) }}
+                {% if not p.proof_key and not p.is_voided %}<div class="small chassis-missing"><span class="material-symbols-outlined">warning</span> {{ t['payment.proof_missing'] }}</div>{% endif %}</td>
             <td class="row-actions">
+                {{ proof_button(p) }}
                 {% if not p.is_voided %}
                 {% if can_correct(p) %}<a href="{{ url_for('payments.edit', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon"
                    data-modal-url="{{ url_for('payments.edit', pay_id=p.id) }}" data-modal-title="{{ t['payment.edit'] }}"

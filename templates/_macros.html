@@ -124,6 +124,18 @@
 {% if u.road_status == 'delivered' %}<span class="badge badge--unit-delivered">{{ t['unit.status.delivered'] }}</span>{% else %}{{ stage_badge(u.road_status) }}{% endif %}
 {%- endmacro %}
 
+{# A payment's proof: opens it when there is one; otherwise offers to
+   attach it -- in amber for money paid out, where it is required. #}
+{% macro proof_button(p) -%}
+{% if p.proof_key %}<a href="{{ url_for('payments.proof_file', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon" target="_blank" rel="noopener"
+   title="{{ t['payment.proof_view'] }} · {{ p.proof_filename }}" aria-label="{{ t['payment.proof_view'] }}"><span class="material-symbols-outlined">{{ 'picture_as_pdf' if p.proof_type == 'application/pdf' else ('photo_camera' if p.proof_type.startswith('image/') else 'description') }}</span></a>
+{%- elif not p.is_voided and (can('sales', 'manage') if p.direction == 'in' else can('supplier_pay', 'yes')) -%}
+<a href="{{ url_for('payments.proof_attach', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon {{ 'proof-missing' if p.direction == 'out' else '' }}"
+   data-modal-url="{{ url_for('payments.proof_attach', pay_id=p.id) }}" data-modal-title="{{ t['payment.proof_attach'] }}"
+   title="{{ t['payment.proof_attach'] }}" aria-label="{{ t['payment.proof_attach'] }}"><span class="material-symbols-outlined">upload_file</span></a>
+{%- endif %}
+{%- endmacro %}
+
 {# A sale's life: pre-order, confirmed, delivered, cancelled. #}
 {% macro sale_badge(status) -%}
 <span class="badge badge--sale-{{ status }}">{{ t['sale.status.' + status] }}</span>

@@ -35,6 +35,28 @@ def new_key(purchase_id, ext):
     return "%d/%s%s" % (purchase_id, uuid.uuid4().hex, ext)
 
 
+def payment_key(payment_id, ext):
+    """A payment's proof, apart from the purchases' papers."""
+    return "payments/%d/%s%s" % (payment_id, uuid.uuid4().hex, ext)
+
+
+def read_upload(upload):
+    """Check an uploaded file. Returns ((name, ext, data), None) or
+    (None, error key): "file" (none), "type", "size"."""
+    if not upload or not upload.filename:
+        return None, "file"
+    name = os.path.basename(upload.filename.replace("\\", "/"))[:200]
+    ext = os.path.splitext(name)[1].lower()
+    if ext not in ALLOWED:
+        return None, "type"
+    data = upload.read(MAX_BYTES + 1)
+    if not data:
+        return None, "file"
+    if len(data) > MAX_BYTES:
+        return None, "size"
+    return (name, ext, data), None
+
+
 def _path(key):
     path = os.path.normpath(os.path.join(DOCUMENTS_DIR, key))
     if not path.startswith(os.path.normpath(DOCUMENTS_DIR) + os.sep):

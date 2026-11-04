@@ -25,7 +25,7 @@ from exports import wants_xlsx, xlsx_response
 from app import (ListPage, current_rate, form_response, fr, get_setting, get_t,
                  is_modal_request, log_action, modal_ok, money_text, paginate,
                  parse_date, parse_money, rate_field_value)
-from blueprints.payments import _parse_payment
+from blueprints.payments import _parse_payment, attach_proof, proof_form_context, read_proof
 from models import (CURRENCIES, PAYMENT_METHODS, Customer, Invoice, Payment,
                     Product, Sale, SaleLine, Unit, convert, db, next_number,
                     utcnow, vat_part)
@@ -421,10 +421,16 @@ def receipt_new(sid):
         error = t["sale.error.cancelled_receipt"]
     if request.method == "POST" and error is None:
         values, error = _parse_payment(sale.currency)
+        upload = None
+        if error is None:
+            # The proof is optional here: the app prints the receipt itself.
+            upload, error = read_proof(required=False)
         if error is None:
             p = Payment(direction="in", sale_id=sale.id, created_by=current_user.id, **values)
             db.session.add(p)
             _commit_numbered(p, Payment.receipt_number, "REC-%d-" % values["paid_on"].year, "receipt_number")
+            if upload and not attach_proof(p, upload):
+                flash("warning|" + t["payment.warn.proof_not_kept"])
             log_action("CREATE", "receipt", p.id, "%s · %s · %s · %s" % (
                 p.receipt_number, sale.number, money_text(p.amount, p.currency), fr("method." + p.method)))
             db.session.commit()
@@ -439,7 +445,7 @@ def receipt_new(sid):
                          default_rate=rate_field_value(current_rate()),
                          methods=PAYMENT_METHODS, form_action=url_for("sales.receipt_new", sid=sid),
                          back_url=url_for("sales.detail", sid=sid), title=t["receipt.new"],
-                         default_method="cash")
+                         default_method="cash", proof_required=False, **proof_form_context())
 
 
 @sales_bp.route("/recu/<int:pay_id>")

@@ -46,6 +46,9 @@ OPEN = {
     # depends on the payment (sales for a receipt, supplier_pay for a payment
     # out), so the view checks it itself, with payments.can_correct.
     "payments.edit", "payments.delete",
+    # A payment's proof: seen by whoever sees the payment, attached by whoever
+    # may enter that kind of payment -- checked in the view, as above.
+    "payments.proof_file", "payments.proof_attach",
 }
 
 # Pages only the super admin opens: people and roles, and the journals --

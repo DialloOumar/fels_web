@@ -1,0 +1,15 @@
+{% from "_macros.html" import form_actions with context %}
+{% from "_hint.html" import hint with context %}
+{# Attach the proof to a payment entered without one. #}
+{% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
+<form method="post" class="entry-form" data-modal-form enctype="multipart/form-data"
+      action="{{ url_for('payments.proof_attach', pay_id=payment.id) }}">
+    {{ csrf_field() }}
+    <p class="muted small" style="margin:0;">{{ label }} · {{ payment.paid_on|fdate }} · {{ payment.amount|money(payment.currency) }}</p>
+    <div class="field">
+        <input type="file" id="proof" name="proof" required accept="{{ proof_accept }}">
+        <label for="proof">{{ t['payment.proof'] }}</label>
+        {{ hint(t['doc.file_short'] % {'mb': proof_max_mb}, t['payment.proof_hint_out'] if payment.direction == 'out' else t['payment.proof_hint_in']) }}
+    </div>
+    {{ form_actions(back_url) }}
+</form>

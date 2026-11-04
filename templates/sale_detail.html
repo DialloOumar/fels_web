@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import money_pair, detail, pay_badge, sale_badge, stage_badge, unit_link, detail_tabs, tab_hidden with context %}
+{% from "_macros.html" import money_pair, detail, pay_badge, sale_badge, stage_badge, unit_link, proof_button, detail_tabs, tab_hidden with context %}
 
 {% block title %}{{ row.number }}{% endblock %}
 {% block page_title %}{{ t['sale.title_short'] }} {{ row.number }}{% endblock %}
@@ -159,6 +159,7 @@
             <td class="row-actions">
                 <a href="{{ url_for('sales.receipt_print', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon" target="_blank" rel="noopener"
                    title="{{ t['receipt.print'] }}" aria-label="{{ t['receipt.print'] }}"><span class="material-symbols-outlined">print</span></a>
+                {{ proof_button(p) }}
                 {% if not p.is_voided %}
                 {% if can_correct(p) %}<a href="{{ url_for('payments.edit', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon"
                    data-modal-url="{{ url_for('payments.edit', pay_id=p.id) }}" data-modal-title="{{ t['payment.edit'] }}"

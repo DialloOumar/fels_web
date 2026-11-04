@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge, sale_badge, eta_note, detail_tabs, tab_hidden with context %}
+{% from "_macros.html" import money_pair, detail, stage_badge, pay_badge, unit_badge, sale_badge, eta_note, proof_button, detail_tabs, tab_hidden with context %}
 
 {% block title %}{{ row.ref }}{% endblock %}
 {% block page_title %}{{ t['unit.title_short'] }} {{ row.ref }}{% endblock %}
@@ -231,6 +231,7 @@
             <td class="row-actions">
                 <a href="{{ url_for('sales.receipt_print', pay_id=p.id) }}" class="btn btn--sm btn--tonal btn--icon" target="_blank" rel="noopener"
                    title="{{ t['receipt.print'] }}" aria-label="{{ t['receipt.print'] }}"><span class="material-symbols-outlined">print</span></a>
+                {{ proof_button(p) }}
             </td>
         </tr>
         {% endfor %}

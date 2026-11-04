@@ -5,7 +5,7 @@
 {% set posted = request.method == 'POST' %}
 {% if payment and payment.receipt_number %}<p class="muted small" style="margin:0 0 8px;">{{ payment.receipt_number }} · {{ t['payment.edit_explain'] }}</p>{% elif payment %}<p class="muted small" style="margin:0 0 8px;">{{ t['payment.edit_explain'] }}</p>{% endif %}
 {% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ error }}</div>{% endif %}
-<form method="post" class="entry-form" data-modal-form action="{{ form_action }}">
+<form method="post" class="entry-form" data-modal-form action="{{ form_action }}" enctype="multipart/form-data">
     {{ csrf_field() }}
     {# What is still owed, with a button that puts all of it in the amount. #}
     <div class="balance-banner">
@@ -66,6 +66,17 @@
             <input type="text" id="note" name="note" placeholder=" " value="{{ request.form.get('note', '') if posted else ((payment.note or '') if payment else '') }}">
             <label for="note">{{ t['field.note'] }}</label>
         </div>
+    </div>
+    {# The proof: the paper receipt, the transfer slip, the customs quittance.
+       Required for money paid out; for a receipt the app prints, optional. #}
+    <div class="field">
+        <input type="file" id="proof" name="proof" accept="{{ proof_accept }}" {% if proof_required %}required{% endif %}>
+        <label for="proof">{{ t['payment.proof'] }}</label>
+        {% if payment and payment.proof_key %}
+        <p class="small" style="margin:4px 0 0;">{{ t['payment.proof_current'] }}
+            <a href="{{ url_for('payments.proof_file', pay_id=payment.id) }}" target="_blank" rel="noopener">{{ payment.proof_filename }}</a> · {{ t['payment.proof_replace'] }}</p>
+        {% endif %}
+        {{ hint(t['doc.file_short'] % {'mb': proof_max_mb}, t['payment.proof_hint_out'] if proof_required or (payment and payment.direction == 'out') else t['payment.proof_hint_in']) }}
     </div>
     {{ form_actions(back_url) }}
 </form>

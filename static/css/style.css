@@ -2631,3 +2631,7 @@ a.chassis-missing--card:hover { text-decoration: underline; }
 .picker-window__foot { display: flex; align-items: center; gap: 8px; justify-content: flex-end; padding: 12px 22px;
     border-top: 1px solid var(--md-outline-variant); }
 .picker-window__foot #pick-count { margin-right: auto; }
+
+
+/* A payment out without its proof: the attach button in amber. */
+.btn.proof-missing { color: var(--c-amber); background: var(--c-amber-bg); }
