@@ -19,11 +19,11 @@
         {{ filter_select('port', t['purchase.port'], [('', t['list.all'])] + opts.ports, port_id) }}
     {% endcall %}
 
-    {% if rows %}
     {% set selling = can('sales', 'manage') %}
     {# Ticked vehicles go to a new sale together: the boxes belong to this
        form, which opens the sale form with them already picked. #}
     {% if selling %}<form id="sell-form" method="get" action="{{ url_for('sales.new') }}"></form>{% endif %}
+    {% if rows %}
     <div class="table-desktop table-wrap">
     <table class="data-table">
         <thead>
@@ -83,6 +83,12 @@
         {% endfor %}
     </div>
     {{ pager(pagination, 'stock.index') }}
+    {% else %}
+    <div class="empty-state">
+        <span class="material-symbols-outlined">inventory_2</span>
+        <p>{{ t['list.no_match'] if (search or product_id or port_id or status or where) else t['unit.empty'] }}</p>
+    </div>
+    {% endif %}
     {% if selling %}
     <div class="sell-bar" id="sell-bar" hidden>
         <span class="sell-bar__count"><span class="material-symbols-outlined">check_circle</span> <span data-sell-count></span></span>
@@ -90,52 +96,62 @@
         <button type="submit" form="sell-form" class="btn btn--primary"><span class="material-symbols-outlined">sell</span> {{ t['stock.sell_selected'] }}</button>
     </div>
     {% endif %}
-    {% else %}
-    <div class="empty-state">
-        <span class="material-symbols-outlined">inventory_2</span>
-        <p>{{ t['list.no_match'] if (search or product_id or port_id or status or where) else t['unit.empty'] }}</p>
-    </div>
-    {% endif %}
 </section>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// The vehicles ticked to sell together: the bar says how many, and opens
-// the sale form with them already picked. The table and the phone cards
-// share the boxes' values: ticking one ticks its twin.
+// The vehicles ticked to sell together. A filter or another page reloads
+// the list, so the choice is kept for the browser tab (sessionStorage) and
+// survives it: the bar counts every vehicle ticked, on this page or not,
+// and "Sell" sends them all. The table and the phone cards share the boxes'
+// values: ticking one ticks its twin. The sale form leaves out any vehicle
+// no longer free by then.
 (function () {
     var bar = document.getElementById("sell-bar");
-    if (!bar) return;
+    var form = document.getElementById("sell-form");
+    if (!bar || !form) return;
+    var KEY = "fels:sell";
     var label = {{ t['stock.selected']|tojson }};
+    var picked = [];
+    try { picked = JSON.parse(sessionStorage.getItem(KEY) || "[]"); } catch (e) { picked = []; }
+    function save() { try { sessionStorage.setItem(KEY, JSON.stringify(picked)); } catch (e) { /* private mode */ } }
     function boxes() { return Array.prototype.slice.call(document.querySelectorAll(".js-sell")); }
+    function set(id, on) {
+        var i = picked.indexOf(id);
+        if (on && i === -1) picked.push(id);
+        if (!on && i !== -1) picked.splice(i, 1);
+    }
     function sync() {
-        var ids = {};
-        boxes().forEach(function (b) { if (b.checked) ids[b.value] = true; });
-        var n = Object.keys(ids).length;
-        bar.hidden = n === 0;
-        bar.querySelector("[data-sell-count]").textContent = label.replace("%(n)s", n);
+        boxes().forEach(function (b) { b.checked = picked.indexOf(b.value) !== -1; });
+        bar.hidden = picked.length === 0;
+        bar.querySelector("[data-sell-count]").textContent = label.replace("%(n)s", picked.length);
         var all = document.querySelector("[data-sell-all]");
-        if (all) all.checked = n > 0 && n === new Set(boxes().map(function (b) { return b.value; })).size;
+        if (all) {
+            var here = boxes().map(function (b) { return b.value; });
+            all.checked = here.length > 0 && here.every(function (v) { return picked.indexOf(v) !== -1; });
+        }
+        save();
     }
     document.addEventListener("change", function (e) {
-        if (e.target.classList.contains("js-sell")) {
-            boxes().forEach(function (b) { if (b.value === e.target.value) b.checked = e.target.checked; });
-            sync();
-        }
+        if (e.target.classList.contains("js-sell")) { set(e.target.value, e.target.checked); sync(); }
         if (e.target.matches("[data-sell-all]")) {
-            boxes().forEach(function (b) { b.checked = e.target.checked; });
+            boxes().forEach(function (b) { set(b.value, e.target.checked); });
             sync();
         }
     });
-    bar.querySelector("[data-sell-clear]").addEventListener("click", function () {
-        boxes().forEach(function (b) { b.checked = false; });
-        sync();
-    });
-    // A box ticked twice (table and card) would send the vehicle twice: the
-    // phone cards' copies are left out of what is sent.
-    document.getElementById("sell-form").addEventListener("submit", function () {
-        document.querySelectorAll(".list-card .js-sell").forEach(function (b) { b.disabled = true; });
+    bar.querySelector("[data-sell-clear]").addEventListener("click", function () { picked = []; sync(); });
+    // Every vehicle ticked goes, those on other pages too; the boxes of this
+    // page are left out so none is sent twice. Once sent, the choice is done.
+    form.addEventListener("submit", function () {
+        boxes().forEach(function (b) { b.disabled = true; });
+        picked.forEach(function (id) {
+            var i = document.createElement("input");
+            i.type = "hidden"; i.name = "unit"; i.value = id;
+            form.appendChild(i);
+        });
+        picked = [];
+        save();
     });
     sync();
 })();
