@@ -176,41 +176,58 @@ def stamp_svg(user_id):
     return resp
 
 
-@signature_bp.route("/ma-signature", methods=["GET", "POST"])
-@login_required
-def mine():
-    """Where each person sets up their own stamp and signature."""
+def save_signature_form(user):
+    """Copy the stamp-and-signature form onto `user` and commit. Returns
+    (error, success), message keys for the page. Shared by Ma signature and
+    the super admin's page for someone else's signature."""
     from signatures import extract_signature
-    user = current_user
-    error = success = None
-    if request.method == "POST":
-        user.stamp_label = (request.form.get("stamp_label") or "").strip()[:40] or None
-        user.stamp_phone = (request.form.get("stamp_phone") or "").strip()[:30] or None
-        user.sig_dx, user.sig_dy, user.sig_scale = clamp_placement(
-            request.form.get("sig_dx"), request.form.get("sig_dy"), request.form.get("sig_scale"))
-        user.stamp_color = clamp_color(request.form.get("stamp_color"))
-        user.sig_color = clamp_color(request.form.get("sig_color"), user.stamp_color)
-        if request.form.get("remove_signature"):
-            user.signature_png = None
-            user.signature_at = None
-        f = request.files.get("signature")
-        if f and f.filename:
-            png = extract_signature(f.read())
-            if not png:
-                error = "sig.err.unreadable"
-            else:
-                user.signature_png = png
-                user.signature_at = utcnow()
-                user.sig_dx, user.sig_dy, user.sig_scale = 0, 0, 100   # a new signature starts centred
-        if error:
-            db.session.rollback()
+    error = None
+    user.stamp_label = (request.form.get("stamp_label") or "").strip()[:40] or None
+    user.stamp_phone = (request.form.get("stamp_phone") or "").strip()[:30] or None
+    user.sig_dx, user.sig_dy, user.sig_scale = clamp_placement(
+        request.form.get("sig_dx"), request.form.get("sig_dy"), request.form.get("sig_scale"))
+    user.stamp_color = clamp_color(request.form.get("stamp_color"))
+    user.sig_color = clamp_color(request.form.get("sig_color"), user.stamp_color)
+    if request.form.get("remove_signature"):
+        user.signature_png = None
+        user.signature_at = None
+    f = request.files.get("signature")
+    if f and f.filename:
+        png = extract_signature(f.read())
+        if not png:
+            error = "sig.err.unreadable"
         else:
-            log_action("UPDATE", "signature", user.id, "signature retirée" if request.form.get("remove_signature")
-                       else "nouvelle signature" if f and f.filename else None)
-            db.session.commit()
-            success = "sig.saved"
+            user.signature_png = png
+            user.signature_at = utcnow()
+            user.sig_dx, user.sig_dy, user.sig_scale = 0, 0, 100   # a new signature starts centred
+    if error:
+        db.session.rollback()
+        return error, None
+    detail = ("signature retirée" if request.form.get("remove_signature")
+              else "nouvelle signature" if f and f.filename else None)
+    if user.id != current_user.id:
+        detail = "%s · par %s" % (detail or "tampon modifié", current_user.username)
+    log_action("UPDATE", "signature", user.id, detail)
+    db.session.commit()
+    return None, "sig.saved"
+
+
+def render_signature_page(user, error=None, success=None, back_url=None):
+    """The stamp-and-signature page for `user`. With back_url it is someone
+    else's, opened by the super admin from the Users page."""
     return render_template("my_signature.html", who=user, error=error, success=success,
+                           back_url=back_url,
                            inks=STAMP_INKS, ink=clamp_color(user.stamp_color),
                            sig_ink=clamp_color(user.sig_color, clamp_color(user.stamp_color)),
                            has_signature=bool(user.signature_png),
                            stamp_version=int(user.signature_at.timestamp()) if user.signature_at else 0)
+
+
+@signature_bp.route("/ma-signature", methods=["GET", "POST"])
+@login_required
+def mine():
+    """Where each person sets up their own stamp and signature."""
+    error = success = None
+    if request.method == "POST":
+        error, success = save_signature_form(current_user)
+    return render_signature_page(current_user, error, success)

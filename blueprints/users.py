@@ -124,6 +124,23 @@ def user_edit(uid):
                          roles=Role.query.order_by(Role.name).all())
 
 
+@users_bp.route("/<int:uid>/signature", methods=["GET", "POST"])
+@login_required
+def user_signature(uid):
+    """Someone's stamp and signature, set up for them by the super admin --
+    the same page as their own Ma signature, which they can still change."""
+    from blueprints.signature import render_signature_page, save_signature_form
+    user = _get_user(uid)
+    if user.id == current_user.id:
+        return redirect(url_for("signature.mine"))
+    error = success = None
+    if request.method == "POST":
+        error, success = save_signature_form(user)
+        if error:
+            user = _get_user(uid)
+    return render_signature_page(user, error, success, back_url=url_for("users.index"))
+
+
 @users_bp.route("/<int:uid>/active", methods=["POST"])
 @login_required
 def user_toggle(uid):

@@ -38,6 +38,10 @@
                 <a href="{{ url_for('users.user_edit', uid=u.id) }}" class="btn btn--sm btn--tonal btn--icon"
                    data-modal-url="{{ url_for('users.user_edit', uid=u.id) }}" data-modal-title="{{ t['user.edit'] }}"
                    title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
+                <a href="{{ url_for('signature.mine') if u.id == current_user.id else url_for('users.user_signature', uid=u.id) }}"
+                   class="btn btn--sm {{ 'btn--tonal' if user_has_stamp(u) else 'btn--outlined' }} btn--icon"
+                   title="{{ t['user.signature'] }}{% if not user_has_stamp(u) %} · {{ t['user.signature_none'] }}{% endif %}"
+                   aria-label="{{ t['user.signature'] }}"><span class="material-symbols-outlined">signature</span></a>
                 {% if not u.is_super_admin and u.id != current_user.id %}
                 <form method="post" action="{{ url_for('users.user_toggle', uid=u.id) }}" style="display:inline"
                       {% if u.is_active %}data-confirm="{{ t['user.deactivate_confirm'] % {'name': u.full_name} }}" data-confirm-title="{{ t['user.deactivate'] }}" data-confirm-ok="{{ t['user.deactivate'] }}" data-confirm-danger{% endif %}>
@@ -64,6 +68,10 @@
                 <a href="{{ url_for('users.user_edit', uid=u.id) }}" class="btn btn--sm btn--tonal btn--icon"
                    data-modal-url="{{ url_for('users.user_edit', uid=u.id) }}" data-modal-title="{{ t['user.edit'] }}"
                    title="{{ t['btn.edit'] }}" aria-label="{{ t['btn.edit'] }}"><span class="material-symbols-outlined">edit</span></a>
+                <a href="{{ url_for('signature.mine') if u.id == current_user.id else url_for('users.user_signature', uid=u.id) }}"
+                   class="btn btn--sm {{ 'btn--tonal' if user_has_stamp(u) else 'btn--outlined' }} btn--icon"
+                   title="{{ t['user.signature'] }}{% if not user_has_stamp(u) %} · {{ t['user.signature_none'] }}{% endif %}"
+                   aria-label="{{ t['user.signature'] }}"><span class="material-symbols-outlined">signature</span></a>
             </div>
         </div>
         {% endfor %}

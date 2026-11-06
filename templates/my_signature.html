@@ -1,12 +1,19 @@
 {% extends "base.html" %}
 {% from "_hint.html" import hint with context %}
 
-{% block title %}{{ t['sig.title'] }}{% endblock %}
-{% block page_title %}{{ t['sig.title'] }}{% endblock %}
+{# One's own stamp (Ma signature), or -- with back_url -- someone else's,
+   set up for them by the super admin from the Users page. #}
+{% set for_other = back_url is not none %}
+{% set page_title = t['sig.title_for'] % {'name': who.full_name} if for_other else t['sig.title'] %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
 
 {% block content %}
 <section class="card" style="max-width: 960px;">
-    <p class="muted small" style="margin:0 0 14px;">{{ t['sig.intro'] }}</p>
+    {% if for_other %}
+    <a href="{{ back_url }}" class="btn btn--sm btn--text" style="margin:0 0 8px;"><span class="material-symbols-outlined">arrow_back</span> {{ t['nav.users'] }}</a>
+    {% endif %}
+    <p class="muted small" style="margin:0 0 14px;">{{ t['sig.intro_for'] % {'name': who.full_name} if for_other else t['sig.intro'] }}</p>
     {% if error %}<div class="alert alert--error" style="margin-bottom:12px;">{{ t[error] }}</div>{% endif %}
     {% if success %}<div class="alert alert--success" style="margin-bottom:12px;">{{ t[success] }}</div>{% endif %}
 
@@ -43,7 +50,7 @@
             {{ ink_row('stamp_color', t['sig.color'], ink) }}
 
             <div class="sig-upload">
-                <span class="sig-label">{{ t['sig.upload'] }}</span>
+                <span class="sig-label">{{ t['sig.upload_for'] if for_other else t['sig.upload'] }}</span>
                 <p class="muted small" style="margin:2px 0 6px;">{{ t['sig.upload_hint'] }}</p>
                 <label class="btn btn--outlined btn--sm">
                     <span class="material-symbols-outlined">photo_camera</span> {{ t['sig.pick'] }}
@@ -80,11 +87,11 @@
         <div class="sig-preview">
             <span class="sig-label">{{ t['sig.preview'] }}</span>
             <div class="sig-preview__stamp">
-                <img id="stamp-preview" src="{{ url_for('signature.stamp_svg', user_id=who.id, v=stamp_version) }}" alt="{{ t['sig.title'] }}"
+                <img id="stamp-preview" src="{{ url_for('signature.stamp_svg', user_id=who.id, v=stamp_version) }}" alt="{{ page_title }}"
                      data-base="{{ url_for('signature.stamp_svg', user_id=who.id, v=stamp_version) }}">
             </div>
-            <p class="muted small">{{ t['sig.has'] if has_signature else t['sig.none'] }}</p>
-            <p class="muted small">{{ t['sig.where'] }}</p>
+            <p class="muted small">{{ (t['sig.has_for'] if for_other else t['sig.has']) if has_signature else t['sig.none'] }}</p>
+            <p class="muted small">{{ t['sig.where_for'] if for_other else t['sig.where'] }}</p>
         </div>
     </div>
 </section>
