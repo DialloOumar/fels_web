@@ -237,9 +237,22 @@ def user_has_stamp(user):
     return bool(user.stamp_label or user.signature_png)
 
 
+def signer_name(user):
+    """Who signs, as printed on the line under the stamp. With the company's
+    own stamp the person's function goes there ("Directeur commercial ·
+    Oumar Diallo"), since the stamp no longer carries it; the drawn stamp
+    shows it in its middle, so there the name is enough."""
+    if not user:
+        return ""
+    function = (user.stamp_label or "").strip()
+    if function and company_stamp_key():
+        return "%s · %s" % (function, user.full_name)
+    return user.full_name
+
+
 @app.context_processor
 def _inject_stamp():
-    return {"user_has_stamp": user_has_stamp}
+    return {"user_has_stamp": user_has_stamp, "signer_name": signer_name}
 
 
 @signature_bp.route("/tampon/<int:user_id>.svg")
@@ -277,11 +290,14 @@ def save_signature_form(user):
     the super admin's page for someone else's signature."""
     from signatures import extract_signature
     error = None
-    # The drawn stamp's word, phone and ink are not on the page while the
-    # company's own stamp is in use: what was set is kept for if it goes.
+    # While the company's own stamp is in use the page shows only the
+    # function (the drawn stamp's word); the phone and ink are not on it,
+    # and what was set is kept for if the drawn stamp comes back.
     if "stamp_label" in request.form:
         user.stamp_label = (request.form.get("stamp_label") or "").strip()[:40] or None
+    if "stamp_phone" in request.form:
         user.stamp_phone = (request.form.get("stamp_phone") or "").strip()[:30] or None
+    if "stamp_color" in request.form:
         user.stamp_color = clamp_color(request.form.get("stamp_color"))
     user.sig_dx, user.sig_dy, user.sig_scale = clamp_placement(
         request.form.get("sig_dx"), request.form.get("sig_dy"), request.form.get("sig_scale"))

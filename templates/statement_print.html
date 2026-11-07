@@ -77,7 +77,7 @@
 <div class="doc-sign doc-sign--single">
     <div class="doc-sign__stamped">
         {% if user_has_stamp(current_user) %}<img class="doc-stamp" src="{{ url_for('signature.stamp_svg', user_id=current_user.id) }}" alt="">{% endif %}
-        <span>{{ t['receipt.sign_company'] }} · {{ current_user.full_name }}</span>
+        <span>{{ t['receipt.sign_company'] }} · {{ signer_name(current_user) }}</span>
     </div>
 </div>
 

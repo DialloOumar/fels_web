@@ -81,7 +81,7 @@
     <div>{{ t['receipt.sign_customer'] }}</div>
     <div class="doc-sign__stamped">
         {% if issuer and user_has_stamp(issuer) %}<img class="doc-stamp" src="{{ url_for('signature.stamp_svg', user_id=issuer.id) }}" alt="">{% endif %}
-        <span>{{ t['receipt.sign_company'] }}{% if issuer %} · {{ issuer.full_name }}{% endif %}</span>
+        <span>{{ t['receipt.sign_company'] }}{% if issuer %} · {{ signer_name(issuer) }}{% endif %}</span>
     </div>
 </div>
 

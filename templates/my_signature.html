@@ -22,8 +22,15 @@
             {{ csrf_field() }}
             {% if company_stamp %}
             {# The company's own stamp is in use (Paramètres): no word, phone
-               or ink to set, only the signature to lay over it. #}
+               or ink to set on it -- the function is printed on the line
+               under it instead, with the name. #}
             <p class="sig-note">{{ t['sig.company_stamp'] }}</p>
+            <div class="field">
+                <input type="text" id="sig_function" name="stamp_label" placeholder="{{ t['sig.function_ph'] }}" maxlength="40"
+                       value="{{ request.form.get('stamp_label') if request.method == 'POST' else (who.stamp_label or '') }}">
+                <label for="sig_function">{{ t['sig.function'] }}</label>
+                {{ hint(t['form.optional'], t['sig.function_hint']) }}
+            </div>
             {% else %}
             <div class="form-row">
                 <div class="field">
@@ -96,6 +103,10 @@
                 <img id="stamp-preview" src="{{ url_for('signature.stamp_svg', user_id=who.id, v=stamp_version) }}" alt="{{ page_title }}"
                      data-base="{{ url_for('signature.stamp_svg', user_id=who.id, v=stamp_version) }}">
             </div>
+            {% if company_stamp %}
+            {# The line printed under the stamp, as it will read. #}
+            <div class="sig-preview__line" id="signer-line" data-company="{{ t['receipt.sign_company'] }}" data-name="{{ who.full_name }}">{{ t['receipt.sign_company'] }} · {{ signer_name(who) }}</div>
+            {% endif %}
             <p class="muted small">{{ (t['sig.has_for'] if for_other else t['sig.has']) if has_signature else t['sig.none'] }}</p>
             <p class="muted small">{{ t['sig.where_for'] if for_other else t['sig.where'] }}</p>
         </div>
@@ -113,6 +124,12 @@
         dx = document.getElementById("sig_dx"), dy = document.getElementById("sig_dy"), sc = document.getElementById("sig_scale"),
         reset = document.getElementById("sig-reset"), color = document.getElementById("stamp_color"),
         sigColor = document.getElementById("sig_color");
+    // The function, printed under the company's stamp with the name.
+    var fn = document.getElementById("sig_function"), line = document.getElementById("signer-line");
+    if (fn && line) fn.addEventListener("input", function () {
+        var v = fn.value.trim();
+        line.textContent = line.dataset.company + " · " + (v ? v + " · " : "") + line.dataset.name;
+    });
     if (!img) return;
     var timer = null;
     function redraw() {

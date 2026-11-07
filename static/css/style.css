@@ -2752,3 +2752,4 @@ a.pthumb-link:hover .pthumb { outline: 2px solid var(--md-primary); }
 .stamp-setting__preview img { max-width: 100%; max-height: 100%; display: block; }
 .stamp-setting__actions { flex: 1; min-width: 220px; }
 .sig-note { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; background: var(--md-surface-container, #f3f4f6); font-size: 0.86rem; }
+.sig-preview__line { margin-top: 4px; padding-top: 6px; border-top: 1px solid currentColor; text-align: center; font-size: 0.8rem; font-weight: 600; }
