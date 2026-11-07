@@ -25,6 +25,11 @@
     </filter>
   </defs>
 
+  {% if company_image %}
+  {# The company's own stamp, a picture uploaded in Paramètres, in place of
+     the drawn one: same square, so the strokes sit on it the same way. #}
+  <image href="data:image/png;base64,{{ company_image }}" x="0" y="0" width="300" height="300"/>
+  {% else %}
   <g id="tampon" fill="{{ color }}" stroke="{{ color }}" font-family="Arial, Helvetica, sans-serif" filter="url(#encre)">
     <circle cx="150" cy="150" r="142" fill="none" stroke-width="3.5"/>
     <circle cx="150" cy="150" r="136" fill="none" stroke-width="1.2"/>
@@ -41,6 +46,7 @@
     {# The word, sized to stay inside the inner circle (see stamp_label_fit). #}
   <text x="150" y="{{ 132 if signature else 150 }}" dominant-baseline="central" font-size="{{ label_size }}" font-weight="bold" text-anchor="middle" stroke="none"{% if label_length %} textLength="{{ label_length }}" lengthAdjust="spacingAndGlyphs"{% endif %}>{{ label }}</text>
   </g>
+  {% endif %}
 
   {% if signature %}
   {# The strokes, under the word, in the lower half of the inner circle. #}

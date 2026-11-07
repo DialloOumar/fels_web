@@ -111,6 +111,43 @@
                 {% endif %}
             </div>
         </section>
+
+        {# The company's own stamp: a picture printed in place of the drawn
+           one, with each person's signature over it. Saved on its own. #}
+        <section class="fsec" id="sec-stamp" data-toc data-toc-icon="signature" data-toc-title="{{ t['stamp.title'] }}" data-check="rows">
+            <div class="fsec__head">
+                <span class="fsec__icon material-symbols-outlined" aria-hidden="true">signature</span>
+                <span class="fsec__text"><span class="fsec__title">{{ t['stamp.title'] }}</span><span class="fsec__desc">{{ t['stamp.help'] }}</span></span>
+            </div>
+            <div class="fsec__body">
+                <div class="stamp-setting">
+                    {% if company_stamp %}
+                    <div class="stamp-setting__preview" data-row>
+                        <img src="{{ url_for('settings.stamp_file', v=company_stamp[-12:]) }}" alt="{{ t['stamp.title'] }}">
+                    </div>
+                    {% endif %}
+                    <div class="stamp-setting__actions">
+                        <p class="muted small" style="margin:0 0 8px;">{{ t['stamp.in_use'] if company_stamp else t['stamp.none'] }}</p>
+                        <form method="post" action="{{ url_for('settings.stamp_upload') }}" enctype="multipart/form-data" class="stamp-setting__form">
+                            {{ csrf_field() }}
+                            <label class="btn btn--sm btn--outlined">
+                                <span class="material-symbols-outlined">upload_file</span> {{ t['stamp.replace'] if company_stamp else t['stamp.upload'] }}
+                                <input type="file" name="company_stamp" accept="image/png,image/jpeg,image/webp" hidden
+                                       onchange="if (this.files[0]) this.form.submit()">
+                            </label>
+                        </form>
+                        <p class="muted small" style="margin:8px 0 0;">{{ t['stamp.upload_hint'] }}</p>
+                        {% if company_stamp %}
+                        <form method="post" action="{{ url_for('settings.stamp_remove') }}" style="margin-top:10px;"
+                              data-confirm="{{ t['stamp.remove_confirm'] }}" data-confirm-title="{{ t['stamp.remove'] }}" data-confirm-ok="{{ t['stamp.remove'] }}" data-confirm-danger>
+                            {{ csrf_field() }}
+                            <button type="submit" class="btn btn--sm btn--text"><span class="material-symbols-outlined">delete</span> {{ t['stamp.remove'] }}</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </section>
     </div>
 </div>
 {% endblock %}

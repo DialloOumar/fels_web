@@ -2740,3 +2740,15 @@ a.pthumb-link:hover .pthumb { outline: 2px solid var(--md-primary); }
 .mcard__price { font-size: .8rem; }
 .mcard__foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 8px 10px 4px; }
 .mcard__foot .row-actions { display: inline-flex; gap: 4px; }
+
+/* Paramètres: the company's own stamp, shown beside its buttons. The
+   checkerboard shows what is transparent. */
+.stamp-setting { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+.stamp-setting__preview {
+    width: 160px; height: 160px; flex-shrink: 0; border-radius: 12px; border: 1px solid var(--md-outline-variant, #ddd);
+    background: #fff repeating-conic-gradient(#eef0f3 0 25%, #fff 0 50%) 0 0 / 16px 16px;
+    display: flex; align-items: center; justify-content: center; padding: 8px;
+}
+.stamp-setting__preview img { max-width: 100%; max-height: 100%; display: block; }
+.stamp-setting__actions { flex: 1; min-width: 220px; }
+.sig-note { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; background: var(--md-surface-container, #f3f4f6); font-size: 0.86rem; }

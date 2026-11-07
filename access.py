@@ -63,6 +63,8 @@ RULES = {
     "settings.index": ("settings", Y), "settings.port_new": ("settings", Y),
     "settings.port_edit": ("settings", Y), "settings.port_archive": ("settings", Y),
     "settings.port_delete": ("settings", Y),
+    "settings.stamp_upload": ("settings", Y), "settings.stamp_remove": ("settings", Y),
+    "settings.stamp_file": ("settings", Y),
     # suppliers
     "suppliers.index": ("suppliers", V), "suppliers.detail": ("suppliers", V),
     "suppliers.new": ("suppliers", M), "suppliers.edit": ("suppliers", M),

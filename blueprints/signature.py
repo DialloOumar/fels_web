@@ -9,6 +9,11 @@ strokes sit is set with sliders and previewed live.
 The stamp is printed on the documents the person issues: a receipt carries
 the stamp of whoever recorded the payment, a statement the stamp of whoever
 prints it.
+
+The company may instead upload its own stamp, a picture (Paramètres →
+Cachet de l'entreprise). Then that picture is the stamp for everyone, the
+drawn one with its word, phone and ink is set aside, and what each person
+adds is only their signature over it.
 """
 import base64
 import io
@@ -17,7 +22,8 @@ import unicodedata
 from flask import Blueprint, abort, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from app import app, get_setting, log_action
+import documents_store
+from app import app, get_setting, log_action, set_setting
 from models import User, db, utcnow
 
 signature_bp = Blueprint("signature", __name__)
@@ -138,9 +144,97 @@ def stamp_label_fit(label, y_offset):
     return size, round(min(available, em * size), 1)
 
 
+# ── The company's own stamp, a picture ─────────────────────────────────────
+
+# The setting holds the stored picture's key; a new picture gets a new key,
+# so the per-worker copy below can never be stale.
+COMPANY_STAMP_SETTING = "company_stamp_key"
+COMPANY_STAMP_SIDE = 600          # px: sharp at the stamp's printed size
+_company_stamp = {}               # key -> base64 PNG
+
+
+def company_stamp_key():
+    return get_setting(COMPANY_STAMP_SETTING, "") or None
+
+
+def company_stamp_png():
+    """The company stamp's PNG bytes, or None when there is none."""
+    key = company_stamp_key()
+    return documents_store.load(key) if key else None
+
+
+def company_stamp_b64():
+    """The company stamp as base64, for drawing inside the SVG; None when
+    the company has not uploaded one (the drawn stamp is used)."""
+    key = company_stamp_key()
+    if not key:
+        return None
+    if key not in _company_stamp:
+        data = documents_store.load(key)
+        if not data:
+            return None
+        _company_stamp.clear()
+        _company_stamp[key] = base64.b64encode(data).decode("ascii")
+    return _company_stamp[key]
+
+
+def prepare_company_stamp(data):
+    """A PNG ready to print from an uploaded picture of the stamp, or None
+    when it is not a picture. The empty margin is cut away and the stamp
+    set in a square. A picture without transparency (a scan, a photo on
+    white paper) has its near-white paper made transparent, so the page and
+    the signature show through."""
+    from PIL import Image, ImageChops, ImageOps, UnidentifiedImageError
+    try:
+        img = Image.open(io.BytesIO(data))
+        img = ImageOps.exif_transpose(img).convert("RGBA")
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+        return None
+    alpha = img.getchannel("A")
+    if alpha.getextrema()[0] == 255:
+        paper = img.convert("L").point(lambda v: 0 if v >= 235 else 255)
+        img.putalpha(ImageChops.multiply(alpha, paper))
+    box = img.getchannel("A").getbbox()
+    if not box:
+        return None
+    img = img.crop(box)
+    side = max(img.size)
+    square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    square.paste(img, ((side - img.width) // 2, (side - img.height) // 2))
+    if side > COMPANY_STAMP_SIDE:
+        square = square.resize((COMPANY_STAMP_SIDE, COMPANY_STAMP_SIDE), Image.LANCZOS)
+    out = io.BytesIO()
+    square.save(out, "PNG", optimize=True)
+    return out.getvalue()
+
+
+def set_company_stamp(png):
+    """Keep a new company stamp (PNG bytes), or remove it with None. The
+    previous picture is deleted once the new one is safely stored. Returns
+    False when the picture could not be stored."""
+    import uuid
+    old = company_stamp_key()
+    key = None
+    if png is not None:
+        key = "company/stamp-%s.png" % uuid.uuid4().hex
+        if not documents_store.save(key, png, "image/png"):
+            return False
+    set_setting(COMPANY_STAMP_SETTING, key or "")
+    db.session.commit()
+    if old:
+        documents_store.remove(old)
+    return True
+
+
 def user_has_stamp(user):
-    """Whether there is anything to print for this person."""
-    return bool(user and (user.stamp_label or user.signature_png))
+    """Whether there is anything to print for this person. With the
+    company's own stamp, that is once they have a signature to put over it;
+    with the drawn one, once they have a word or a signature."""
+    if not user:
+        return False
+    if company_stamp_key():
+        return bool(user.signature_png)
+    return bool(user.stamp_label or user.signature_png)
 
 
 @app.context_processor
@@ -162,15 +256,16 @@ def stamp_svg(user_id):
     # before it is saved: the page passes it along, nothing is written.
     if (user.id == current_user.id or current_user.is_super_admin) and any(
             k in request.args for k in ("label", "phone", "dx", "dy", "scale", "color", "sig_color")):
-        label = (request.args.get("label") or "").strip()[:40]
-        phone = (request.args.get("phone") or "").strip()[:30]
-        color = clamp_color(request.args.get("color"))
+        label = (request.args.get("label", label) or "").strip()[:40]
+        phone = (request.args.get("phone", phone) or "").strip()[:30]
+        color = clamp_color(request.args.get("color", color))
         sig_color = clamp_color(request.args.get("sig_color"), color)
         box = stamp_signature_box(user, request.args.get("dx"), request.args.get("dy"), request.args.get("scale"))
     label_size, label_length = stamp_label_fit(label, 18 if box else 0)
     svg = render_template("stamp.svg", company=stamp_company(), phone=phone, label=label,
                           label_size=label_size, label_length=label_length,
-                          signature=box, color=color, sig_color=sig_color)
+                          signature=box, color=color, sig_color=sig_color,
+                          company_image=company_stamp_b64())
     resp = app.response_class(svg, mimetype="image/svg+xml")
     resp.headers["Cache-Control"] = "private, max-age=60"
     return resp
@@ -182,12 +277,15 @@ def save_signature_form(user):
     the super admin's page for someone else's signature."""
     from signatures import extract_signature
     error = None
-    user.stamp_label = (request.form.get("stamp_label") or "").strip()[:40] or None
-    user.stamp_phone = (request.form.get("stamp_phone") or "").strip()[:30] or None
+    # The drawn stamp's word, phone and ink are not on the page while the
+    # company's own stamp is in use: what was set is kept for if it goes.
+    if "stamp_label" in request.form:
+        user.stamp_label = (request.form.get("stamp_label") or "").strip()[:40] or None
+        user.stamp_phone = (request.form.get("stamp_phone") or "").strip()[:30] or None
+        user.stamp_color = clamp_color(request.form.get("stamp_color"))
     user.sig_dx, user.sig_dy, user.sig_scale = clamp_placement(
         request.form.get("sig_dx"), request.form.get("sig_dy"), request.form.get("sig_scale"))
-    user.stamp_color = clamp_color(request.form.get("stamp_color"))
-    user.sig_color = clamp_color(request.form.get("sig_color"), user.stamp_color)
+    user.sig_color = clamp_color(request.form.get("sig_color"), clamp_color(user.stamp_color))
     if request.form.get("remove_signature"):
         user.signature_png = None
         user.signature_at = None
@@ -216,7 +314,7 @@ def render_signature_page(user, error=None, success=None, back_url=None):
     """The stamp-and-signature page for `user`. With back_url it is someone
     else's, opened by the super admin from the Users page."""
     return render_template("my_signature.html", who=user, error=error, success=success,
-                           back_url=back_url,
+                           back_url=back_url, company_stamp=bool(company_stamp_key()),
                            inks=STAMP_INKS, ink=clamp_color(user.stamp_color),
                            sig_ink=clamp_color(user.sig_color, clamp_color(user.stamp_color)),
                            has_signature=bool(user.signature_png),

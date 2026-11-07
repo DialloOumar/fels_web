@@ -20,6 +20,11 @@
     <div class="sig-layout">
         <form method="post" class="entry-form" enctype="multipart/form-data">
             {{ csrf_field() }}
+            {% if company_stamp %}
+            {# The company's own stamp is in use (Paramètres): no word, phone
+               or ink to set, only the signature to lay over it. #}
+            <p class="sig-note">{{ t['sig.company_stamp'] }}</p>
+            {% else %}
             <div class="form-row">
                 <div class="field">
                     <input type="text" id="stamp_label" name="stamp_label" placeholder="{{ t['sig.label_ph'] }}" maxlength="40"
@@ -33,6 +38,7 @@
                     <label for="stamp_phone">{{ t['sig.phone'] }}</label>
                 </div>
             </div>
+            {% endif %}
 
             {# An ink: a short row to pick from, or any colour from the picker.
                The stamp has one, the signature's strokes another. #}
@@ -47,7 +53,7 @@
                 </div>
             </div>
             {% endmacro %}
-            {{ ink_row('stamp_color', t['sig.color'], ink) }}
+            {% if not company_stamp %}{{ ink_row('stamp_color', t['sig.color'], ink) }}{% endif %}
 
             <div class="sig-upload">
                 <span class="sig-label">{{ t['sig.upload_for'] if for_other else t['sig.upload'] }}</span>
@@ -107,19 +113,21 @@
         dx = document.getElementById("sig_dx"), dy = document.getElementById("sig_dy"), sc = document.getElementById("sig_scale"),
         reset = document.getElementById("sig-reset"), color = document.getElementById("stamp_color"),
         sigColor = document.getElementById("sig_color");
-    if (!img || !label || !phone) return;
+    if (!img) return;
     var timer = null;
     function redraw() {
         var sep = img.dataset.base.indexOf("?") >= 0 ? "&" : "?";
-        var q = "label=" + encodeURIComponent(label.value) + "&phone=" + encodeURIComponent(phone.value);
+        var q = "p=1";
+        if (label) q += "&label=" + encodeURIComponent(label.value);
+        if (phone) q += "&phone=" + encodeURIComponent(phone.value);
         if (dx) q += "&dx=" + dx.value + "&dy=" + dy.value + "&scale=" + sc.value;
         if (color) q += "&color=" + encodeURIComponent(color.value);
         if (sigColor) q += "&sig_color=" + encodeURIComponent(sigColor.value);
         img.src = img.dataset.base + sep + q;
     }
     function queue() { clearTimeout(timer); timer = setTimeout(redraw, 150); }
-    label.addEventListener("input", queue);
-    phone.addEventListener("input", queue);
+    if (label) label.addEventListener("input", queue);
+    if (phone) phone.addEventListener("input", queue);
     [dx, dy, sc].forEach(function (r) { if (r) r.addEventListener("input", queue); });
     if (reset) reset.addEventListener("click", function () { dx.value = 0; dy.value = 0; sc.value = 100; redraw(); });
     // Each row of swatches drives the colour input beside it.

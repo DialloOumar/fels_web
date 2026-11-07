@@ -1,11 +1,11 @@
 """Paramètres — the rate, the display currency, the company details printed
-on receipts, and the list of ports."""
+on receipts, the company's own stamp, and the list of ports."""
 from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 
-from app import (SETTINGS_SCHEMA, form_response, get_setting, get_t,
+from app import (SETTINGS_SCHEMA, app, form_response, get_setting, get_t,
                  is_modal_request, log_action, modal_ok, parse_rate, set_setting)
 from models import CURRENCIES, Port, db
 
@@ -72,8 +72,65 @@ def index():
             return redirect(url_for("settings.index"))
     values = form or {k: get_setting(k, "") or "" for k in SETTINGS_SCHEMA}
     ports = Port.query.order_by(Port.is_active.desc(), Port.sort_order, Port.name).all()
+    from blueprints.signature import company_stamp_key
     return render_template("settings.html", schema=SETTINGS_SCHEMA, groups=GROUPS,
-                           values=values, errors=errors, ports=ports)
+                           values=values, errors=errors, ports=ports,
+                           company_stamp=company_stamp_key())
+
+
+# ── The company's own stamp ──────────────────────────────────────────────────
+
+STAMP_TYPES = (".png", ".jpg", ".jpeg", ".webp")
+STAMP_MAX_BYTES = 15 * 1024 * 1024
+
+
+@settings_bp.route("/cachet", methods=["POST"])
+@login_required
+def stamp_upload():
+    """A picture of the company's stamp, printed in place of the drawn one
+    with each person's signature over it."""
+    import os
+    from blueprints.signature import prepare_company_stamp, set_company_stamp
+    t = get_t()
+    f = request.files.get("company_stamp")
+    if not f or not f.filename:
+        flash("error|" + t["stamp.err.file"])
+    elif os.path.splitext(f.filename)[1].lower() not in STAMP_TYPES:
+        flash("error|" + t["stamp.err.type"])
+    else:
+        data = f.read(STAMP_MAX_BYTES + 1)
+        png = prepare_company_stamp(data) if len(data) <= STAMP_MAX_BYTES else None
+        if png is None:
+            flash("error|" + t["stamp.err.unreadable"])
+        elif not set_company_stamp(png):
+            flash("error|" + t["stamp.err.store"])
+        else:
+            log_action("UPDATE", "settings", None, "cachet de l'entreprise : %s" % f.filename[:120])
+            db.session.commit()
+            flash("success|" + t["stamp.saved"])
+    return redirect(url_for("settings.index") + "#sec-stamp")
+
+
+@settings_bp.route("/cachet/supprimer", methods=["POST"])
+@login_required
+def stamp_remove():
+    """Back to the drawn stamp."""
+    from blueprints.signature import set_company_stamp
+    set_company_stamp(None)
+    log_action("UPDATE", "settings", None, "cachet de l'entreprise retiré")
+    db.session.commit()
+    flash("success|" + get_t()["stamp.removed"])
+    return redirect(url_for("settings.index") + "#sec-stamp")
+
+
+@settings_bp.route("/cachet.png")
+@login_required
+def stamp_file():
+    from blueprints.signature import company_stamp_png
+    data = company_stamp_png() or abort(404)
+    resp = app.response_class(data, mimetype="image/png")
+    resp.headers["Cache-Control"] = "private, max-age=3600"
+    return resp
 
 
 # ── Ports ────────────────────────────────────────────────────────────────────
