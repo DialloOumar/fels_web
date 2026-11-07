@@ -35,8 +35,13 @@ STAMP_INKS = [("#2B3F9E", "Bleu"), ("#1F2D6B", "Bleu foncé"), ("#5B2A86", "Viol
               ("#B71C1C", "Rouge"), ("#1B5E20", "Vert"), ("#222222", "Noir")]
 
 SIG_PEN = 1.1            # extra pen width on each side of the strokes, in stamp units
-SIG_SHIFT_MAX = 80       # stamp units either way
+# How far the strokes may be moved, in stamp units (the stamp is 300 across):
+# far enough to sit wholly beside, above or below it. The SVG's canvas keeps
+# STAMP_MARGIN units round the stamp so they are never cut.
+SIG_DX_MAX = 250                          # left / right, either way
+SIG_DY_MIN, SIG_DY_MAX = -350, 250        # up / down (they start in the lower half)
 SIG_SCALE_MIN, SIG_SCALE_MAX = 40, 230   # percent
+STAMP_MARGIN = 200
 
 
 def stamp_company():
@@ -59,8 +64,8 @@ def clamp_placement(dx, dy, scale):
             return int(v)
         except (TypeError, ValueError):
             return default
-    dx = max(-SIG_SHIFT_MAX, min(SIG_SHIFT_MAX, _int(dx, 0)))
-    dy = max(-SIG_SHIFT_MAX, min(SIG_SHIFT_MAX, _int(dy, 0)))
+    dx = max(-SIG_DX_MAX, min(SIG_DX_MAX, _int(dx, 0)))
+    dy = max(SIG_DY_MIN, min(SIG_DY_MAX, _int(dy, 0)))
     scale = max(SIG_SCALE_MIN, min(SIG_SCALE_MAX, _int(scale, 100)))
     return dx, dy, scale
 
@@ -278,7 +283,7 @@ def stamp_svg(user_id):
     svg = render_template("stamp.svg", company=stamp_company(), phone=phone, label=label,
                           label_size=label_size, label_length=label_length,
                           signature=box, color=color, sig_color=sig_color,
-                          company_image=company_stamp_b64())
+                          company_image=company_stamp_b64(), margin=STAMP_MARGIN)
     resp = app.response_class(svg, mimetype="image/svg+xml")
     resp.headers["Cache-Control"] = "private, max-age=60"
     return resp
@@ -331,6 +336,8 @@ def render_signature_page(user, error=None, success=None, back_url=None):
     else's, opened by the super admin from the Users page."""
     return render_template("my_signature.html", who=user, error=error, success=success,
                            back_url=back_url, company_stamp=bool(company_stamp_key()),
+                           dx_max=SIG_DX_MAX, dy_min=SIG_DY_MIN, dy_max=SIG_DY_MAX,
+                           scale_min=SIG_SCALE_MIN, scale_max=SIG_SCALE_MAX,
                            inks=STAMP_INKS, ink=clamp_color(user.stamp_color),
                            sig_ink=clamp_color(user.sig_color, clamp_color(user.stamp_color)),
                            has_signature=bool(user.signature_png),

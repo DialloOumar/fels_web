@@ -51,11 +51,11 @@
     .doc-sign { display: flex; justify-content: space-between; gap: 40px; margin-top: 46px; break-inside: avoid; }
     .doc-sign div { flex: 1; text-align: center; border-top: 1px solid #334155; padding-top: 6px; font-size: 10.5px; font-weight: 600; }
     /* The stamp sits over the company's signature line: a 120px stamp in a
-       192px image (the SVG keeps 90 units round it for strokes that run past
-       the circle), pulled down so the line runs under it as on paper. */
+       280px image (the SVG keeps 200 units round its 300 for strokes moved
+       past the circle), pulled down so the line runs under it as on paper. */
     .doc-sign__stamped { position: relative; border-top: 0 !important; padding-top: 0 !important; }
     .doc-sign__stamped span { display: block; border-top: 1px solid #334155; padding-top: 6px; }
-    .doc-stamp { display: block; width: 192px; height: 192px; margin: -150px auto -46px; pointer-events: none;
+    .doc-stamp { display: block; width: 280px; height: 280px; margin: -194px 0 -90px calc(50% - 140px);   /* centred even in a narrower column */ pointer-events: none;
                  -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .doc-sign:has(.doc-stamp) { margin-top: 140px; }   /* room above the line for the stamp */
     .doc-sign { align-items: flex-end; }   /* both signature lines on one level, stamp or not */

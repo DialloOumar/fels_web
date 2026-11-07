@@ -1763,11 +1763,11 @@ a.list-card--link:hover { border-color: var(--md-primary); }
 .card-header .checkbox-item { margin: 0; }
 
 /* ── Ma signature: the form beside a live preview of the stamp ── */
-.sig-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+.sig-layout { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 24px; align-items: start; }
 .sig-label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--md-on-surface-variant); text-transform: uppercase; letter-spacing: 0.04em; }
-.sig-preview__stamp { width: 320px; height: 320px; display: flex; align-items: center; justify-content: center;
+.sig-preview__stamp { width: 420px; max-width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
                       background: #fff; border: 1px dashed var(--md-outline-variant); border-radius: var(--shape-md); margin: 6px 0 8px; }
-.sig-preview__stamp img { width: 320px; height: 320px; }
+.sig-preview__stamp img { width: 100%; height: 100%; }
 .sig-upload { margin-top: 4px; }
 .sig-picked { margin-left: 8px; }
 .sig-inks__row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
